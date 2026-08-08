@@ -1351,10 +1351,13 @@ function runTests() {
     }
 
     console.log(`Poolshark projectile landed at ${landedX ? landedX.toFixed(2) : 'null'} after ${hitBounces} bounces.`);
-    if (hitBounces === 0) {
-      throw new Error("Expected the projectile to bounce off the rubber wall at least once!");
+    if (hitBounces !== 1) {
+      throw new Error(`Expected exactly 1 bounce, but got ${hitBounces}`);
     }
-    console.log("✓ Poolshark successfully bounced the shot off the rubber wall.");
+    if (landedX === null || landedX <= 271.9) {
+      throw new Error(`Expected projectile to land closer to target (> 271.9), but got ${landedX}`);
+    }
+    console.log("✓ Poolshark successfully bounced the shot off the rubber wall exactly 1 time, landing closer to target.");
 
     // --- Test 11: Seed Reproducibility ---
     console.log("\n=== Test 11: Seed Reproducibility ===");
