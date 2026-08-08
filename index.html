@@ -275,7 +275,8 @@
         WORLD_W: 1200,
         WORLD_H: 700,
         GRAVITY: 260,
-        TICK: 1/60
+        TICK: 1/60,
+        MAX_FLIGHT_TICKS: 1800
       };
 
       const WEAPONS = [
@@ -1564,7 +1565,7 @@
               if (!this.projectiles.includes(proj)) continue;
 
               proj.flightTicks = (proj.flightTicks || 0) + 1;
-              if (proj.flightTicks > 500) {
+              if (proj.flightTicks > CONST.MAX_FLIGHT_TICKS) {
                 this.projectiles = this.projectiles.filter(p => p !== proj);
                 if (this.projectiles.length === 0) {
                   this.nextTurn();

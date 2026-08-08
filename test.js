@@ -1427,6 +1427,68 @@ function runTests() {
     }
     console.log("✓ AI shot leaving the world successfully advanced the turn.");
 
+    // --- Test 13: Widened Projectile Flight-Lifetime Cap ---
+    console.log("\n=== Test 13: Widened Projectile Flight-Lifetime Cap ===");
+    const test13Game = SCORCHED.createHeadlessGame({ seed: 777 });
+    test13Game.start({
+      players: [
+        { name: 'P1', type: 'Human', color: '#ff00ff' },
+        { name: 'P2', type: 'Human', color: '#00ffff' }
+      ],
+      rounds: 1,
+      startingCash: 10000,
+      wallType: 'rubber'
+    });
+    test13Game.wind = 0;
+
+    // plateau heights = 690 under the tank, pit heights = 2 elsewhere
+    for (let i = 0; i < SCORCHED.CONST.WORLD_W; i++) {
+      if (i >= 80 && i <= 120) {
+        test13Game.terrain.heights[i] = 690;
+      } else {
+        test13Game.terrain.heights[i] = 2;
+      }
+    }
+
+    test13Game.roster[0].x = 100;
+    test13Game.roster[1].x = 1100;
+    test13Game.snapTanksToTerrain();
+
+    test13Game.wind = 0;
+
+    test13Game.activePlayerIdx = 0;
+    test13Game.roster[0].angle = 88;
+    test13Game.roster[0].power = 1000;
+
+    let test13ImpactX = null;
+    let test13ImpactY = null;
+    test13Game.config.onImpact = (x, y) => {
+      test13ImpactX = x;
+      test13ImpactY = y;
+    };
+
+    test13Game.fireActiveWeapon();
+    if (!test13Game.projectile) {
+      throw new Error("Expected projectile to be live for Test 13!");
+    }
+
+    let t13Ticks = 0;
+    while (test13Game.projectile && t13Ticks < 2000) {
+      test13Game.stepPhysics(SCORCHED.CONST.TICK);
+      t13Ticks++;
+    }
+
+    console.log(`Test 13 finished after ${t13Ticks} ticks.`);
+    console.log(`Impact registered at X: ${test13ImpactX}, Y: ${test13ImpactY}`);
+
+    if (!test13ImpactX) {
+      throw new Error("Expected projectile to register onImpact, but it was silently despawned or did not land!");
+    }
+    if (t13Ticks < 500) {
+      throw new Error(`Expected flight ticks to be at least 500, but got ${t13Ticks}!`);
+    }
+    console.log("✓ Projectile with widened flight-lifetime cap successfully registered onImpact without despawning.");
+
     console.log("\nALL TESTS PASSED SUCCESSFULLY! 🎉");
   }, 50);
 }
