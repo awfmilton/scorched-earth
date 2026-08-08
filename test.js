@@ -175,7 +175,16 @@ function createDomMock() {
   };
 
   const windowMock = {
-    addEventListener: () => {},
+    listeners: {},
+    addEventListener(event, fn) {
+      if (!this.listeners[event]) this.listeners[event] = [];
+      this.listeners[event].push(fn);
+    },
+    dispatchEvent(event, data = {}) {
+      if (this.listeners[event]) {
+        this.listeners[event].forEach(fn => fn({ target: this, preventDefault: () => {}, ...data }));
+      }
+    },
     devicePixelRatio: 1,
     innerWidth: 1024,
     innerHeight: 768
@@ -333,6 +342,74 @@ function runTests() {
       throw new Error("Expected setup modal to be hidden after successful start!");
     }
     console.log("✓ Setup modal is correctly hidden on successful start.");
+
+    // --- Regression Test: Input behavior during roundOver (shop / match summary open) ---
+    console.log("\n=== Running Regression Test: Input behavior during roundOver ===");
+    const browserGame = browserContext.globalThis.SCORCHED.gameInstance;
+    if (!browserGame) {
+      throw new Error("Expected SCORCHED.gameInstance to exist after start");
+    }
+
+    // P1 (index 0) is a Human. Buy a Missile pack (5 rounds)
+    const shooter = browserGame.roster[0];
+    browserGame.buy(shooter, 'Missile');
+    shooter.selectedWeapon = 'Missile';
+
+    // Verify initial values
+    const initialMissiles = shooter.inventory['Missile']; // should be 5
+    const initialAngle = shooter.angle;
+    const initialPower = shooter.power;
+
+    // Set roundOver to true
+    browserGame.roundOver = true;
+
+    // Try pressing space (fire), arrows (move / power), and weapon cycle bracket
+    windowMock.dispatchEvent('keydown', { key: ' ' });
+    windowMock.dispatchEvent('keydown', { code: 'Space' });
+    windowMock.dispatchEvent('keydown', { key: 'ArrowLeft' });
+    windowMock.dispatchEvent('keydown', { key: 'ArrowRight' });
+    windowMock.dispatchEvent('keydown', { key: 'ArrowUp' });
+    windowMock.dispatchEvent('keydown', { key: 'ArrowDown' });
+    windowMock.dispatchEvent('keydown', { key: '[' });
+    windowMock.dispatchEvent('keydown', { key: ']' });
+    windowMock.dispatchEvent('keydown', { key: 'Tab' });
+
+    // Assert everything is untouched
+    if (shooter.inventory['Missile'] !== initialMissiles) {
+      throw new Error(`Expected Missile inventory to remain ${initialMissiles}, but got ${shooter.inventory['Missile']}`);
+    }
+    if (shooter.angle !== initialAngle) {
+      throw new Error(`Expected angle to remain ${initialAngle}, but got ${shooter.angle}`);
+    }
+    if (shooter.power !== initialPower) {
+      throw new Error(`Expected power to remain ${initialPower}, but got ${shooter.power}`);
+    }
+    if (browserGame.projectiles.length !== 0) {
+      throw new Error(`Expected no projectiles to be fired, but found ${browserGame.projectiles.length}`);
+    }
+    console.log("✓ Correctly ignored all keyboard input when roundOver is true.");
+
+    // Now test roundOver === false (ensure standard behavior works)
+    browserGame.roundOver = false;
+
+    // Press ArrowLeft to verify changing angle works
+    windowMock.dispatchEvent('keydown', { key: 'ArrowLeft' });
+    if (shooter.angle === initialAngle) {
+      throw new Error("Expected angle to change when ArrowLeft pressed and roundOver is false");
+    }
+
+    // Press Space to verify firing/ammo reduction works
+    windowMock.dispatchEvent('keydown', { key: ' ' });
+    if (shooter.inventory['Missile'] !== initialMissiles - 1) {
+      throw new Error(`Expected Missile inventory to decrement to ${initialMissiles - 1}, but got ${shooter.inventory['Missile']}`);
+    }
+    if (browserGame.projectiles.length !== 1) {
+      throw new Error(`Expected 1 projectile to be in the air, but got ${browserGame.projectiles.length}`);
+    }
+    console.log("✓ Correctly accepted keyboard input when roundOver is false.");
+
+    // Clean up projectile for subsequent browser tests (if any)
+    browserGame.projectiles = [];
 
     // --- Test 3: Physics, projectile trajectory and wind ---
     console.log("\n=== Running Turn Cycle & Physics Tests ===");
