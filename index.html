@@ -1037,6 +1037,61 @@
           }
         }
 
+        // Auto Defense: when a shield collapses, immediately raise the best
+        // replacement still in inventory. Called from every path that can drop a
+        // shield to zero (blast damage, napalm burn, magnetic deflection).
+        raiseAutoDefenseShield(tank) {
+          if (!tank.inventory || !(tank.inventory['Auto Defense'] > 0)) return;
+          if (tank.inventory['Heavy Shield'] > 0) {
+            tank.shield = { type: 'Heavy Shield', hp: 200 };
+            tank.inventory['Heavy Shield']--;
+          } else if (tank.inventory['Magnetic Shield'] > 0) {
+            tank.shield = { type: 'Magnetic Shield', hp: 150 };
+            tank.inventory['Magnetic Shield']--;
+          } else if (tank.inventory['Shield'] > 0) {
+            tank.shield = { type: 'Shield', hp: 100 };
+            tank.inventory['Shield']--;
+          }
+        }
+
+        // Single entry point for damaging a tank. Every damage source must route
+        // through here so shield absorption, Auto Defense and score accounting stay
+        // consistent. Returns true if this hit is what killed the tank.
+        applyDamageToTank(tank, amount, shooter) {
+          if (!tank || tank.hp <= 0) return false;
+
+          let remaining = Math.max(0, amount);
+          if (remaining <= 0) return false;
+
+          // Damage dealt counts the full hit, including whatever the shield eats
+          if (shooter) {
+            shooter.damageDealt = (shooter.damageDealt || 0) + remaining;
+          }
+
+          // Shield damage absorption
+          if (tank.shield && tank.shield.hp > 0) {
+            const shieldDmg = Math.min(tank.shield.hp, remaining);
+            tank.shield.hp -= shieldDmg;
+            remaining -= shieldDmg;
+            if (tank.shield.hp <= 0) {
+              tank.shield = null;
+              this.raiseAutoDefenseShield(tank);
+            }
+          }
+
+          const prevHp = tank.hp;
+          tank.hp = Math.max(0, tank.hp - remaining);
+
+          // Mark dead and credit kill
+          if (prevHp > 0 && tank.hp <= 0) {
+            if (shooter) {
+              shooter.kills = (shooter.kills || 0) + 1;
+            }
+            return true;
+          }
+          return false;
+        }
+
         explosion(x, y, radius, damage, shooterIdx) {
           // 1. Carve terrain
           this.terrain.carve(x, y, radius);
@@ -1058,47 +1113,10 @@
 
               if (dist < radius) {
                 const dmg = damage * (1 - dist / radius);
-                let clampedDmg = Math.max(0, dmg);
+                const clampedDmg = Math.max(0, dmg);
 
-                if (clampedDmg > 0) {
-                  // Accumulate damageDealt on the firing tank
-                  if (shooter) {
-                    shooter.damageDealt = (shooter.damageDealt || 0) + clampedDmg;
-                  }
-
-                  // Shield damage absorption
-                  if (tank.shield && tank.shield.hp > 0) {
-                    const shieldDmg = Math.min(tank.shield.hp, clampedDmg);
-                    tank.shield.hp -= shieldDmg;
-                    clampedDmg -= shieldDmg;
-                    if (tank.shield.hp <= 0) {
-                      tank.shield = null;
-                      // Auto Defense check
-                      if (tank.inventory && tank.inventory['Auto Defense'] > 0) {
-                        if (tank.inventory['Heavy Shield'] > 0) {
-                          tank.shield = { type: 'Heavy Shield', hp: 200 };
-                          tank.inventory['Heavy Shield']--;
-                        } else if (tank.inventory['Magnetic Shield'] > 0) {
-                          tank.shield = { type: 'Magnetic Shield', hp: 150 };
-                          tank.inventory['Magnetic Shield']--;
-                        } else if (tank.inventory['Shield'] > 0) {
-                          tank.shield = { type: 'Shield', hp: 100 };
-                          tank.inventory['Shield']--;
-                        }
-                      }
-                    }
-                  }
-
-                  const prevHp = tank.hp;
-                  tank.hp = Math.max(0, tank.hp - clampedDmg);
-
-                  // Mark dead and credit kill
-                  if (prevHp > 0 && tank.hp <= 0) {
-                    if (shooter) {
-                      shooter.kills = (shooter.kills || 0) + 1;
-                    }
-                    deadTanksToExplode.push({ tank, idx });
-                  }
+                if (this.applyDamageToTank(tank, clampedDmg, shooter)) {
+                  deadTanksToExplode.push({ tank, idx });
                 }
               }
             });
@@ -1344,6 +1362,10 @@
               const proj = activeProjs[pIdx];
               if (!this.projectiles.includes(proj)) continue;
 
+              // Normalize: the loop does name matching with .includes(), which throws
+              // on a projectile spawned without a weapon name
+              if (typeof proj.weapon !== 'string') proj.weapon = '';
+
               // 1. Check Roller custom downhill logic
               if (proj.rolling) {
                 proj.x += proj.vx * dt;
@@ -1424,17 +1446,14 @@
                       this.terrain.heights[tx] += 0.4;
                     }
                   } else if (proj.weapon.includes('Napalm')) {
-                    // Napalm damage over time
+                    // Napalm damage over time — routed through applyDamageToTank so the
+                    // burn is absorbed by shields exactly like blast damage is
                     const burnDmg = proj.weapon.includes('Hot') ? 0.3 : 0.15;
                     const shooter = (proj.shooterIdx !== undefined && this.roster) ? this.roster[proj.shooterIdx] : null;
                     if (this.roster) {
                       this.roster.forEach(tank => {
                         if (tank.hp > 0 && Math.abs(proj.x - tank.x) < 12 && Math.abs(proj.y - tank.y) < 12) {
-                          const prevHp = tank.hp;
-                          tank.hp = Math.max(0, tank.hp - burnDmg);
-                          if (prevHp > 0 && tank.hp <= 0 && shooter) {
-                            shooter.kills = (shooter.kills || 0) + 1;
-                          }
+                          this.applyDamageToTank(tank, burnDmg, shooter);
                         }
                       });
                     }
@@ -1652,22 +1671,7 @@
                           if (!this.headless) sfx('bounce');
                           if (tank.shield.hp <= 0) {
                             tank.shield = null;
-                            if (tank.inventory && tank.inventory['Auto Defense'] > 0) {
-                              let raised = false;
-                              if (tank.inventory['Heavy Shield'] > 0) {
-                                tank.shield = { type: 'Heavy Shield', hp: 200 };
-                                tank.inventory['Heavy Shield']--;
-                                raised = true;
-                              } else if (tank.inventory['Magnetic Shield'] > 0) {
-                                tank.shield = { type: 'Magnetic Shield', hp: 150 };
-                                tank.inventory['Magnetic Shield']--;
-                                raised = true;
-                              } else if (tank.inventory['Shield'] > 0) {
-                                tank.shield = { type: 'Shield', hp: 100 };
-                                tank.inventory['Shield']--;
-                                raised = true;
-                              }
-                            }
+                            this.raiseAutoDefenseShield(tank);
                           }
                           hitTank = false; // Reflected, don't detonate!
                           break;
