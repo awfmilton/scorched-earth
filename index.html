@@ -263,6 +263,38 @@
         TICK: 1/60
       };
 
+      const WEAPONS = [
+        { id: 'Baby Missile', name: 'Baby Missile', cost: 0, packSize: 1, blast: 30, damage: 60, kind: 'explosive' },
+        { id: 'Missile', name: 'Missile', cost: 500, packSize: 5, blast: 40, damage: 80, kind: 'explosive' },
+        { id: 'Baby Nuke', name: 'Baby Nuke', cost: 2000, packSize: 1, blast: 60, damage: 120, kind: 'explosive' },
+        { id: 'Nuke', name: 'Nuke', cost: 5000, packSize: 1, blast: 100, damage: 200, kind: 'explosive' },
+        { id: 'Meganuke', name: 'Meganuke', cost: 10000, packSize: 1, blast: 150, damage: 300, kind: 'explosive' },
+        { id: 'MIRV', name: 'MIRV', cost: 3000, packSize: 2, blast: 25, damage: 50, kind: 'multi' },
+        { id: "Death's Head", name: "Death's Head", cost: 6000, packSize: 1, blast: 35, damage: 70, kind: 'multi' },
+        { id: 'Cluster Bomb', name: 'Cluster Bomb', cost: 2000, packSize: 3, blast: 20, damage: 40, kind: 'pattern' },
+        { id: 'Funky Bomb', name: 'Funky Bomb', cost: 3000, packSize: 2, blast: 25, damage: 50, kind: 'pattern' },
+        { id: 'Baby Roller', name: 'Baby Roller', cost: 1000, packSize: 5, blast: 20, damage: 40, kind: 'pattern' },
+        { id: 'Roller', name: 'Roller', cost: 2000, packSize: 3, blast: 30, damage: 60, kind: 'pattern' },
+        { id: 'Heavy Roller', name: 'Heavy Roller', cost: 4000, packSize: 2, blast: 45, damage: 90, kind: 'pattern' },
+        { id: 'Napalm', name: 'Napalm', cost: 1500, packSize: 3, blast: 15, damage: 5, kind: 'liquid' },
+        { id: 'Hot Napalm', name: 'Hot Napalm', cost: 3000, packSize: 2, blast: 20, damage: 10, kind: 'liquid' },
+        { id: 'Liquid Dirt', name: 'Liquid Dirt', cost: 1000, packSize: 4, blast: 15, damage: 0, kind: 'liquid' },
+        { id: 'Dirt Bomb', name: 'Dirt Bomb', cost: 1500, packSize: 3, blast: 30, damage: 0, kind: 'utility' },
+        { id: 'Dirt Detonator', name: 'Dirt Detonator', cost: 1000, packSize: 5, blast: 0, damage: 50, kind: 'utility' },
+        { id: 'Sandstorm', name: 'Sandstorm', cost: 2000, packSize: 3, blast: 0, damage: 0, kind: 'utility' },
+        { id: 'Tracer', name: 'Tracer', cost: 100, packSize: 10, blast: 0, damage: 0, kind: 'utility' }
+      ];
+
+      const ITEMS = [
+        { id: 'Shield', name: 'Shield', cost: 1000, packSize: 1, kind: 'shield', strength: 100 },
+        { id: 'Heavy Shield', name: 'Heavy Shield', cost: 2500, packSize: 1, kind: 'shield', strength: 200 },
+        { id: 'Magnetic Shield', name: 'Magnetic Shield', cost: 4000, packSize: 1, kind: 'shield', strength: 150 },
+        { id: 'Battery', name: 'Battery', cost: 500, packSize: 2, kind: 'battery' },
+        { id: 'Parachute', name: 'Parachute', cost: 500, packSize: 3, kind: 'parachute' },
+        { id: 'Guidance Computer', name: 'Guidance Computer', cost: 2000, packSize: 1, kind: 'utility' },
+        { id: 'Auto Defense', name: 'Auto Defense', cost: 3000, packSize: 1, kind: 'utility' }
+      ];
+
       // Deterministic mulberry32 generator
       let state = 1;
       const rng = {
@@ -629,6 +661,7 @@
             ticks: 0
           };
 
+          this.projectiles = [];
           this.terrain = new Terrain();
           this.newRound(this.seed);
 
@@ -658,6 +691,21 @@
               bounces: 0
             }));
             this.explosions = [];
+          }
+        }
+
+        get projectile() {
+          return this.projectiles && this.projectiles.length > 0 ? this.projectiles[0] : null;
+        }
+
+        set projectile(val) {
+          if (!this.projectiles) {
+            this.projectiles = [];
+          }
+          if (val === null) {
+            this.projectiles = [];
+          } else {
+            this.projectiles = [val];
           }
         }
 
@@ -753,6 +801,7 @@
         newRound(roundSeed) {
           this.seed = roundSeed;
           this.terrain.generate(roundSeed);
+          this.persistentTracers = [];
           // Regenerate wind: signed horizontal acceleration, let's say between -150 and 150
           this.wind = rng.range(-150, 150);
 
@@ -914,6 +963,7 @@
           this.snapTanksToTerrain();
           this.activePlayerIdx = 0;
           this.projectile = null; // Will store active projectile { x, y, vx, vy, ... }
+          this.raiseShieldForActivePlayer();
 
           if (!this.headless && typeof document !== 'undefined') {
             const setupEl = document.getElementById('setup');
@@ -924,6 +974,43 @@
           }
         }
 
+        raiseShieldForActivePlayer() {
+          if (!this.roster || this.activePlayerIdx === undefined) return;
+          const activeTank = this.roster[this.activePlayerIdx];
+          if (!activeTank || activeTank.hp <= 0) return;
+
+          // Battery logic: "Battery restoring hp or recharging a raised shield."
+          if (activeTank.inventory && activeTank.inventory['Battery'] > 0) {
+            if (activeTank.shield && activeTank.shield.hp < (activeTank.shield.type === 'Heavy Shield' ? 200 : (activeTank.shield.type === 'Magnetic Shield' ? 150 : 100))) {
+              activeTank.shield.hp = Math.min(
+                activeTank.shield.type === 'Heavy Shield' ? 200 : (activeTank.shield.type === 'Magnetic Shield' ? 150 : 100),
+                activeTank.shield.hp + 50
+              );
+              activeTank.inventory['Battery']--;
+            } else if (activeTank.hp < 100) {
+              activeTank.hp = Math.min(100, activeTank.hp + 30);
+              activeTank.inventory['Battery']--;
+            }
+          }
+
+          // Raise shield from inventory if none is active
+          if (!activeTank.shield || activeTank.shield.hp <= 0) {
+            activeTank.shield = null;
+            if (activeTank.inventory) {
+              if (activeTank.inventory['Heavy Shield'] > 0) {
+                activeTank.shield = { type: 'Heavy Shield', hp: 200 };
+                activeTank.inventory['Heavy Shield']--;
+              } else if (activeTank.inventory['Magnetic Shield'] > 0) {
+                activeTank.shield = { type: 'Magnetic Shield', hp: 150 };
+                activeTank.inventory['Magnetic Shield']--;
+              } else if (activeTank.inventory['Shield'] > 0) {
+                activeTank.shield = { type: 'Shield', hp: 100 };
+                activeTank.inventory['Shield']--;
+              }
+            }
+          }
+        }
+
         nextTurn() {
           if (!this.roster || this.roster.length === 0) return;
           let nextIdx = this.activePlayerIdx;
@@ -931,6 +1018,7 @@
             nextIdx = (nextIdx + 1) % this.roster.length;
             if (this.roster[nextIdx].hp > 0) {
               this.activePlayerIdx = nextIdx;
+              this.raiseShieldForActivePlayer();
               this.updateHUD();
               return;
             }
@@ -947,6 +1035,61 @@
             activeTank.power = Math.round(rng.range(200, 800));
             this.fireActiveWeapon();
           }
+        }
+
+        // Auto Defense: when a shield collapses, immediately raise the best
+        // replacement still in inventory. Called from every path that can drop a
+        // shield to zero (blast damage, napalm burn, magnetic deflection).
+        raiseAutoDefenseShield(tank) {
+          if (!tank.inventory || !(tank.inventory['Auto Defense'] > 0)) return;
+          if (tank.inventory['Heavy Shield'] > 0) {
+            tank.shield = { type: 'Heavy Shield', hp: 200 };
+            tank.inventory['Heavy Shield']--;
+          } else if (tank.inventory['Magnetic Shield'] > 0) {
+            tank.shield = { type: 'Magnetic Shield', hp: 150 };
+            tank.inventory['Magnetic Shield']--;
+          } else if (tank.inventory['Shield'] > 0) {
+            tank.shield = { type: 'Shield', hp: 100 };
+            tank.inventory['Shield']--;
+          }
+        }
+
+        // Single entry point for damaging a tank. Every damage source must route
+        // through here so shield absorption, Auto Defense and score accounting stay
+        // consistent. Returns true if this hit is what killed the tank.
+        applyDamageToTank(tank, amount, shooter) {
+          if (!tank || tank.hp <= 0) return false;
+
+          let remaining = Math.max(0, amount);
+          if (remaining <= 0) return false;
+
+          // Damage dealt counts the full hit, including whatever the shield eats
+          if (shooter) {
+            shooter.damageDealt = (shooter.damageDealt || 0) + remaining;
+          }
+
+          // Shield damage absorption
+          if (tank.shield && tank.shield.hp > 0) {
+            const shieldDmg = Math.min(tank.shield.hp, remaining);
+            tank.shield.hp -= shieldDmg;
+            remaining -= shieldDmg;
+            if (tank.shield.hp <= 0) {
+              tank.shield = null;
+              this.raiseAutoDefenseShield(tank);
+            }
+          }
+
+          const prevHp = tank.hp;
+          tank.hp = Math.max(0, tank.hp - remaining);
+
+          // Mark dead and credit kill
+          if (prevHp > 0 && tank.hp <= 0) {
+            if (shooter) {
+              shooter.kills = (shooter.kills || 0) + 1;
+            }
+            return true;
+          }
+          return false;
         }
 
         explosion(x, y, radius, damage, shooterIdx) {
@@ -972,22 +1115,8 @@
                 const dmg = damage * (1 - dist / radius);
                 const clampedDmg = Math.max(0, dmg);
 
-                if (clampedDmg > 0) {
-                  // Accumulate damageDealt on the firing tank
-                  if (shooter) {
-                    shooter.damageDealt = (shooter.damageDealt || 0) + clampedDmg;
-                  }
-
-                  const prevHp = tank.hp;
-                  tank.hp = Math.max(0, tank.hp - clampedDmg);
-
-                  // Mark dead and credit kill
-                  if (prevHp > 0 && tank.hp <= 0) {
-                    if (shooter) {
-                      shooter.kills = (shooter.kills || 0) + 1;
-                    }
-                    deadTanksToExplode.push({ tank, idx });
-                  }
+                if (this.applyDamageToTank(tank, clampedDmg, shooter)) {
+                  deadTanksToExplode.push({ tank, idx });
                 }
               }
             });
@@ -1039,15 +1168,114 @@
 
         onImpact(x, y, weapon, shooterIdx) {
           const wp = weapon || 'Baby Missile';
-          const radius = (wp === 'Baby Missile') ? 30 : 30;
-          const damage = (wp === 'Baby Missile') ? 60 : 60;
+          // Find weapon config
+          const wConf = WEAPONS.find(w => w.id === wp) || { blast: 30, damage: 60 };
+          let radius = wConf.blast;
+          let damage = wConf.damage;
+
+          // Helper/Sub projectiles
+          if (wp === 'MIRV Sub') { radius = 25; damage = 50; }
+          else if (wp === "Death's Head Sub") { radius = 35; damage = 70; }
+          else if (wp === 'Cluster Bomblet') { radius = 12; damage = 24; }
+          else if (wp === 'Funky Bomblet') { radius = 15; damage = 30; }
 
           this.lastShooterIdx = shooterIdx;
 
-          this.explosion(x, y, radius, damage, shooterIdx);
+          // Perform specific actions based on weapon type
+          if (wp === 'Dirt Bomb') {
+            this.terrain.deposit(x, y, radius);
+            if (!this.headless) {
+              sfx('explode', { radius });
+              this.spawnCraterEffects(x, y, radius);
+            }
+          } else if (wp === 'Dirt Detonator') {
+            // collapse deposited dirt: flatten heights within radius 40
+            const collapseRadius = 40;
+            const startCol = Math.max(0, Math.floor(x - collapseRadius));
+            const endCol = Math.min(CONST.WORLD_W - 1, Math.ceil(x + collapseRadius));
+            for (let col = startCol; col <= endCol; col++) {
+              const dx = col - x;
+              if (Math.abs(dx) < collapseRadius) {
+                this.terrain.heights[col] = Math.max(CONST.WORLD_H * 0.15, this.terrain.heights[col] - 25 * (1 - Math.abs(dx) / collapseRadius));
+              }
+            }
+            this.explosion(x, y, radius, damage, shooterIdx);
+          } else if (wp === 'Sandstorm') {
+            // redistributing terrain
+            const redistributionRadius = 200;
+            const startCol = Math.max(0, Math.floor(x - redistributionRadius));
+            const endCol = Math.min(CONST.WORLD_W - 1, Math.ceil(x + redistributionRadius));
+            const copy = new Float32Array(this.terrain.heights);
+            for (let col = startCol; col <= endCol; col++) {
+              const shift = Math.round((this.wind || 0) * 0.15 + Math.sin(col * 0.05) * 12);
+              const srcCol = Math.max(0, Math.min(CONST.WORLD_W - 1, col - shift));
+              this.terrain.heights[col] = copy[srcCol];
+            }
+            if (!this.headless) {
+              sfx('explode', { radius: 50 });
+            }
+          } else if (wp === 'Tracer') {
+            // Tracer deals exactly zero damage and zero blast
+          } else {
+            // standard explosion
+            this.explosion(x, y, radius, damage, shooterIdx);
+          }
 
           this.terrain.settle();
           this.reSeatTanks();
+
+          // Spawning post-impact sub-projectiles (e.g. Cluster Bomb / Funky Bomb / Liquid)
+          if (wp === 'Cluster Bomb') {
+            for (let i = 0; i < 5; i++) {
+              const angle = Math.PI * (0.2 + 0.6 * (i / 4));
+              const speed = rng.range(120, 200);
+              const vx = speed * Math.cos(angle);
+              const vy = -speed * Math.sin(angle);
+              this.projectiles.push({
+                x: x,
+                y: y - 5,
+                vx: vx,
+                vy: vy,
+                weapon: 'Cluster Bomblet',
+                shooterIdx: shooterIdx
+              });
+            }
+          } else if (wp === 'Funky Bomb') {
+            for (let i = 0; i < 4; i++) {
+              const angle = Math.PI * (0.2 + 0.6 * (i / 3));
+              const speed = rng.range(120, 200);
+              const vx = speed * Math.cos(angle);
+              const vy = -speed * Math.sin(angle);
+              this.projectiles.push({
+                x: x,
+                y: y - 5,
+                vx: vx,
+                vy: vy,
+                weapon: 'Funky Bomblet',
+                timer: 120,
+                bounces: 0,
+                shooterIdx: shooterIdx
+              });
+            }
+          } else if (wp === 'Napalm' || wp === 'Hot Napalm' || wp === 'Liquid Dirt') {
+            const subWeapon = wp === 'Napalm' ? 'Napalm Particle' : (wp === 'Hot Napalm' ? 'Hot Napalm Particle' : 'Liquid Dirt Particle');
+            for (let i = 0; i < 15; i++) {
+              const angle = Math.PI * (0.1 + 0.8 * (i / 14));
+              const speed = rng.range(50, 150);
+              const vx = speed * Math.cos(angle);
+              const vy = -speed * Math.sin(angle);
+              this.projectiles.push({
+                x: x,
+                y: y - 5,
+                vx: vx,
+                vy: vy,
+                weapon: subWeapon,
+                shooterIdx: shooterIdx,
+                timer: 120,
+                liquid: true
+              });
+            }
+          }
 
           if (this.config && typeof this.config.onImpact === 'function') {
             this.config.onImpact(x, y);
@@ -1127,125 +1355,347 @@
             }
           }
 
-          if (this.projectile) {
-            // Apply wind and gravity once per tick
-            this.projectile.vy += CONST.GRAVITY * dt;
-            this.projectile.vx += (this.wind || 0) * dt;
+          if (this.projectiles && this.projectiles.length > 0) {
+            // Keep a copy because we might modify this.projectiles
+            const activeProjs = [...this.projectiles];
+            for (let pIdx = 0; pIdx < activeProjs.length; pIdx++) {
+              const proj = activeProjs[pIdx];
+              if (!this.projectiles.includes(proj)) continue;
 
-            const step_vx = this.projectile.vx;
-            const step_vy = this.projectile.vy;
-            const speed = Math.sqrt(step_vx * step_vx + step_vy * step_vy);
-            const numSteps = Math.max(10, Math.ceil(speed * dt));
-            const sdt = dt / numSteps;
+              // Normalize: the loop does name matching with .includes(), which throws
+              // on a projectile spawned without a weapon name
+              if (typeof proj.weapon !== 'string') proj.weapon = '';
 
-            for (let s = 0; s < numSteps; s++) {
-              if (!this.projectile) break;
+              // 1. Check Roller custom downhill logic
+              if (proj.rolling) {
+                proj.x += proj.vx * dt;
+                proj.y = CONST.WORLD_H - this.terrain.heightAt(proj.x);
 
-              this.projectile.x += step_vx * sdt;
-              this.projectile.y += step_vy * sdt;
+                let detonate = false;
+                if (proj.x < 0 || proj.x > CONST.WORLD_W) {
+                  detonate = true;
+                } else {
+                  // Check local minimum
+                  const hL = this.terrain.heightAt(proj.x - 2);
+                  const hR = this.terrain.heightAt(proj.x + 2);
+                  const hC = this.terrain.heightAt(proj.x);
+                  if (proj.vx < 0 && hL >= hC) {
+                    detonate = true;
+                  } else if (proj.vx > 0 && hR >= hC) {
+                    detonate = true;
+                  }
 
-              // Spawn trail particle if not headless
-              if (!this.headless) {
-                const col = visualRNG.choice(['#ff3300', '#ffaa00', '#ffff00', '#ff6600']);
-                const jx = visualRNG.range(-5, 5);
-                const jy = visualRNG.range(-5, 5);
-                this.spawnParticle(
-                  'spark',
-                  this.projectile.x,
-                  this.projectile.y,
-                  -step_vx * 0.05 + jx,
-                  -step_vy * 0.05 + jy,
-                  col,
-                  visualRNG.range(0.2, 0.4),
-                  visualRNG.range(1.0, 2.5)
-                );
-              }
-
-              const px = this.projectile.x;
-              const py = this.projectile.y;
-
-              // Wall and ceiling boundaries checks based on wallType
-              if (this.wallType === 'off') {
-                if (px < 0 || px > CONST.WORLD_W) {
-                  this.projectile = null;
-                  this.nextTurn();
-                  break;
+                  // Check tank collision
+                  if (this.roster) {
+                    for (let i = 0; i < this.roster.length; i++) {
+                      const tank = this.roster[i];
+                      if (tank.hp > 0 && Math.abs(proj.x - tank.x) <= 8 && Math.abs(proj.y - tank.y) <= 8) {
+                        detonate = true;
+                        break;
+                      }
+                    }
+                  }
                 }
-              } else if (this.wallType === 'rubber') {
-                if (this.projectile.x < 0) {
-                  this.projectile.vx = -this.projectile.vx;
-                  this.projectile.x = -this.projectile.x;
-                  if (!this.headless) sfx('bounce');
-                } else if (this.projectile.x > CONST.WORLD_W) {
-                  this.projectile.vx = -this.projectile.vx;
-                  this.projectile.x = CONST.WORLD_W - (this.projectile.x - CONST.WORLD_W);
-                  if (!this.headless) sfx('bounce');
-                }
-              } else if (this.wallType === 'wrap') {
-                this.projectile.x = (this.projectile.x % CONST.WORLD_W + CONST.WORLD_W) % CONST.WORLD_W;
-              } else if (this.wallType === 'concrete') {
-                // Concrete bounces off left/right and ceiling
-                if (this.projectile.x < 0) {
-                  this.projectile.vx = -this.projectile.vx;
-                  this.projectile.x = -this.projectile.x;
-                  if (!this.headless) sfx('bounce');
-                } else if (this.projectile.x > CONST.WORLD_W) {
-                  this.projectile.vx = -this.projectile.vx;
-                  this.projectile.x = CONST.WORLD_W - (this.projectile.x - CONST.WORLD_W);
-                  if (!this.headless) sfx('bounce');
-                }
-                if (this.projectile.y < 0) {
-                  this.projectile.vy = -this.projectile.vy;
-                  this.projectile.y = -this.projectile.y;
-                  if (!this.headless) sfx('bounce');
-                }
-              }
 
-              // Check if projectile fell below world bottom
-              if (this.projectile && this.projectile.y > CONST.WORLD_H) {
-                this.projectile = null;
-                this.nextTurn();
-                break;
-              }
-
-              if (!this.projectile) break;
-
-              // Collision with terrain
-              const terrainX = Math.floor(this.projectile.x);
-              if (terrainX >= 0 && terrainX < CONST.WORLD_W) {
-                const groundY = CONST.WORLD_H - this.terrain.heightAt(this.projectile.x);
-                if (this.projectile.y >= groundY) {
-                  const impactX = this.projectile.x;
-                  const impactY = this.projectile.y;
-                  const weapon = this.projectile.weapon;
-                  const shooterIdx = this.projectile.shooterIdx;
-                  this.projectile = null;
-                  this.onImpact(impactX, impactY, weapon, shooterIdx);
-                  this.nextTurn();
-                  break;
-                }
-              }
-
-              // Collision with tank hulls
-              let hitTank = false;
-              for (let i = 0; i < this.roster.length; i++) {
-                const tank = this.roster[i];
-                if (tank.hp > 0) {
-                  if (this.projectile.x >= tank.x - 8 && this.projectile.x <= tank.x + 8 &&
-                      this.projectile.y >= tank.y - 6 && this.projectile.y <= tank.y) {
-                    const impactX = this.projectile.x;
-                    const impactY = this.projectile.y;
-                    const weapon = this.projectile.weapon;
-                    const shooterIdx = this.projectile.shooterIdx;
-                    this.projectile = null;
-                    this.onImpact(impactX, impactY, weapon, shooterIdx);
+                if (detonate) {
+                  this.projectiles = this.projectiles.filter(p => p !== proj);
+                  this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx);
+                  if (this.projectiles.length === 0) {
                     this.nextTurn();
-                    hitTank = true;
+                  }
+                }
+                continue;
+              }
+
+              // 2. Liquid Particle custom slide downhill logic
+              if (proj.liquid) {
+                proj.timer--;
+                if (proj.timer <= 0) {
+                  this.projectiles = this.projectiles.filter(p => p !== proj);
+                  if (this.projectiles.length === 0) {
+                    this.nextTurn();
+                  }
+                  continue;
+                }
+
+                const groundY = CONST.WORLD_H - this.terrain.heightAt(proj.x);
+                if (proj.y < groundY - 1) {
+                  // In air, apply gravity
+                  proj.vy += CONST.GRAVITY * dt;
+                  proj.x += proj.vx * dt;
+                  proj.y += proj.vy * dt;
+                } else {
+                  // On ground, flow downhill
+                  proj.y = groundY;
+                  proj.vy = 0;
+                  const hL = this.terrain.heightAt(proj.x - 2);
+                  const hR = this.terrain.heightAt(proj.x + 2);
+                  if (hL < hR) {
+                    proj.vx = -60;
+                  } else if (hR < hL) {
+                    proj.vx = 60;
+                  } else {
+                    proj.vx = 0;
+                  }
+                  proj.x += proj.vx * dt;
+
+                  // Deposit dirt for Liquid Dirt
+                  if (proj.weapon === 'Liquid Dirt Particle') {
+                    const tx = Math.floor(proj.x);
+                    if (tx >= 0 && tx < CONST.WORLD_W) {
+                      this.terrain.heights[tx] += 0.4;
+                    }
+                  } else if (proj.weapon.includes('Napalm')) {
+                    // Napalm damage over time — routed through applyDamageToTank so the
+                    // burn is absorbed by shields exactly like blast damage is
+                    const burnDmg = proj.weapon.includes('Hot') ? 0.3 : 0.15;
+                    const shooter = (proj.shooterIdx !== undefined && this.roster) ? this.roster[proj.shooterIdx] : null;
+                    if (this.roster) {
+                      this.roster.forEach(tank => {
+                        if (tank.hp > 0 && Math.abs(proj.x - tank.x) < 12 && Math.abs(proj.y - tank.y) < 12) {
+                          this.applyDamageToTank(tank, burnDmg, shooter);
+                        }
+                      });
+                    }
+                  }
+                }
+
+                // Visual trails
+                if (!this.headless) {
+                  const col = proj.weapon.includes('Liquid Dirt') ? '#735035' : '#ff5500';
+                  this.spawnParticle('spark', proj.x, proj.y, visualRNG.range(-3, 3), visualRNG.range(-8, -2), col, 0.2, 1.5);
+                }
+                continue;
+              }
+
+              // 3. Funky Bomblet custom timer bounce logic
+              if (proj.weapon === 'Funky Bomblet') {
+                proj.timer--;
+                if (proj.timer <= 0) {
+                  this.projectiles = this.projectiles.filter(p => p !== proj);
+                  this.onImpact(proj.x, proj.y, 'Funky Bomblet', proj.shooterIdx);
+                  if (this.projectiles.length === 0) {
+                    this.nextTurn();
+                  }
+                  continue;
+                }
+              }
+
+              // 4. Trace line path recording
+              if (proj.weapon === 'Tracer') {
+                proj.path = proj.path || [];
+                proj.path.push({ x: proj.x, y: proj.y });
+              }
+
+              // 5. Standard projectile gravity & wind integration
+              const prevVy = proj.vy;
+              proj.vy += CONST.GRAVITY * dt;
+              proj.vx += (this.wind || 0) * dt;
+
+              // Trajectory apex split trigger for MIRV and Death's Head
+              if ((proj.weapon === 'MIRV' || proj.weapon === "Death's Head") && !proj.split && prevVy < 0 && proj.vy >= 0) {
+                proj.split = true;
+                this.projectiles = this.projectiles.filter(p => p !== proj);
+
+                const numSub = proj.weapon === 'MIRV' ? 5 : 9;
+                const subWeapon = proj.weapon === 'MIRV' ? 'MIRV Sub' : "Death's Head Sub";
+                for (let i = 0; i < numSub; i++) {
+                  const t = (i - (numSub - 1) / 2) / ((numSub - 1) / 2 || 1);
+                  const sub_vx = proj.vx + t * 60;
+                  const sub_vy = proj.vy + Math.abs(t) * 15;
+                  this.projectiles.push({
+                    x: proj.x,
+                    y: proj.y,
+                    vx: sub_vx,
+                    vy: sub_vy,
+                    weapon: subWeapon,
+                    shooterIdx: proj.shooterIdx
+                  });
+                }
+                continue;
+              }
+
+              const step_vx = proj.vx;
+              const step_vy = proj.vy;
+              const speed = Math.sqrt(step_vx * step_vx + step_vy * step_vy);
+              const numSteps = Math.max(10, Math.ceil(speed * dt));
+              const sdt = dt / numSteps;
+
+              let impacted = false;
+
+              for (let s = 0; s < numSteps; s++) {
+                if (impacted || !this.projectiles.includes(proj)) break;
+
+                proj.x += step_vx * sdt;
+                proj.y += step_vy * sdt;
+
+                // Spawn trail particle
+                if (!this.headless) {
+                  const col = visualRNG.choice(['#ff3300', '#ffaa00', '#ffff00', '#ff6600']);
+                  const jx = visualRNG.range(-5, 5);
+                  const jy = visualRNG.range(-5, 5);
+                  this.spawnParticle(
+                    'spark',
+                    proj.x,
+                    proj.y,
+                    -step_vx * 0.05 + jx,
+                    -step_vy * 0.05 + jy,
+                    col,
+                    visualRNG.range(0.2, 0.4),
+                    visualRNG.range(1.0, 2.5)
+                  );
+                }
+
+                // Walls boundaries
+                if (this.wallType === 'off') {
+                  if (proj.x < 0 || proj.x > CONST.WORLD_W) {
+                    if (proj.weapon === 'Tracer' && proj.path) {
+                      this.persistentTracers = this.persistentTracers || [];
+                      this.persistentTracers.push(proj.path);
+                    }
+                    this.projectiles = this.projectiles.filter(p => p !== proj);
+                    if (this.projectiles.length === 0) {
+                      this.nextTurn();
+                    }
+                    impacted = true;
+                    break;
+                  }
+                } else if (this.wallType === 'rubber') {
+                  if (proj.x < 0) {
+                    proj.vx = -proj.vx;
+                    proj.x = -proj.x;
+                    if (!this.headless) sfx('bounce');
+                  } else if (proj.x > CONST.WORLD_W) {
+                    proj.vx = -proj.vx;
+                    proj.x = CONST.WORLD_W - (proj.x - CONST.WORLD_W);
+                    if (!this.headless) sfx('bounce');
+                  }
+                } else if (this.wallType === 'wrap') {
+                  proj.x = (proj.x % CONST.WORLD_W + CONST.WORLD_W) % CONST.WORLD_W;
+                } else if (this.wallType === 'concrete') {
+                  if (proj.x < 0) {
+                    proj.vx = -proj.vx;
+                    proj.x = -proj.x;
+                    if (!this.headless) sfx('bounce');
+                  } else if (proj.x > CONST.WORLD_W) {
+                    proj.vx = -proj.vx;
+                    proj.x = CONST.WORLD_W - (proj.x - CONST.WORLD_W);
+                    if (!this.headless) sfx('bounce');
+                  }
+                  if (proj.y < 0) {
+                    proj.vy = -proj.vy;
+                    proj.y = -proj.y;
+                    if (!this.headless) sfx('bounce');
+                  }
+                }
+
+                // Below screen bottom
+                if (proj.y > CONST.WORLD_H) {
+                  if (proj.weapon === 'Tracer' && proj.path) {
+                    this.persistentTracers = this.persistentTracers || [];
+                    this.persistentTracers.push(proj.path);
+                  }
+                  this.projectiles = this.projectiles.filter(p => p !== proj);
+                  if (this.projectiles.length === 0) {
+                    this.nextTurn();
+                  }
+                  impacted = true;
+                  break;
+                }
+
+                // Terrain Collision
+                const terrainX = Math.floor(proj.x);
+                if (terrainX >= 0 && terrainX < CONST.WORLD_W) {
+                  const groundY = CONST.WORLD_H - this.terrain.heightAt(proj.x);
+                  if (proj.y >= groundY) {
+                    // Check roller trigger
+                    if (proj.weapon.includes('Roller') && !proj.rolling) {
+                      proj.rolling = true;
+                      proj.vy = 0;
+                      proj.y = groundY;
+                      const hL = this.terrain.heightAt(proj.x - 2);
+                      const hR = this.terrain.heightAt(proj.x + 2);
+                      proj.vx = hL < hR ? -80 : 80;
+                      impacted = true;
+                      break;
+                    }
+
+                    // Check Funky Bomblet bounce trigger
+                    if (proj.weapon === 'Funky Bomblet') {
+                      proj.vy = -Math.abs(proj.vy) * 0.6;
+                      proj.vx *= 0.8;
+                      proj.y = groundY - 2;
+                      if (!this.headless) sfx('bounce');
+                      impacted = true;
+                      break;
+                    }
+
+                    // Normal impact
+                    if (proj.weapon === 'Tracer' && proj.path) {
+                      this.persistentTracers = this.persistentTracers || [];
+                      this.persistentTracers.push(proj.path);
+                    }
+                    this.projectiles = this.projectiles.filter(p => p !== proj);
+                    this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx);
+                    if (this.projectiles.length === 0) {
+                      this.nextTurn();
+                    }
+                    impacted = true;
                     break;
                   }
                 }
+
+                // Collision with tank hulls
+                let hitTank = false;
+                if (this.roster) {
+                  for (let i = 0; i < this.roster.length; i++) {
+                    const tank = this.roster[i];
+                    if (tank.hp > 0) {
+                      if (proj.x >= tank.x - 8 && proj.x <= tank.x + 8 &&
+                          proj.y >= tank.y - 6 && proj.y <= tank.y) {
+
+                        // Magnetic Shield Reflection check!
+                        if (tank.shield && tank.shield.type === 'Magnetic Shield' && tank.shield.hp > 0) {
+                          const dx = proj.x - tank.x;
+                          const dy = proj.y - (tank.y - 3);
+                          let dist = Math.sqrt(dx * dx + dy * dy);
+                          if (dist === 0) dist = 1;
+                          const nx = dx / dist;
+                          const ny = dy / dist;
+                          const dot = proj.vx * nx + proj.vy * ny;
+                          proj.vx = proj.vx - 2 * dot * nx;
+                          proj.vy = proj.vy - 2 * dot * ny;
+                          proj.x = tank.x + nx * 12;
+                          proj.y = (tank.y - 3) + ny * 12;
+                          tank.shield.hp -= 50;
+                          if (!this.headless) sfx('bounce');
+                          if (tank.shield.hp <= 0) {
+                            tank.shield = null;
+                            this.raiseAutoDefenseShield(tank);
+                          }
+                          hitTank = false; // Reflected, don't detonate!
+                          break;
+                        } else {
+                          // Normal impact on tank
+                          if (proj.weapon === 'Tracer' && proj.path) {
+                            this.persistentTracers = this.persistentTracers || [];
+                            this.persistentTracers.push(proj.path);
+                          }
+                          this.projectiles = this.projectiles.filter(p => p !== proj);
+                          this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx);
+                          if (this.projectiles.length === 0) {
+                            this.nextTurn();
+                          }
+                          hitTank = true;
+                          impacted = true;
+                          break;
+                        }
+                      }
+                    }
+                  }
+                }
+                if (hitTank) break;
               }
-              if (hitTank) break;
             }
           }
         }
@@ -1483,12 +1933,100 @@
             });
           }
 
-          // Draw active projectile
-          if (this.projectile) {
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath();
-            ctx.arc(this.projectile.x, this.projectile.y, 3, 0, Math.PI * 2);
-            ctx.fill();
+          // Draw active projectiles
+          if (this.projectiles && this.projectiles.length > 0) {
+            this.projectiles.forEach(p => {
+              ctx.fillStyle = '#ffffff';
+              ctx.beginPath();
+              ctx.arc(p.x, p.y, p.weapon && p.weapon.includes('Particle') ? 1.5 : 3, 0, Math.PI * 2);
+              ctx.fill();
+            });
+          }
+
+          // Draw persistent tracers
+          if (this.persistentTracers && this.persistentTracers.length > 0) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([2, 4]); // Dotted!
+            this.persistentTracers.forEach(path => {
+              if (path && path.length > 1) {
+                ctx.beginPath();
+                ctx.moveTo(path[0].x, path[0].y);
+                for (let i = 1; i < path.length; i++) {
+                  ctx.lineTo(path[i].x, path[i].y);
+                }
+                ctx.stroke();
+              }
+            });
+            ctx.restore();
+          }
+
+          // Draw active shields
+          if (this.roster) {
+            this.roster.forEach(tank => {
+              if (tank.hp > 0 && tank.shield && tank.shield.hp > 0) {
+                ctx.save();
+                ctx.strokeStyle = tank.shield.type === 'Heavy Shield' ? 'rgba(0, 0, 255, 0.5)' : (tank.shield.type === 'Magnetic Shield' ? 'rgba(0, 255, 255, 0.5)' : 'rgba(0, 255, 0, 0.5)');
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(tank.x, tank.y - 6, 12, Math.PI, 0);
+                ctx.stroke();
+                ctx.restore();
+              }
+            });
+          }
+
+          // Draw guidance computer predicted landing marker
+          if (this.roster && this.activePlayerIdx !== undefined) {
+            const activeTank = this.roster[this.activePlayerIdx];
+            if (activeTank && activeTank.hp > 0 && activeTank.inventory && activeTank.inventory['Guidance Computer'] > 0) {
+              // Run simple fast simulation
+              const angleRad = (activeTank.angle * Math.PI) / 180;
+              const barrelLen = 12;
+              let px = activeTank.x + barrelLen * Math.cos(angleRad);
+              let py = activeTank.y - 6 - barrelLen * Math.sin(angleRad);
+              let pvx = activeTank.power * Math.cos(angleRad);
+              let pvy = -activeTank.power * Math.sin(angleRad);
+              const sim_dt = 1/30;
+              let hitX = px;
+              let hitY = py;
+
+              for (let step = 0; step < 200; step++) {
+                pvy += CONST.GRAVITY * sim_dt;
+                pvx += (this.wind || 0) * sim_dt;
+                px += pvx * sim_dt;
+                py += pvy * sim_dt;
+
+                if (px < 0 || px > CONST.WORLD_W || py > CONST.WORLD_H) {
+                  hitX = px;
+                  hitY = py;
+                  break;
+                }
+
+                const tx = Math.floor(px);
+                if (tx >= 0 && tx < CONST.WORLD_W) {
+                  const gy = CONST.WORLD_H - this.terrain.heightAt(px);
+                  if (py >= gy) {
+                    hitX = px;
+                    hitY = gy;
+                    break;
+                  }
+                }
+              }
+
+              // Draw Predicted Marker as a red crosshair
+              ctx.save();
+              ctx.strokeStyle = '#ff0000';
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.moveTo(hitX - 6, hitY);
+              ctx.lineTo(hitX + 6, hitY);
+              ctx.moveTo(hitX, hitY - 6);
+              ctx.lineTo(hitX, hitY + 6);
+              ctx.stroke();
+              ctx.restore();
+            }
           }
 
           // Draw particles
@@ -1701,7 +2239,9 @@
         rng,
         CONST,
         createHeadlessGame,
-        Terrain
+        Terrain,
+        WEAPONS,
+        ITEMS
       };
     })();
   </script>

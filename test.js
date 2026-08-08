@@ -808,6 +808,192 @@ function runTests() {
     }
     console.log("✓ Target killed during flight. Firing tank credited with kill. Turn advanced to remaining alive player.");
 
+    // === Chunk 6: Arsenal inventory, shields, and multi-projectile mechanics ===
+    console.log("\n=== Chunk 6: Arsenal, shields, multi-projectile ===");
+
+    // Helper: a flat-terrain 2-player game with tanks at known positions
+    function makeArsenalGame(seed) {
+      const g = SCORCHED.createHeadlessGame({ seed });
+      g.start({
+        players: [
+          { name: 'P1', type: 'Human', color: '#ff00ff' },
+          { name: 'P2', type: 'Human', color: '#00ffff' }
+        ],
+        rounds: 5,
+        startingCash: 10000,
+        wallType: 'off'
+      });
+      g.wind = 0;
+      for (let i = 0; i < SCORCHED.CONST.WORLD_W; i++) {
+        g.terrain.heights[i] = 100;
+      }
+      g.roster[0].x = 100;
+      g.roster[1].x = 400;
+      g.snapTanksToTerrain();
+      g.activePlayerIdx = 0;
+      return g;
+    }
+
+    // Test 6.1: blast damage is absorbed by the shield before it reaches hp
+    const shieldGame = makeArsenalGame(1000);
+    shieldGame.roster[1].shield = { type: 'Shield', hp: 100 };
+    shieldGame.roster[1].hp = 100;
+    shieldGame.explosion(shieldGame.roster[1].x, shieldGame.roster[1].y - 3, 40, 60, 0);
+    if (shieldGame.roster[1].hp !== 100) {
+      throw new Error(`Blast: shield should absorb all damage, but hp fell to ${shieldGame.roster[1].hp}`);
+    }
+    if (!(shieldGame.roster[1].shield.hp < 100)) {
+      throw new Error("Blast: shield hp should have been reduced");
+    }
+    console.log("✓ Blast damage absorbed by shield before hp.");
+
+    // Test 6.2: REGRESSION — napalm burn must also be absorbed by the shield.
+    // Previously the burn tick wrote tank.hp directly, bypassing the shield entirely.
+    const napalmGame = makeArsenalGame(1001);
+    const napalmTarget = napalmGame.roster[1];
+    napalmTarget.shield = { type: 'Heavy Shield', hp: 200 };
+    napalmTarget.hp = 100;
+    const shieldHpBefore = napalmTarget.shield.hp;
+
+    // Drop a burning napalm particle directly on the target and let it tick
+    napalmGame.projectiles = [{
+      x: napalmTarget.x,
+      y: napalmTarget.y,
+      vx: 0,
+      vy: 0,
+      weapon: 'Napalm Particle',
+      shooterIdx: 0,
+      rolling: true
+    }];
+    for (let i = 0; i < 30; i++) {
+      napalmGame.stepPhysics(1 / 60);
+    }
+
+    if (napalmTarget.hp !== 100) {
+      throw new Error(`Napalm: shield must absorb the burn, but hp fell to ${napalmTarget.hp}`);
+    }
+    if (!(napalmTarget.shield && napalmTarget.shield.hp < shieldHpBefore)) {
+      throw new Error("Napalm: burn should have drained shield hp");
+    }
+    if (!(napalmGame.roster[0].damageDealt > 0)) {
+      throw new Error("Napalm: shooter should be credited with damageDealt for burn ticks");
+    }
+    console.log("✓ Napalm burn absorbed by shield and credited to damageDealt.");
+
+    // Test 6.3: with no shield, the napalm burn does reach hp
+    const burnGame = makeArsenalGame(1002);
+    const burnTarget = burnGame.roster[1];
+    burnTarget.shield = null;
+    burnTarget.hp = 100;
+    burnGame.projectiles = [{
+      x: burnTarget.x,
+      y: burnTarget.y,
+      vx: 0,
+      vy: 0,
+      weapon: 'Napalm Particle',
+      shooterIdx: 0,
+      rolling: true
+    }];
+    for (let i = 0; i < 30; i++) {
+      burnGame.stepPhysics(1 / 60);
+    }
+    if (!(burnTarget.hp < 100)) {
+      throw new Error("Napalm: an unshielded tank should take burn damage");
+    }
+    console.log("✓ Napalm burn damages an unshielded tank.");
+
+    // Test 6.4: Auto Defense raises a replacement when the burn collapses a shield
+    const autoGame = makeArsenalGame(1003);
+    const autoTarget = autoGame.roster[1];
+    autoTarget.hp = 100;
+    autoTarget.shield = { type: 'Shield', hp: 0.15 }; // one burn tick collapses it
+    autoTarget.inventory['Auto Defense'] = 1;
+    autoTarget.inventory['Heavy Shield'] = 1;
+    autoGame.projectiles = [{
+      x: autoTarget.x,
+      y: autoTarget.y,
+      vx: 0,
+      vy: 0,
+      weapon: 'Napalm Particle',
+      shooterIdx: 0,
+      rolling: true
+    }];
+    for (let i = 0; i < 5; i++) {
+      autoGame.stepPhysics(1 / 60);
+    }
+    if (!autoTarget.shield || autoTarget.shield.type !== 'Heavy Shield') {
+      throw new Error(`Auto Defense should have raised a Heavy Shield on burn collapse, got ${JSON.stringify(autoTarget.shield)}`);
+    }
+    if (autoTarget.inventory['Heavy Shield'] !== 0) {
+      throw new Error("Auto Defense should consume the Heavy Shield from inventory");
+    }
+    console.log("✓ Auto Defense re-raises a shield collapsed by napalm burn.");
+
+    // Test 6.5: ammo decrements on fire; Baby Missile is unlimited
+    const ammoGame = makeArsenalGame(1004);
+    const shooterTank = ammoGame.roster[0];
+    shooterTank.angle = 45;
+    shooterTank.power = 500;
+    shooterTank.inventory['Missile'] = 2;
+    shooterTank.selectedWeapon = 'Missile';
+    ammoGame.fireActiveWeapon();
+    if (shooterTank.inventory['Missile'] !== 1) {
+      throw new Error(`Expected Missile ammo to drop to 1, got ${shooterTank.inventory['Missile']}`);
+    }
+    if (ammoGame.projectiles.length !== 1) {
+      throw new Error("Firing a Missile should put one projectile in flight");
+    }
+
+    // A weapon at zero ammo must not fire at all
+    shooterTank.inventory['Missile'] = 0;
+    ammoGame.projectiles = [];
+    ammoGame.fireActiveWeapon();
+    if (ammoGame.projectiles.length !== 0) {
+      throw new Error("A weapon with zero ammo must not fire");
+    }
+
+    // Baby Missile is the fallback weapon and is never consumed
+    shooterTank.selectedWeapon = 'Baby Missile';
+    const babyBefore = shooterTank.inventory['Baby Missile'];
+    ammoGame.projectiles = [];
+    ammoGame.fireActiveWeapon();
+    if (ammoGame.projectiles.length !== 1) {
+      throw new Error("Baby Missile should always be able to fire");
+    }
+    if (shooterTank.inventory['Baby Missile'] !== babyBefore) {
+      throw new Error("Baby Missile should be unlimited and never decrement");
+    }
+    console.log("✓ Ammo decrements on fire; zero ammo blocks firing; Baby Missile unlimited.");
+
+    // Test 6.6: MIRV splits into 5 sub-projectiles at apex
+    const mirvGame = makeArsenalGame(1005);
+    const mirvTank = mirvGame.roster[0];
+    mirvTank.angle = 45;
+    mirvTank.power = 500;
+    mirvTank.inventory['MIRV'] = 1;
+    mirvTank.selectedWeapon = 'MIRV';
+    mirvGame.fireActiveWeapon();
+
+    let sawSplit = 0;
+    for (let i = 0; i < 600 && mirvGame.projectiles.length > 0; i++) {
+      mirvGame.stepPhysics(1 / 60);
+      if (mirvGame.projectiles.length > sawSplit) {
+        sawSplit = mirvGame.projectiles.length;
+      }
+    }
+    if (sawSplit !== 5) {
+      throw new Error(`Expected MIRV to split into 5 sub-projectiles, peaked at ${sawSplit}`);
+    }
+    console.log("✓ MIRV splits into 5 sub-projectiles at apex.");
+
+    // Test 6.7: a projectile with no weapon name must not crash the physics loop
+    const oddGame = makeArsenalGame(1006);
+    oddGame.projectiles = [{
+      x: 300, y: oddGame.roster[1].y, vx: 0, vy: 0, shooterIdx: 0, rolling: true
+    }];
+    oddGame.stepPhysics(1 / 60);
+    console.log("✓ Nameless projectile handled without throwing.");
+
     console.log("\nALL TESTS PASSED SUCCESSFULLY! 🎉");
   }, 50);
 }
