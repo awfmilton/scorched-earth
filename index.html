@@ -1037,19 +1037,180 @@
               this.activePlayerIdx = nextIdx;
               this.raiseShieldForActivePlayer();
               this.updateHUD();
+              this.aiTimer = 0;
               return;
             }
           }
           this.updateHUD();
+          this.aiTimer = 0;
         }
 
         checkAIShot() {
           if (!this.roster || this.activePlayerIdx === undefined) return;
           const activeTank = this.roster[this.activePlayerIdx];
           if (activeTank && activeTank.hp > 0 && activeTank.type !== 'Human' && !this.projectile) {
-            // Pick deterministic angle and power using our rng
-            activeTank.angle = Math.round(rng.range(30, 150));
-            activeTank.power = Math.round(rng.range(200, 800));
+            // Find nearest living opponent
+            let target = null;
+            let minDist = Infinity;
+            this.roster.forEach((tank, idx) => {
+              if (idx !== this.activePlayerIdx && tank.hp > 0) {
+                const dist = Math.hypot(tank.x - activeTank.x, tank.y - activeTank.y);
+                if (dist < minDist) {
+                  minDist = dist;
+                  target = tank;
+                }
+              }
+            });
+
+            if (!target) return; // No targets available
+
+            const isRight = target.x > activeTank.x;
+
+            if (activeTank.type === 'Moron') {
+              const baseAngle = isRight ? 45 : 135;
+              const angle = baseAngle + rng.range(-35, 35);
+              const power = rng.range(300, 700);
+              activeTank.angle = Math.round(Math.min(180, Math.max(0, angle)));
+              activeTank.power = Math.round(Math.min(1000, Math.max(0, power)));
+            } else if (activeTank.type === 'Shooter') {
+              const dx = target.x - activeTank.x;
+              const dy = (target.y - 3) - (activeTank.y - 6);
+              const startAngles = dx > 0 ? [60, 55, 65, 50, 70, 45, 75, 40, 80, 35, 85] : [120, 125, 115, 130, 110, 135, 105, 140, 100, 145, 95];
+              let solvedAngle = null;
+              let solvedPower = null;
+              const g = CONST.GRAVITY;
+
+              for (let angle of startAngles) {
+                const angleRad = (angle * Math.PI) / 180;
+                const T = Math.tan(angleRad);
+                const denom = dy + dx * T;
+                if (denom > 0) {
+                  const v2 = (g * dx * dx * (1 + T * T)) / (2 * denom);
+                  if (v2 > 0) {
+                    const v = Math.sqrt(v2);
+                    if (v >= 200 && v <= 1000) {
+                      solvedAngle = angle;
+                      solvedPower = v;
+                      break;
+                    }
+                  }
+                }
+              }
+
+              if (solvedAngle === null) {
+                solvedAngle = dx > 0 ? 45 : 135;
+                solvedPower = 500;
+              }
+
+              activeTank.angle = Math.round(Math.min(180, Math.max(0, solvedAngle + rng.range(-4, 4))));
+              activeTank.power = Math.round(Math.min(1000, Math.max(0, solvedPower + rng.range(-15, 15))));
+            } else if (activeTank.type === 'Poolshark') {
+              let dx = target.x - activeTank.x;
+              const dy = (target.y - 3) - (activeTank.y - 6);
+              if (this.wallType === 'rubber') {
+                if (target.x > activeTank.x) {
+                  dx = -target.x - activeTank.x;
+                } else {
+                  dx = (2 * CONST.WORLD_W - target.x) - activeTank.x;
+                }
+              }
+
+              const shootRight = dx > 0;
+              const startAngles = shootRight ? [60, 55, 65, 50, 70, 45, 75, 40, 80, 35, 85] : [120, 125, 115, 130, 110, 135, 105, 140, 100, 145, 95];
+              let solvedAngle = null;
+              let solvedPower = null;
+              const g = CONST.GRAVITY;
+
+              for (let angle of startAngles) {
+                const angleRad = (angle * Math.PI) / 180;
+                const T = Math.tan(angleRad);
+                const denom = dy + dx * T;
+                if (denom > 0) {
+                  const v2 = (g * dx * dx * (1 + T * T)) / (2 * denom);
+                  if (v2 > 0) {
+                    const v = Math.sqrt(v2);
+                    if (v >= 200 && v <= 1000) {
+                      solvedAngle = angle;
+                      solvedPower = v;
+                      break;
+                    }
+                  }
+                }
+              }
+
+              if (solvedAngle === null) {
+                solvedAngle = shootRight ? 45 : 135;
+                solvedPower = 500;
+              }
+
+              activeTank.angle = Math.round(Math.min(180, Math.max(0, solvedAngle + rng.range(-2, 2))));
+              activeTank.power = Math.round(Math.min(1000, Math.max(0, solvedPower + rng.range(-10, 10))));
+            } else if (activeTank.type === 'Cyborg') {
+              // Select the most damaging affordable weapon from inventory
+              let bestWeaponId = 'Baby Missile';
+              let maxDamage = 0;
+              for (const weaponId in activeTank.inventory) {
+                if (activeTank.inventory[weaponId] > 0) {
+                  const wConf = WEAPONS.find(w => w.id === weaponId);
+                  if (wConf && wConf.damage > maxDamage) {
+                    maxDamage = wConf.damage;
+                    bestWeaponId = weaponId;
+                  }
+                }
+              }
+              activeTank.selectedWeapon = bestWeaponId;
+
+              // Apply telemetry correction
+              let aimX = target.x;
+              if (activeTank.telemetry && activeTank.telemetry[target.name]) {
+                const tel = activeTank.telemetry[target.name];
+                const errorX = tel.landX - tel.aimX;
+                aimX = target.x - errorX;
+              }
+              activeTank.lastTargetName = target.name;
+              activeTank.lastAimX = aimX;
+
+              const dx = aimX - activeTank.x;
+              const dy = (target.y - 3) - (activeTank.y - 6);
+              const shootRight = dx > 0;
+              const startAngles = shootRight ? [60, 55, 65, 50, 70, 45, 75, 40, 80, 35, 85] : [120, 125, 115, 130, 110, 135, 105, 140, 100, 145, 95];
+              let solvedAngle = null;
+              let solvedPower = null;
+              const aw = this.wind || 0;
+              const g = CONST.GRAVITY;
+
+              for (let angle of startAngles) {
+                const angleRad = (angle * Math.PI) / 180;
+                const T = Math.tan(angleRad);
+                const denom = g + aw * T;
+                const numer = dy + dx * T;
+                if (denom > 0 && numer > 0) {
+                  const t2 = (2 * numer) / denom;
+                  if (t2 > 0) {
+                    const t = Math.sqrt(t2);
+                    const vx = dx / t - 0.5 * aw * t;
+                    if ((shootRight && vx > 0) || (!shootRight && vx < 0)) {
+                      const vy = -vx * T;
+                      const v = Math.sqrt(vx * vx + vy * vy);
+                      if (v >= 200 && v <= 1000) {
+                        solvedAngle = angle;
+                        solvedPower = v;
+                        break;
+                      }
+                    }
+                  }
+                }
+              }
+
+              if (solvedAngle === null) {
+                solvedAngle = shootRight ? 45 : 135;
+                solvedPower = 500;
+              }
+
+              activeTank.angle = Math.round(solvedAngle);
+              activeTank.power = Math.round(solvedPower);
+            }
+
             this.fireActiveWeapon();
           }
         }
@@ -1184,6 +1345,17 @@
         }
 
         onImpact(x, y, weapon, shooterIdx) {
+          if (shooterIdx !== undefined && this.roster) {
+            const shooter = this.roster[shooterIdx];
+            if (shooter && shooter.type === 'Cyborg' && shooter.lastTargetName) {
+              shooter.telemetry = shooter.telemetry || {};
+              shooter.telemetry[shooter.lastTargetName] = {
+                aimX: shooter.lastAimX,
+                landX: x
+              };
+            }
+          }
+
           const wp = weapon || 'Baby Missile';
           // Find weapon config
           const wConf = WEAPONS.find(w => w.id === wp) || { blast: 30, damage: 60 };
@@ -1369,7 +1541,18 @@
           if (!this.projectile && !this.anyTankFalling() && this.roster && this.activePlayerIdx !== undefined) {
             const activeTank = this.roster[this.activePlayerIdx];
             if (activeTank && activeTank.hp > 0 && activeTank.type !== 'Human') {
-              this.checkAIShot();
+              if (this.headless) {
+                this.checkAIShot();
+              } else {
+                if (this.aiTimer === undefined) {
+                  this.aiTimer = 0;
+                }
+                this.aiTimer += dt;
+                if (this.aiTimer >= 0.7) {
+                  this.checkAIShot();
+                  this.aiTimer = 0;
+                }
+              }
             }
           }
 
@@ -1379,6 +1562,15 @@
             for (let pIdx = 0; pIdx < activeProjs.length; pIdx++) {
               const proj = activeProjs[pIdx];
               if (!this.projectiles.includes(proj)) continue;
+
+              proj.flightTicks = (proj.flightTicks || 0) + 1;
+              if (proj.flightTicks > 500) {
+                this.projectiles = this.projectiles.filter(p => p !== proj);
+                if (this.projectiles.length === 0) {
+                  this.nextTurn();
+                }
+                continue;
+              }
 
               // Normalize: the loop does name matching with .includes(), which throws
               // on a projectile spawned without a weapon name
@@ -1582,10 +1774,12 @@
                   if (proj.x < 0) {
                     proj.vx = -proj.vx;
                     proj.x = -proj.x;
+                    proj.bounces = (proj.bounces || 0) + 1;
                     if (!this.headless) sfx('bounce');
                   } else if (proj.x > CONST.WORLD_W) {
                     proj.vx = -proj.vx;
                     proj.x = CONST.WORLD_W - (proj.x - CONST.WORLD_W);
+                    proj.bounces = (proj.bounces || 0) + 1;
                     if (!this.headless) sfx('bounce');
                   }
                 } else if (this.wallType === 'wrap') {
@@ -1594,15 +1788,18 @@
                   if (proj.x < 0) {
                     proj.vx = -proj.vx;
                     proj.x = -proj.x;
+                    proj.bounces = (proj.bounces || 0) + 1;
                     if (!this.headless) sfx('bounce');
                   } else if (proj.x > CONST.WORLD_W) {
                     proj.vx = -proj.vx;
                     proj.x = CONST.WORLD_W - (proj.x - CONST.WORLD_W);
+                    proj.bounces = (proj.bounces || 0) + 1;
                     if (!this.headless) sfx('bounce');
                   }
                   if (proj.y < 0) {
                     proj.vy = -proj.vy;
                     proj.y = -proj.y;
+                    proj.bounces = (proj.bounces || 0) + 1;
                     if (!this.headless) sfx('bounce');
                   }
                 }
@@ -1925,6 +2122,11 @@
           } else {
             if (this.headless) {
               // In headless mode, automatically advance to next round
+              this.roster.forEach(player => {
+                if (player.type !== 'Human') {
+                  this.handleAIPurchases(player);
+                }
+              });
               this.startNextRound();
             } else {
               // In browser, start shop intermission for the first player
@@ -1995,6 +2197,25 @@
           return true;
         }
 
+        handleAIPurchases(player) {
+          if (player.type === 'Cyborg') {
+            const isBasicOnly = this.config && this.config.weaponsAvailability === 'basic';
+            const BASIC_WEAPONS = ['Baby Missile', 'Missile', 'Tracer'];
+            const availableWeapons = WEAPONS.filter(w => {
+              if (isBasicOnly) {
+                return BASIC_WEAPONS.includes(w.id);
+              }
+              return true;
+            });
+            // Sort by damage descending
+            const sortedWeapons = [...availableWeapons].sort((a, b) => b.damage - a.damage);
+            const bestWeapon = sortedWeapons.find(w => player.cash >= w.cost);
+            if (bestWeapon) {
+              this.buy(player, bestWeapon.id);
+            }
+          }
+        }
+
         startShopIntermission() {
           this.shoppingPlayerIdx = 0;
           this.showShopForPlayer(this.shoppingPlayerIdx);
@@ -2005,9 +2226,19 @@
           const shopEl = document.getElementById('shop');
           if (!shopEl) return;
 
-          shopEl.hidden = false;
-
           const player = this.roster[playerIdx];
+          if (player.type !== 'Human') {
+            this.handleAIPurchases(player);
+            this.shoppingPlayerIdx++;
+            if (this.shoppingPlayerIdx < this.roster.length) {
+              this.showShopForPlayer(this.shoppingPlayerIdx);
+            } else {
+              this.startNextRound();
+            }
+            return;
+          }
+
+          shopEl.hidden = false;
 
           // Clear and rebuild shop content
           shopEl.innerHTML = '';

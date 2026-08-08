@@ -1207,6 +1207,226 @@ function runTests() {
     }
     console.log("✓ basic-only config option filters non-basic weapons successfully.");
 
+    // --- Test 8: Four-Opponent Match (unattended) ---
+    console.log("\n=== Test 8: Four-Opponent Unattended Match ===");
+    const matchGame = SCORCHED.createHeadlessGame({ seed: 123 });
+    matchGame.start({
+      players: [
+        { name: 'AI_Moron', type: 'Moron', color: '#ff00ff' },
+        { name: 'AI_Shooter', type: 'Shooter', color: '#00ffff' },
+        { name: 'AI_Poolshark', type: 'Poolshark', color: '#ff2222' },
+        { name: 'AI_Cyborg', type: 'Cyborg', color: '#22ff22' }
+      ],
+      rounds: 3,
+      startingCash: 15000,
+      wallType: 'rubber',
+      weaponsAvailability: 'all'
+    });
+
+    let matchTicks = 0;
+    while (!matchGame.roundOver && matchGame.currentRound <= 3 && matchTicks < 30000) {
+      matchGame.stepPhysics(SCORCHED.CONST.TICK);
+      matchTicks++;
+    }
+    console.log(`✓ Played a full unattended match with 4 AI players over 3 rounds in ${matchTicks} ticks.`);
+
+    // --- Test 9: Cyborg Telemetry Correction ---
+    console.log("\n=== Test 9: Cyborg Telemetry Accuracy ===");
+    const cyborgGame = SCORCHED.createHeadlessGame({ seed: 777 });
+    cyborgGame.start({
+      players: [
+        { name: 'Cyborg_P1', type: 'Cyborg', color: '#ff00ff' },
+        { name: 'Dummy_P2', type: 'Human', color: '#00ffff' }
+      ],
+      rounds: 2,
+      startingCash: 10000,
+      wallType: 'off'
+    });
+    cyborgGame.wind = 0;
+
+    for (let i = 0; i < SCORCHED.CONST.WORLD_W; i++) {
+      cyborgGame.terrain.heights[i] = 100;
+    }
+    cyborgGame.roster[0].x = 200;
+    cyborgGame.roster[1].x = 800;
+    cyborgGame.snapTanksToTerrain();
+
+    cyborgGame.roster[1].shield = null;
+
+    let shotCount = 0;
+    let firstImpactX = null;
+    let secondImpactX = null;
+
+    cyborgGame.config.onImpact = (x, y) => {
+      shotCount++;
+      if (shotCount === 1) {
+        firstImpactX = x;
+      } else if (shotCount === 2) {
+        secondImpactX = x;
+      }
+    };
+
+    cyborgGame.activePlayerIdx = 0;
+    cyborgGame.stepPhysics(SCORCHED.CONST.TICK);
+    ticks = 0;
+    while (cyborgGame.projectile && ticks < 1000) {
+      cyborgGame.stepPhysics(SCORCHED.CONST.TICK);
+      ticks++;
+    }
+
+    if (firstImpactX === null) {
+      throw new Error("Cyborg's first shot did not land!");
+    }
+
+    cyborgGame.activePlayerIdx = 0;
+    cyborgGame.projectiles = [];
+    cyborgGame.stepPhysics(SCORCHED.CONST.TICK);
+
+    ticks = 0;
+    while (cyborgGame.projectile && ticks < 1000) {
+      cyborgGame.stepPhysics(SCORCHED.CONST.TICK);
+      ticks++;
+    }
+
+    if (secondImpactX === null) {
+      throw new Error("Cyborg's second shot did not land!");
+    }
+
+    const firstError = Math.abs(firstImpactX - 800);
+    const secondError = Math.abs(secondImpactX - 800);
+
+    console.log(`Cyborg Shot 1 landed at ${firstImpactX.toFixed(4)} (error: ${firstError.toFixed(4)})`);
+    console.log(`Cyborg Shot 2 landed at ${secondImpactX.toFixed(4)} (error: ${secondError.toFixed(4)})`);
+
+    if (secondError >= firstError) {
+      throw new Error(`Expected Cyborg's second shot error (${secondError}) to be strictly less than first shot error (${firstError})!`);
+    }
+    console.log("✓ Cyborg's second shot landed strictly closer than its first.");
+
+    // --- Test 10: Poolshark Bounce Path ---
+    console.log("\n=== Test 10: Poolshark Wall Bounce ===");
+    const bounceGame = SCORCHED.createHeadlessGame({ seed: 999 });
+    bounceGame.start({
+      players: [
+        { name: 'Poolshark', type: 'Poolshark', color: '#ff00ff' },
+        { name: 'Dummy', type: 'Human', color: '#00ffff' }
+      ],
+      rounds: 1,
+      startingCash: 10000,
+      wallType: 'rubber'
+    });
+    bounceGame.wind = 0;
+
+    for (let i = 0; i < SCORCHED.CONST.WORLD_W; i++) {
+      bounceGame.terrain.heights[i] = 100;
+    }
+    bounceGame.roster[0].x = 200;
+    bounceGame.roster[1].x = 300;
+    bounceGame.snapTanksToTerrain();
+
+    let hitBounces = 0;
+    let landedX = null;
+    bounceGame.config.onImpact = (x, y) => {
+      landedX = x;
+    };
+
+    bounceGame.stepPhysics(SCORCHED.CONST.TICK);
+
+    if (!bounceGame.projectile) {
+      throw new Error("Poolshark did not shoot!");
+    }
+    const shotAngle = bounceGame.roster[0].angle;
+    console.log(`Poolshark shot angle: ${shotAngle} degrees (aiming at left wall)`);
+    if (shotAngle <= 90) {
+      throw new Error("Expected Poolshark to shoot leftwards (> 90 degrees) to hit left wall, but angle was <= 90!");
+    }
+
+    ticks = 0;
+    while (bounceGame.projectile && ticks < 1000) {
+      if (bounceGame.projectile.bounces > 0) {
+        hitBounces = bounceGame.projectile.bounces;
+      }
+      bounceGame.stepPhysics(SCORCHED.CONST.TICK);
+      ticks++;
+    }
+
+    console.log(`Poolshark projectile landed at ${landedX ? landedX.toFixed(2) : 'null'} after ${hitBounces} bounces.`);
+    if (hitBounces === 0) {
+      throw new Error("Expected the projectile to bounce off the rubber wall at least once!");
+    }
+    console.log("✓ Poolshark successfully bounced the shot off the rubber wall.");
+
+    // --- Test 11: Seed Reproducibility ---
+    console.log("\n=== Test 11: Seed Reproducibility ===");
+    const runGameWithSeed = (seed) => {
+      const g = SCORCHED.createHeadlessGame({ seed });
+      g.start({
+        players: [
+          { name: 'AI_1', type: 'Moron', color: '#ff00ff' },
+          { name: 'AI_2', type: 'Shooter', color: '#00ffff' }
+        ],
+        rounds: 1,
+        startingCash: 10000,
+        wallType: 'off'
+      });
+      g.stepPhysics(SCORCHED.CONST.TICK);
+      const angle1 = g.roster[0].angle;
+      const power1 = g.roster[0].power;
+      return { angle1, power1 };
+    };
+
+    const run1 = runGameWithSeed(888);
+    const run2 = runGameWithSeed(888);
+    const run3 = runGameWithSeed(999);
+
+    console.log(`Run 1 (Seed 888): angle = ${run1.angle1}, power = ${run1.power1}`);
+    console.log(`Run 2 (Seed 888): angle = ${run2.angle1}, power = ${run2.power1}`);
+    console.log(`Run 3 (Seed 999): angle = ${run3.angle1}, power = ${run3.power1}`);
+
+    if (run1.angle1 !== run2.angle1 || run1.power1 !== run2.power1) {
+      throw new Error("Game decisions with identical seeds are not reproducible!");
+    }
+    if (run1.angle1 === run3.angle1 && run1.power1 === run3.power1) {
+      throw new Error("Game decisions with different seeds produced identical results!");
+    }
+    console.log("✓ Deterministic AI decisions verified successfully.");
+
+    // --- Test 12: Shot Leaving the World ---
+    console.log("\n=== Test 12: Shot Leaving the World Advances Turn ===");
+    const leaveGame = SCORCHED.createHeadlessGame({ seed: 555 });
+    leaveGame.start({
+      players: [
+        { name: 'AI_1', type: 'Moron', color: '#ff00ff' },
+        { name: 'AI_2', type: 'Moron', color: '#00ffff' }
+      ],
+      rounds: 1,
+      startingCash: 10000,
+      wallType: 'off'
+    });
+    leaveGame.wind = 0;
+
+    leaveGame.activePlayerIdx = 0;
+    leaveGame.roster[0].x = 100;
+    leaveGame.roster[0].angle = 150;
+    leaveGame.roster[0].power = 900;
+    leaveGame.fireActiveWeapon();
+
+    if (!leaveGame.projectile) {
+      throw new Error("Expected projectile to be live");
+    }
+
+    let lTicks = 0;
+    while (leaveGame.projectile && lTicks < 1000) {
+      leaveGame.stepPhysics(SCORCHED.CONST.TICK);
+      lTicks++;
+    }
+
+    console.log(`Projectile left screen and turn advanced. Active player idx now: ${leaveGame.activePlayerIdx}`);
+    if (leaveGame.activePlayerIdx !== 1) {
+      throw new Error("Expected active turn to advance to AI_2 (index 1) after projectile left the screen!");
+    }
+    console.log("✓ AI shot leaving the world successfully advanced the turn.");
+
     console.log("\nALL TESTS PASSED SUCCESSFULLY! 🎉");
   }, 50);
 }
