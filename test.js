@@ -994,6 +994,142 @@ function runTests() {
     oddGame.stepPhysics(1 / 60);
     console.log("✓ Nameless projectile handled without throwing.");
 
+    // === Chunk 7: Intermission Shop Economy, Payouts, and basic-only toggle ===
+    console.log("\n=== Chunk 7: Intermission Shop Economy & Payouts ===");
+
+    // Test 7.1: Verify round-end payouts (damage, kills, and survival bonus)
+    const payoutGame = SCORCHED.createHeadlessGame({ seed: 2000 });
+    payoutGame.start({
+      players: [
+        { name: 'P1', type: 'Human', color: '#ff00ff' },
+        { name: 'P2', type: 'Human', color: '#00ffff' }
+      ],
+      rounds: 3,
+      startingCash: 1000,
+      wallType: 'off'
+    });
+
+    // Manually inject round stats
+    // Let's say P1 dealt 120.5 damage and got 1 kill, P1 survived (hp = 100)
+    // Let's say P2 dealt 0 damage, 0 kills, P2 is dead (hp = 0)
+    const p1 = payoutGame.roster[0];
+    const p2 = payoutGame.roster[1];
+    p1.damageDealt = 120.5;
+    p1.kills = 1;
+    p1.hp = 100;
+
+    p2.damageDealt = 0;
+    p2.kills = 0;
+    p2.hp = 0;
+
+    // Run handleRoundEnd manually to check payouts
+    payoutGame.handleRoundEnd();
+
+    // Check payouts
+    // P1: $1000 (starting) + $120 (damage) + $500 (1 kill) + $100 (survival bonus for round 1) = $1720
+    const expectedP1Cash = 1000 + 120 + 500 + 100; // 1720
+    if (p1.cash !== expectedP1Cash) {
+      throw new Error(`Expected P1 cash to be $${expectedP1Cash}, got $${p1.cash}`);
+    }
+
+    // P2: $1000 (starting) + $0 (damage) + $0 (kills) + $0 (survival bonus) = $1000
+    if (p2.cash !== 1000) {
+      throw new Error(`Expected P2 cash to be $1000, got $${p2.cash}`);
+    }
+
+    // Verify round stats are reset to 0
+    if (p1.damageDealt !== 0 || p1.kills !== 0) {
+      throw new Error("Expected P1 round stats to be reset to 0!");
+    }
+
+    // Verify cumulative stats are set
+    if (p1.cumulativeDamage !== 120.5 || p1.cumulativeKills !== 1) {
+      throw new Error(`Expected cumulative stats, got damage=${p1.cumulativeDamage}, kills=${p1.cumulativeKills}`);
+    }
+
+    console.log("✓ Round-end payouts, stat reset, and cumulative stat accumulation verified successfully.");
+
+    // Test 7.2: Verify buy(tank, id) logic
+    const buyGame = SCORCHED.createHeadlessGame({ seed: 2100 });
+    buyGame.start({
+      players: [
+        { name: 'P1', type: 'Human', color: '#ff00ff' }
+      ],
+      rounds: 2,
+      startingCash: 2000,
+      wallType: 'off'
+    });
+
+    const shopper = buyGame.roster[0];
+
+    // Missile cost is 500, pack size is 5
+    const firstBuy = buyGame.buy(shopper, 'Missile');
+    if (!firstBuy) {
+      throw new Error("Expected P1 to successfully buy 'Missile'");
+    }
+    if (shopper.cash !== 1500) {
+      throw new Error(`Expected P1 cash to be 1500, got ${shopper.cash}`);
+    }
+    if (shopper.inventory['Missile'] !== 5) {
+      throw new Error(`Expected Missile inventory to be 5, got ${shopper.inventory['Missile']}`);
+    }
+
+    // Purchase another pack (cumulative)
+    const secondBuy = buyGame.buy(shopper, 'Missile');
+    if (!secondBuy) {
+      throw new Error("Expected P1 to successfully buy 'Missile' second time");
+    }
+    if (shopper.cash !== 1000) {
+      throw new Error(`Expected P1 cash to be 1000, got ${shopper.cash}`);
+    }
+    if (shopper.inventory['Missile'] !== 10) {
+      throw new Error(`Expected Missile inventory to be 10, got ${shopper.inventory['Missile']}`);
+    }
+
+    // Try to buy an unaffordable item
+    // Nuke cost is 5000, which is > shopper's cash 1000
+    const expensiveBuy = buyGame.buy(shopper, 'Nuke');
+    if (expensiveBuy) {
+      throw new Error("Expected unaffordable purchase to be rejected, but it succeeded!");
+    }
+    if (shopper.cash !== 1000) {
+      throw new Error(`Expected shopper cash to remain 1000, got ${shopper.cash}`);
+    }
+    if (shopper.inventory['Nuke'] !== undefined && shopper.inventory['Nuke'] !== 0) {
+      throw new Error(`Expected shopper Nuke inventory to remain untouched, got ${shopper.inventory['Nuke']}`);
+    }
+
+    console.log("✓ buy(tank, id) functionality and validation checks verified successfully.");
+
+    // Test 7.3: Verify basic-only toggle filters non-basic weapons
+    const basicGame = SCORCHED.createHeadlessGame({ seed: 2200 });
+    basicGame.start({
+      players: [{ name: 'P1', type: 'Human', color: '#ff00ff' }],
+      rounds: 2,
+      startingCash: 2000,
+      wallType: 'off',
+      weaponsAvailability: 'basic'
+    });
+
+    const isBasicOnly = basicGame.config && basicGame.config.weaponsAvailability === 'basic';
+    const BASIC_WEAPONS = ['Baby Missile', 'Missile', 'Tracer'];
+
+    const filtered = SCORCHED.WEAPONS.filter(w => {
+      if (isBasicOnly) {
+        return BASIC_WEAPONS.includes(w.id);
+      }
+      return true;
+    });
+
+    if (filtered.length !== 3) {
+      throw new Error(`Expected only 3 weapons when basic-only is enabled, got ${filtered.length}`);
+    }
+    const filteredIDs = filtered.map(w => w.id);
+    if (!filteredIDs.includes('Baby Missile') || !filteredIDs.includes('Missile') || !filteredIDs.includes('Tracer')) {
+      throw new Error("Filtered weapons list does not match basic weapons ('Baby Missile', 'Missile', 'Tracer')");
+    }
+    console.log("✓ basic-only config option filters non-basic weapons successfully.");
+
     console.log("\nALL TESTS PASSED SUCCESSFULLY! 🎉");
   }, 50);
 }

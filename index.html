@@ -193,6 +193,21 @@
       background: #33ff33;
       box-shadow: 0 0 10px #33ff33;
     }
+    #shop {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(12, 12, 12, 0.95);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 90;
+    }
+    #shop[hidden] {
+      display: none !important;
+    }
   </style>
 </head>
 <body>
@@ -800,6 +815,7 @@
 
         newRound(roundSeed) {
           this.seed = roundSeed;
+          this.roundOver = false;
           this.terrain.generate(roundSeed);
           this.persistentTracers = [];
           // Regenerate wind: signed horizontal acceleration, let's say between -150 and 150
@@ -1288,6 +1304,7 @@
         }
 
         stepPhysics(dt) {
+          if (this.roundOver) return;
           this.roundState.ticks++;
 
           // Update falling tanks
@@ -1698,6 +1715,13 @@
               }
             }
           }
+
+          if (!this.roundOver && this.projectiles.length === 0 && !this.anyTankFalling() && this.roster) {
+            const livingTanks = this.roster.filter(t => t.hp > 0);
+            if (livingTanks.length <= 1) {
+              this.handleRoundEnd();
+            }
+          }
         }
 
         spawnParticle(type, x, y, vx, vy, color, maxLife, size) {
@@ -1863,11 +1887,397 @@
         }
 
         update(dt) {
+          if (this.roundOver) return;
           this.stepPhysics(dt);
           if (!this.headless) {
             this.updateParticles(dt);
             this.updateExplosions(dt);
           }
+        }
+
+        handleRoundEnd() {
+          this.roundOver = true;
+
+          // 1. Calculate and apply payouts
+          if (this.roster) {
+            this.roster.forEach(tank => {
+              tank.cumulativeKills = (tank.cumulativeKills || 0) + (tank.kills || 0);
+              tank.cumulativeDamage = (tank.cumulativeDamage || 0) + (tank.damageDealt || 0);
+
+              const damagePayout = Math.floor(tank.damageDealt || 0);
+              const killPayout = (tank.kills || 0) * 500;
+              const survivalBonus = tank.hp > 0 ? (100 * this.currentRound) : 0;
+
+              tank.cash += damagePayout + killPayout + survivalBonus;
+
+              // Reset round-level stats
+              tank.damageDealt = 0;
+              tank.kills = 0;
+            });
+          }
+
+          // 2. Check if this was the final round
+          if (this.currentRound >= this.rounds) {
+            if (!this.headless) {
+              this.showMatchSummary();
+            }
+          } else {
+            if (this.headless) {
+              // In headless mode, automatically advance to next round
+              this.startNextRound();
+            } else {
+              // In browser, start shop intermission for the first player
+              this.startShopIntermission();
+            }
+          }
+        }
+
+        startNextRound() {
+          this.currentRound++;
+          this.roundOver = false;
+
+          // Generate fresh terrain and wind for the new round
+          this.newRound(this.seed + this.currentRound);
+
+          // Restore tanks to full hp, clear shields, reposition
+          if (this.roster) {
+            const N = this.roster.length;
+            const zoneW = CONST.WORLD_W / N;
+            const margin = 40;
+            this.roster.forEach((tank, i) => {
+              tank.hp = 100;
+              tank.shield = null;
+
+              // Fresh random position within player zone
+              const minX = zoneW * i + margin;
+              const maxX = zoneW * (i + 1) - margin;
+              tank.x = rng.range(minX, maxX);
+            });
+            this.snapTanksToTerrain();
+          }
+
+          this.activePlayerIdx = 0;
+          this.projectile = null;
+          this.raiseShieldForActivePlayer();
+
+          if (!this.headless) {
+            const shopEl = document.getElementById('shop');
+            if (shopEl) {
+              shopEl.hidden = true;
+            }
+            this.updateHUD();
+          }
+        }
+
+        buy(tank, id) {
+          const weapon = WEAPONS.find(w => w.id === id);
+          const item = ITEMS.find(i => i.id === id);
+          const config = weapon || item;
+          if (!config) return false;
+
+          if (tank.cash < config.cost) {
+            return false;
+          }
+
+          tank.cash -= config.cost;
+          if (!tank.inventory) {
+            tank.inventory = {};
+          }
+          if (tank.inventory[id] === undefined) {
+            tank.inventory[id] = 0;
+          }
+          tank.inventory[id] += config.packSize;
+
+          if (!this.headless) {
+            sfx('buy');
+          }
+          return true;
+        }
+
+        startShopIntermission() {
+          this.shoppingPlayerIdx = 0;
+          this.showShopForPlayer(this.shoppingPlayerIdx);
+        }
+
+        showShopForPlayer(playerIdx) {
+          if (this.headless) return;
+          const shopEl = document.getElementById('shop');
+          if (!shopEl) return;
+
+          shopEl.hidden = false;
+
+          const player = this.roster[playerIdx];
+
+          // Clear and rebuild shop content
+          shopEl.innerHTML = '';
+
+          // Create container
+          const container = document.createElement('div');
+          container.className = 'shop-container';
+          container.style.background = '#181818';
+          container.style.border = '3px double ' + player.color;
+          container.style.padding = '20px';
+          container.style.width = '90%';
+          container.style.maxWidth = '800px';
+          container.style.margin = '20px auto';
+          container.style.boxShadow = '0 0 20px ' + player.color;
+          container.style.maxHeight = '90vh';
+          container.style.display = 'flex';
+          container.style.flexDirection = 'column';
+
+          // Header
+          const header = document.createElement('div');
+          header.style.borderBottom = '2px solid ' + player.color;
+          header.style.paddingBottom = '10px';
+          header.style.marginBottom = '15px';
+          header.style.display = 'flex';
+          header.style.justifyContent = 'space-between';
+          header.style.alignItems = 'center';
+
+          const title = document.createElement('h2');
+          title.textContent = player.name.toUpperCase();
+          title.style.color = player.color;
+          title.style.margin = '0';
+          title.style.letterSpacing = '2px';
+
+          const info = document.createElement('div');
+          info.style.textAlign = 'right';
+          info.style.color = '#00ff00';
+          info.innerHTML = `
+            <div style="font-weight: bold; font-size: 18px;">CASH: $${player.cash}</div>
+            <div style="font-size: 14px; color: #888;">Round ${this.currentRound} of ${this.rounds}</div>
+          `;
+
+          header.appendChild(title);
+          header.appendChild(info);
+          container.appendChild(header);
+
+          // Grid container (scrollable)
+          const gridWrapper = document.createElement('div');
+          gridWrapper.style.flex = '1 1 auto';
+          gridWrapper.style.overflowY = 'auto';
+          gridWrapper.style.marginBottom = '15px';
+          gridWrapper.style.paddingRight = '5px';
+
+          const grid = document.createElement('div');
+          grid.style.display = 'grid';
+          grid.style.gridTemplateColumns = '2fr 1fr 1fr 1fr 1.5fr';
+          grid.style.gap = '10px';
+          grid.style.alignItems = 'center';
+
+          // Table Headers
+          const headers = ['Item / Weapon', 'Cost', 'Pack Size', 'Owned', 'Action'];
+          headers.forEach(hText => {
+            const h = document.createElement('div');
+            h.textContent = hText.toUpperCase();
+            h.style.fontWeight = 'bold';
+            h.style.color = player.color;
+            h.style.borderBottom = '1px solid ' + player.color;
+            h.style.paddingBottom = '5px';
+            grid.appendChild(h);
+          });
+
+          // Filter weapons if basicOnly is checked
+          const isBasicOnly = this.config && this.config.weaponsAvailability === 'basic';
+          const BASIC_WEAPONS = ['Baby Missile', 'Missile', 'Tracer'];
+
+          const availableWeapons = WEAPONS.filter(w => {
+            if (isBasicOnly) {
+              return BASIC_WEAPONS.includes(w.id);
+            }
+            return true;
+          });
+
+          const availableItems = ITEMS;
+
+          // Helper to add rows
+          const addRow = (itemConf) => {
+            // Name
+            const nameDiv = document.createElement('div');
+            nameDiv.textContent = itemConf.name;
+            nameDiv.style.color = '#fff';
+
+            // Cost
+            const costDiv = document.createElement('div');
+            costDiv.textContent = `$${itemConf.cost}`;
+            costDiv.style.color = '#00ff00';
+
+            // Pack Size
+            const sizeDiv = document.createElement('div');
+            sizeDiv.textContent = itemConf.packSize;
+            sizeDiv.style.color = '#888';
+
+            // Owned Count
+            const ownedDiv = document.createElement('div');
+            const count = player.inventory[itemConf.id] !== undefined ? player.inventory[itemConf.id] : 0;
+            ownedDiv.textContent = count === Infinity ? 'INF' : count;
+            ownedDiv.style.color = '#888';
+
+            // Buy button
+            const buyBtn = document.createElement('button');
+            buyBtn.textContent = 'BUY';
+            buyBtn.style.fontFamily = 'inherit';
+            buyBtn.style.padding = '4px 8px';
+            buyBtn.style.border = '1px solid ' + player.color;
+            buyBtn.style.background = 'transparent';
+            buyBtn.style.color = player.color;
+            buyBtn.style.cursor = 'pointer';
+
+            if (player.cash < itemConf.cost) {
+              buyBtn.disabled = true;
+              buyBtn.style.borderColor = '#444';
+              buyBtn.style.color = '#444';
+              buyBtn.style.cursor = 'not-allowed';
+            } else {
+              buyBtn.addEventListener('click', () => {
+                if (this.buy(player, itemConf.id)) {
+                  // Refresh shop
+                  this.showShopForPlayer(playerIdx);
+                }
+              });
+            }
+
+            grid.appendChild(nameDiv);
+            grid.appendChild(costDiv);
+            grid.appendChild(sizeDiv);
+            grid.appendChild(ownedDiv);
+            grid.appendChild(buyBtn);
+          };
+
+          availableWeapons.forEach(addRow);
+          availableItems.forEach(addRow);
+
+          gridWrapper.appendChild(grid);
+          container.appendChild(gridWrapper);
+
+          // Done button
+          const footer = document.createElement('div');
+          footer.style.borderTop = '2px solid ' + player.color;
+          footer.style.paddingTop = '15px';
+          footer.style.textAlign = 'right';
+
+          const doneBtn = document.createElement('button');
+          doneBtn.textContent = 'DONE';
+          doneBtn.style.fontFamily = 'inherit';
+          doneBtn.style.fontSize = '16px';
+          doneBtn.style.fontWeight = 'bold';
+          doneBtn.style.padding = '10px 25px';
+          doneBtn.style.background = player.color;
+          doneBtn.style.color = '#000';
+          doneBtn.style.border = 'none';
+          doneBtn.style.cursor = 'pointer';
+
+          doneBtn.addEventListener('click', () => {
+            this.shoppingPlayerIdx++;
+            if (this.shoppingPlayerIdx < this.roster.length) {
+              this.showShopForPlayer(this.shoppingPlayerIdx);
+            } else {
+              this.startNextRound();
+            }
+          });
+
+          footer.appendChild(doneBtn);
+          container.appendChild(footer);
+          shopEl.appendChild(container);
+        }
+
+        showMatchSummary() {
+          if (this.headless) return;
+          const shopEl = document.getElementById('shop');
+          if (!shopEl) return;
+
+          shopEl.hidden = false;
+          shopEl.innerHTML = '';
+
+          // Sort players by kills (cumulative) descending, then by cash descending
+          const sorted = [...this.roster].sort((a, b) => {
+            const aKills = a.cumulativeKills || 0;
+            const bKills = b.cumulativeKills || 0;
+            if (bKills !== aKills) {
+              return bKills - aKills;
+            }
+            return b.cash - a.cash;
+          });
+
+          const container = document.createElement('div');
+          container.className = 'summary-container';
+          container.style.background = '#181818';
+          container.style.border = '3px double #00ff00';
+          container.style.padding = '20px';
+          container.style.width = '90%';
+          container.style.maxWidth = '650px';
+          container.style.margin = '20px auto';
+          container.style.boxShadow = '0 0 20px rgba(0, 255, 0, 0.2)';
+          container.style.textAlign = 'center';
+
+          const title = document.createElement('h2');
+          title.textContent = 'FINAL MATCH SUMMARY';
+          title.style.color = '#00ff00';
+          title.style.borderBottom = '2px solid #00ff00';
+          title.style.paddingBottom = '10px';
+          title.style.letterSpacing = '2px';
+          container.appendChild(title);
+
+          const list = document.createElement('div');
+          list.style.margin = '20px 0';
+          list.style.display = 'flex';
+          list.style.flexDirection = 'column';
+          list.style.gap = '10px';
+
+          sorted.forEach((player, idx) => {
+            const row = document.createElement('div');
+            row.style.display = 'flex';
+            row.style.justifyContent = 'space-between';
+            row.style.alignItems = 'center';
+            row.style.padding = '10px';
+            row.style.border = '1px dashed ' + player.color;
+            row.style.background = '#111';
+
+            const rankAndName = document.createElement('div');
+            rankAndName.style.fontWeight = 'bold';
+            rankAndName.style.fontSize = '18px';
+            rankAndName.style.color = player.color;
+            rankAndName.textContent = `#${idx + 1} ${player.name.toUpperCase()}`;
+
+            const stats = document.createElement('div');
+            stats.style.color = '#fff';
+            stats.style.fontSize = '16px';
+            stats.innerHTML = `
+              <span style="margin-right: 15px;">KILLS: ${player.cumulativeKills || 0}</span>
+              <span>CASH: $${player.cash}</span>
+            `;
+
+            row.appendChild(rankAndName);
+            row.appendChild(stats);
+            list.appendChild(row);
+          });
+
+          container.appendChild(list);
+
+          // Restart Game button
+          const restartBtn = document.createElement('button');
+          restartBtn.textContent = 'PLAY AGAIN';
+          restartBtn.style.fontFamily = 'inherit';
+          restartBtn.style.fontSize = '16px';
+          restartBtn.style.fontWeight = 'bold';
+          restartBtn.style.padding = '12px';
+          restartBtn.style.width = '100%';
+          restartBtn.style.background = '#00ff00';
+          restartBtn.style.color = '#000';
+          restartBtn.style.border = 'none';
+          restartBtn.style.cursor = 'pointer';
+          restartBtn.style.transition = 'background 0.2s';
+
+          restartBtn.addEventListener('click', () => {
+            // Hide shop
+            shopEl.hidden = true;
+            // Show setup modal
+            const setupEl = document.getElementById('setup');
+            if (setupEl) setupEl.hidden = false;
+          });
+
+          container.appendChild(restartBtn);
+          shopEl.appendChild(container);
         }
 
         draw() {
@@ -2154,6 +2564,7 @@
         document.addEventListener('DOMContentLoaded', () => {
           if (document.getElementById('game')) {
             gameInstance = new Game({ headless: false });
+            globalThis.SCORCHED.gameInstance = gameInstance;
             if (typeof requestAnimationFrame !== 'undefined') {
               requestAnimationFrame(loop);
             }
