@@ -37,12 +37,220 @@
       width: 100%;
       height: calc(100% - 40px);
     }
+    /* Setup Modal styling */
+    #setup {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(12, 12, 12, 0.9);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+    #setup[hidden] {
+      display: none !important;
+    }
+    .setup-container {
+      background: #181818;
+      border: 3px double #00ff00;
+      padding: 20px;
+      width: 90%;
+      max-width: 650px;
+      box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+      max-height: 95vh;
+      overflow-y: auto;
+    }
+    .setup-container h2 {
+      margin-top: 0;
+      text-align: center;
+      color: #00ff00;
+      border-bottom: 2px solid #00ff00;
+      padding-bottom: 10px;
+      letter-spacing: 2px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+    }
+    .form-group label {
+      width: 150px;
+      color: #00ff00;
+      font-weight: bold;
+    }
+    .form-group input[type="text"],
+    .form-group input[type="number"],
+    .form-group select {
+      flex: 1;
+      background: #000;
+      border: 1px solid #00ff00;
+      color: #00ff00;
+      padding: 6px 10px;
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
+    }
+    .form-group select option {
+      background: #000;
+      color: #00ff00;
+    }
+    .form-group input:focus,
+    .form-group select:focus {
+      box-shadow: 0 0 5px #00ff00;
+    }
+    .player-row {
+      border: 1px dashed #333;
+      padding: 10px;
+      margin-bottom: 15px;
+      background: #111;
+    }
+    .player-row .form-group {
+      margin-bottom: 8px;
+    }
+    .player-row .form-group:last-child {
+      margin-bottom: 0;
+    }
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      border-top: 2px solid #333;
+      padding-top: 15px;
+      margin-top: 15px;
+    }
+    .settings-grid .form-group {
+      flex-direction: column;
+      align-items: flex-start;
+      margin-bottom: 0;
+    }
+    .settings-grid .form-group label {
+      width: 100%;
+      margin-bottom: 5px;
+    }
+    .settings-grid .form-group input,
+    .settings-grid .form-group select {
+      width: 100%;
+    }
+    .checkbox-group .radio-options {
+      display: flex;
+      gap: 15px;
+      width: 100%;
+      margin-top: 5px;
+    }
+    .checkbox-group .radio-options label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-weight: normal;
+      cursor: pointer;
+      width: auto;
+    }
+    .checkbox-group input[type="radio"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border: 1px solid #00ff00;
+      background: #000;
+      display: inline-block;
+      position: relative;
+      cursor: pointer;
+      outline: none;
+    }
+    .checkbox-group input[type="radio"]:checked::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 6px;
+      height: 6px;
+      background: #00ff00;
+    }
+    .error-msg {
+      color: #ff5555;
+      text-align: center;
+      font-weight: bold;
+      margin: 15px 0;
+      min-height: 20px;
+    }
+    #start-btn {
+      display: block;
+      width: 100%;
+      background: #00ff00;
+      color: #000;
+      border: none;
+      padding: 12px;
+      font-family: inherit;
+      font-weight: bold;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #start-btn:hover {
+      background: #33ff33;
+      box-shadow: 0 0 10px #33ff33;
+    }
   </style>
 </head>
 <body>
   <div id="hud"></div>
   <canvas id="game"></canvas>
-  <div id="setup" hidden></div>
+  <div id="setup">
+    <div class="setup-container">
+      <h2>SCORCHED EARTH SETUP</h2>
+
+      <div class="form-group">
+        <label for="player-count">Players:</label>
+        <select id="player-count">
+          <option value="2">2 Players</option>
+          <option value="3">3 Players</option>
+          <option value="4" selected>4 Players</option>
+        </select>
+      </div>
+
+      <div id="player-slots"></div>
+
+      <div class="settings-grid">
+        <div class="form-group">
+          <label for="rounds">Rounds (1-20):</label>
+          <input type="number" id="rounds" min="1" max="20" value="5">
+        </div>
+        <div class="form-group">
+          <label for="starting-cash">Starting Cash:</label>
+          <input type="number" id="starting-cash" min="0" value="10000">
+        </div>
+        <div class="form-group">
+          <label for="wall-type">Wall Type:</label>
+          <select id="wall-type">
+            <option value="off">Off (Wrap-around / None)</option>
+            <option value="rubber">Rubber (Bouncing)</option>
+            <option value="wrap">Wrap (Screen wrap)</option>
+            <option value="concrete">Concrete (Solid)</option>
+          </select>
+        </div>
+        <div class="form-group checkbox-group">
+          <label>Weapons:</label>
+          <div class="radio-options">
+            <label>
+              <input type="radio" name="weapon-availability" value="all" checked>
+              All Weapons
+            </label>
+            <label>
+              <input type="radio" name="weapon-availability" value="basic">
+              Basic Only
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div id="error-msg" class="error-msg"></div>
+
+      <button id="start-btn">START GAME</button>
+    </div>
+  </div>
   <div id="shop" hidden></div>
   <script>
     (function() {
@@ -421,6 +629,48 @@
           this.terrain.generate(roundSeed);
         }
 
+        start(config) {
+          this.config = config;
+          this.currentRound = 1;
+          this.rounds = config.rounds !== undefined ? config.rounds : 5;
+          this.wallType = config.wallType || 'off';
+          this.startingCash = config.startingCash !== undefined ? config.startingCash : 10000;
+
+          // Begin round 1 (generates terrain and seeds RNG)
+          this.newRound(this.seed);
+
+          // Build roster using the newly-seeded generator
+          const players = config.players || [];
+          const N = players.length;
+          const zoneW = CONST.WORLD_W / N;
+          const margin = 40;
+
+          this.roster = players.map((p, i) => {
+            const minX = zoneW * i + margin;
+            const maxX = zoneW * (i + 1) - margin;
+            const x = rng.range(minX, maxX);
+            return {
+              name: p.name,
+              color: p.color,
+              type: p.type,
+              hp: 100,
+              angle: 45,
+              power: 500,
+              cash: this.startingCash,
+              inventory: {},
+              shield: null,
+              x: x
+            };
+          });
+
+          if (!this.headless) {
+            const setupEl = document.getElementById('setup');
+            if (setupEl) {
+              setupEl.hidden = true;
+            }
+          }
+        }
+
         stepPhysics(dt) {
           this.roundState.ticks++;
         }
@@ -485,12 +735,164 @@
         requestAnimationFrame(loop);
       }
 
+      const RETRO_COLORS = [
+        { value: '#ff00ff', name: 'Magenta' },
+        { value: '#00ffff', name: 'Cyan' },
+        { value: '#ff2222', name: 'Red' },
+        { value: '#22ff22', name: 'Green' },
+        { value: '#ffff00', name: 'Yellow' },
+        { value: '#2222ff', name: 'Blue' },
+        { value: '#ff8800', name: 'Orange' },
+        { value: '#ffffff', name: 'White' }
+      ];
+
+      function renderPlayerSlots(count) {
+        if (typeof document === 'undefined') return;
+        const container = document.getElementById('player-slots');
+        if (!container) return;
+
+        const previousValues = [];
+        const rows = container.querySelectorAll('.player-row');
+        rows.forEach((row) => {
+          const nameInput = row.querySelector('.player-name');
+          const typeSelect = row.querySelector('.player-type');
+          const colorSelect = row.querySelector('.player-color');
+          previousValues.push({
+            name: nameInput ? nameInput.value : '',
+            type: typeSelect ? typeSelect.value : '',
+            color: colorSelect ? colorSelect.value : ''
+          });
+        });
+
+        container.innerHTML = '';
+
+        const defaultTypes = ['Human', 'Moron', 'Shooter', 'Poolshark', 'Cyborg'];
+
+        for (let i = 0; i < count; i++) {
+          const prev = previousValues[i] || {};
+          const defaultName = prev.name || `Player ${i + 1}`;
+          const defaultType = prev.type || (i === 0 ? 'Human' : defaultTypes[i % defaultTypes.length]);
+          const defaultColor = prev.color || RETRO_COLORS[i % RETRO_COLORS.length].value;
+
+          const row = document.createElement('div');
+          row.className = 'player-row';
+          row.dataset.index = i;
+
+          const colorOptionsHtml = RETRO_COLORS.map(c =>
+            `<option value="${c.value}" ${c.value === defaultColor ? 'selected' : ''} style="color: ${c.value}; background: #000;">${c.name}</option>`
+          ).join('');
+
+          row.innerHTML = `
+            <div style="font-weight: bold; margin-bottom: 8px; color: #00ff00;">PLAYER ${i + 1}</div>
+            <div class="form-group">
+              <label>Name:</label>
+              <input type="text" class="player-name" value="${defaultName}">
+            </div>
+            <div class="form-group">
+              <label>Type:</label>
+              <select class="player-type">
+                <option value="Human" ${defaultType === 'Human' ? 'selected' : ''}>Human</option>
+                <option value="Moron" ${defaultType === 'Moron' ? 'selected' : ''}>Moron</option>
+                <option value="Shooter" ${defaultType === 'Shooter' ? 'selected' : ''}>Shooter</option>
+                <option value="Poolshark" ${defaultType === 'Poolshark' ? 'selected' : ''}>Poolshark</option>
+                <option value="Cyborg" ${defaultType === 'Cyborg' ? 'selected' : ''}>Cyborg</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Color:</label>
+              <select class="player-color" style="color: ${defaultColor}; font-weight: bold;">
+                ${colorOptionsHtml}
+              </select>
+            </div>
+          `;
+
+          const colorSelect = row.querySelector('.player-color');
+          colorSelect.addEventListener('change', (e) => {
+            colorSelect.style.color = e.target.value;
+          });
+
+          container.appendChild(row);
+        }
+      }
+
       if (typeof document !== 'undefined') {
         document.addEventListener('DOMContentLoaded', () => {
           if (document.getElementById('game')) {
             gameInstance = new Game({ headless: false });
             if (typeof requestAnimationFrame !== 'undefined') {
               requestAnimationFrame(loop);
+            }
+
+            // Setup setup screen handlers
+            const playerCountSelect = document.getElementById('player-count');
+            if (playerCountSelect) {
+              renderPlayerSlots(parseInt(playerCountSelect.value, 10));
+              playerCountSelect.addEventListener('change', (e) => {
+                renderPlayerSlots(parseInt(e.target.value, 10));
+              });
+            }
+
+            const startBtn = document.getElementById('start-btn');
+            const errorMsg = document.getElementById('error-msg');
+            if (startBtn) {
+              startBtn.addEventListener('click', () => {
+                if (errorMsg) errorMsg.textContent = '';
+
+                // Gather players
+                const players = [];
+                const rows = document.querySelectorAll('#player-slots .player-row');
+                const colors = new Set();
+                let duplicateColor = false;
+
+                rows.forEach((row, idx) => {
+                  const nameInput = row.querySelector('.player-name');
+                  const typeSelect = row.querySelector('.player-type');
+                  const colorSelect = row.querySelector('.player-color');
+
+                  const name = nameInput ? nameInput.value.trim() : `Player ${idx + 1}`;
+                  const type = typeSelect ? typeSelect.value : 'Human';
+                  const color = colorSelect ? colorSelect.value : '#ff00ff';
+
+                  if (colors.has(color)) {
+                    duplicateColor = true;
+                  }
+                  colors.add(color);
+
+                  players.push({ name, type, color });
+                });
+
+                if (duplicateColor) {
+                  if (errorMsg) {
+                    errorMsg.textContent = 'Error: Two or more players cannot share the same tank color!';
+                  }
+                  return;
+                }
+
+                // Gather settings
+                const roundsInput = document.getElementById('rounds');
+                const rounds = roundsInput ? Math.max(1, Math.min(20, parseInt(roundsInput.value, 10) || 5)) : 5;
+
+                const cashInput = document.getElementById('starting-cash');
+                const startingCash = cashInput ? Math.max(0, parseInt(cashInput.value, 10) || 10000) : 10000;
+
+                const wallSelect = document.getElementById('wall-type');
+                const wallType = wallSelect ? wallSelect.value : 'off';
+
+                const weaponRadio = document.querySelector('input[name="weapon-availability"]:checked');
+                const weaponsAvailability = weaponRadio ? weaponRadio.value : 'all';
+
+                const config = {
+                  players,
+                  rounds,
+                  startingCash,
+                  wallType,
+                  weaponsAvailability
+                };
+
+                if (gameInstance) {
+                  gameInstance.start(config);
+                }
+              });
             }
           }
         });
