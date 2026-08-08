@@ -91,7 +91,7 @@
 
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.scale(dpr, dpr);
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
       }
 
@@ -214,6 +214,189 @@
         });
       }
 
+      class Terrain {
+        constructor() {
+          this.heights = new Float32Array(CONST.WORLD_W);
+        }
+
+        generate(seed) {
+          rng.seed(seed);
+          const minH = CONST.WORLD_H * 0.15;
+          const maxH = CONST.WORLD_H * 0.80;
+
+          // Standard midpoint displacement for 1D
+          const heights = this.heights;
+          const N = heights.length;
+
+          heights[0] = rng.range(minH + (maxH - minH) * 0.2, maxH - (maxH - minH) * 0.2);
+          heights[N - 1] = rng.range(minH + (maxH - minH) * 0.2, maxH - (maxH - minH) * 0.2);
+
+          // Roughness controls the initial displacement size
+          let roughness = 0.35;
+
+          function displace(left, right, r) {
+            if (right - left <= 1) return;
+            const mid = Math.floor((left + right) / 2);
+            // Height is the average of endpoints + random offset proportional to interval length
+            const avg = (heights[left] + heights[right]) / 2;
+            const rangeVal = (right - left) * r;
+            const offset = rng.range(-rangeVal, rangeVal);
+            heights[mid] = avg + offset;
+
+            displace(left, mid, r * 0.55);
+            displace(mid, right, r * 0.55);
+          }
+
+          displace(0, N - 1, roughness);
+
+          // Smoothing pass: 5-point moving average, run 4 times
+          const temp = new Float32Array(N);
+          for (let pass = 0; pass < 4; pass++) {
+            for (let i = 0; i < N; i++) {
+              let sum = 0;
+              let count = 0;
+              for (let di = -2; di <= 2; di++) {
+                const idx = i + di;
+                if (idx >= 0 && idx < N) {
+                  sum += heights[idx];
+                  count++;
+                }
+              }
+              temp[i] = sum / count;
+            }
+            heights.set(temp);
+          }
+
+          // Clamp to safety range
+          for (let i = 0; i < N; i++) {
+            if (heights[i] < minH) heights[i] = minH;
+            if (heights[i] > maxH) heights[i] = maxH;
+          }
+        }
+
+        heightAt(x) {
+          const N = this.heights.length;
+          // Clamped lookup
+          const cx = Math.max(0, Math.min(N - 1, x));
+          const x0 = Math.floor(cx);
+          const x1 = Math.min(N - 1, x0 + 1);
+          const t = cx - x0;
+          return this.heights[x0] * (1 - t) + this.heights[x1] * t;
+        }
+
+        carve(x, y, r) {
+          const N = this.heights.length;
+          const cy_height = CONST.WORLD_H - y;
+          const startCol = Math.max(0, Math.floor(x - r));
+          const endCol = Math.min(N - 1, Math.ceil(x + r));
+
+          for (let col = startCol; col <= endCol; col++) {
+            const dx = col - x;
+            if (Math.abs(dx) < r) {
+              const dy = Math.sqrt(r * r - dx * dx);
+              const y1 = cy_height - dy;
+              const y2 = cy_height + dy;
+              if (this.heights[col] > y1) {
+                const overlap = Math.min(this.heights[col], y2) - y1;
+                if (overlap > 0) {
+                  this.heights[col] -= overlap;
+                }
+              }
+            }
+          }
+        }
+
+        deposit(x, y, r) {
+          const N = this.heights.length;
+          const cy_height = CONST.WORLD_H - y;
+          const startCol = Math.max(0, Math.floor(x - r));
+          const endCol = Math.min(N - 1, Math.ceil(x + r));
+
+          for (let col = startCol; col <= endCol; col++) {
+            const dx = col - x;
+            if (Math.abs(dx) < r) {
+              const dy = Math.sqrt(r * r - dx * dx);
+              const y1 = cy_height - dy;
+              const y2 = cy_height + dy;
+              const overlap = Math.max(0, y2 - Math.max(this.heights[col], y1));
+              if (overlap > 0) {
+                this.heights[col] += overlap;
+              }
+            }
+          }
+        }
+
+        settle() {
+          const N = this.heights.length;
+          const max_slope = 1.0;
+          // Perform multiple sliding passes to let soil flow down slopes
+          for (let pass = 0; pass < 20; pass++) {
+            let changed = false;
+            for (let i = 0; i < N - 1; i++) {
+              const diff = this.heights[i] - this.heights[i + 1];
+              if (diff > max_slope) {
+                const excess = diff - max_slope;
+                const move = excess / 2;
+                this.heights[i] -= move;
+                this.heights[i + 1] += move;
+                changed = true;
+              } else if (diff < -max_slope) {
+                const excess = -diff - max_slope;
+                const move = excess / 2;
+                this.heights[i] += move;
+                this.heights[i + 1] -= move;
+                changed = true;
+              }
+            }
+            if (!changed) break;
+          }
+
+          // Finally, clamp every column back into range
+          const minH = CONST.WORLD_H * 0.15;
+          const maxH = CONST.WORLD_H * 0.80;
+          for (let i = 0; i < N; i++) {
+            if (this.heights[i] < minH) this.heights[i] = minH;
+            if (this.heights[i] > maxH) this.heights[i] = maxH;
+          }
+        }
+
+        draw(ctx) {
+          if (!ctx) return;
+
+          // Sky gradient
+          const skyGrad = ctx.createLinearGradient(0, 0, 0, CONST.WORLD_H);
+          skyGrad.addColorStop(0, '#020010');
+          skyGrad.addColorStop(1, '#1b1b3a');
+          ctx.fillStyle = skyGrad;
+          ctx.fillRect(0, 0, CONST.WORLD_W, CONST.WORLD_H);
+
+          // Ground fill: darker body
+          ctx.beginPath();
+          ctx.moveTo(0, CONST.WORLD_H);
+          for (let i = 0; i < this.heights.length; i++) {
+            ctx.lineTo(i, CONST.WORLD_H - this.heights[i]);
+          }
+          ctx.lineTo(CONST.WORLD_W, CONST.WORLD_H);
+          ctx.closePath();
+
+          const groundGrad = ctx.createLinearGradient(0, CONST.WORLD_H * 0.15, 0, CONST.WORLD_H);
+          groundGrad.addColorStop(0, '#5a3d28');
+          groundGrad.addColorStop(1, '#1f140c');
+          ctx.fillStyle = groundGrad;
+          ctx.fill();
+
+          // Ground surface line: lighter surface line
+          ctx.beginPath();
+          ctx.moveTo(0, CONST.WORLD_H - this.heights[0]);
+          for (let i = 1; i < this.heights.length; i++) {
+            ctx.lineTo(i, CONST.WORLD_H - this.heights[i]);
+          }
+          ctx.strokeStyle = '#2d8a2d';
+          ctx.lineWidth = 3;
+          ctx.stroke();
+        }
+      }
+
       class Game {
         constructor(opts = {}) {
           this.headless = !!opts.headless;
@@ -222,7 +405,8 @@
             ticks: 0
           };
 
-          rng.seed(this.seed);
+          this.terrain = new Terrain();
+          this.newRound(this.seed);
 
           if (!this.headless) {
             this.canvas = document.getElementById('game');
@@ -230,6 +414,11 @@
             window.addEventListener('resize', () => resize());
             resize();
           }
+        }
+
+        newRound(roundSeed) {
+          this.seed = roundSeed;
+          this.terrain.generate(roundSeed);
         }
 
         stepPhysics(dt) {
@@ -244,9 +433,24 @@
           if (this.headless) return;
           const ctx = this.ctx;
           if (!ctx) return;
+
+          const dpr = window.devicePixelRatio || 1;
+          // Reset transform to identity (device pixels) to clear the entire canvas
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
           ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-          ctx.fillStyle = '#0c0c0c';
-          ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+          // Restore dpr transform
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+          // Get CSS width and height of canvas
+          const cssWidth = this.canvas.width / dpr;
+          const cssHeight = this.canvas.height / dpr;
+
+          // Draw the terrain scaled to fit the CSS bounds of the canvas
+          ctx.save();
+          ctx.scale(cssWidth / CONST.WORLD_W, cssHeight / CONST.WORLD_H);
+          this.terrain.draw(ctx);
+          ctx.restore();
         }
       }
 
@@ -297,7 +501,8 @@
         Game,
         rng,
         CONST,
-        createHeadlessGame
+        createHeadlessGame,
+        Terrain
       };
     })();
   </script>
