@@ -729,6 +729,7 @@
             if (!this.roster || this.activePlayerIdx === undefined) return;
             const activeTank = this.roster[this.activePlayerIdx];
             if (!activeTank || activeTank.hp <= 0 || activeTank.type !== 'Human') return;
+            if (this.roundOver) return; // Ignore input during shop intermission / match summary
             if (this.projectile || this.anyTankFalling()) return; // Ignore while projectile is live or tanks are falling
 
             let changed = false;
