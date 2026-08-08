@@ -1427,6 +1427,71 @@ function runTests() {
     }
     console.log("✓ AI shot leaving the world successfully advanced the turn.");
 
+    // --- Test 13: Flight-lifetime timeout ---
+    console.log("\n=== Test 13: Flight-lifetime Timeout as a Real Impact ===");
+    const timeoutGame = SCORCHED.createHeadlessGame({ seed: 456 });
+    timeoutGame.start({
+      players: [
+        { name: 'P1', type: 'Human', color: '#ff00ff' },
+        { name: 'P2', type: 'Human', color: '#00ffff' }
+      ],
+      rounds: 1,
+      startingCash: 10000,
+      wallType: 'wrap' // wrap walls to keep projectile in world easily
+    });
+    timeoutGame.wind = 0;
+
+    // Place a flat high ceiling / floor
+    for (let i = 0; i < SCORCHED.CONST.WORLD_W; i++) {
+      timeoutGame.terrain.heights[i] = 20; // very low terrain, so shot flies in air
+    }
+    timeoutGame.roster[0].x = 100;
+    timeoutGame.roster[1].x = 500;
+    timeoutGame.snapTanksToTerrain();
+
+    // Fire a Tracer weapon to verify path persistence
+    const shooterT = timeoutGame.roster[0];
+    shooterT.inventory['Tracer'] = 5;
+    shooterT.selectedWeapon = 'Tracer';
+    timeoutGame.fireActiveWeapon();
+
+    if (!timeoutGame.projectile) {
+      throw new Error("Expected projectile to be live for timeout test");
+    }
+
+    let onImpactFired = false;
+    let impactParams = null;
+    timeoutGame.config.onImpact = (x, y) => {
+      onImpactFired = true;
+      impactParams = { x, y };
+    };
+
+    // Force proj.flightTicks to 495 to quickly let it timeout in a few steps
+    const activeProj = timeoutGame.projectile;
+    activeProj.flightTicks = 495;
+
+    // step physics 6 times (until ticks = 501, exceeding 500 limit)
+    for (let i = 0; i < 6; i++) {
+      timeoutGame.stepPhysics(SCORCHED.CONST.TICK);
+    }
+
+    if (!onImpactFired) {
+      throw new Error("Expected onImpact to be fired for a timed-out projectile, but it wasn't!");
+    }
+    console.log(`✓ onImpact successfully fired on flight-lifetime timeout at (${impactParams.x.toFixed(2)}, ${impactParams.y.toFixed(2)}).`);
+
+    // Verify Tracer path got persisted
+    if (!timeoutGame.persistentTracers || timeoutGame.persistentTracers.length !== 1) {
+      throw new Error("Expected Tracer path to be persisted in persistentTracers on timeout!");
+    }
+    console.log(`✓ Timed-out Tracer path successfully persisted (path length: ${timeoutGame.persistentTracers[0].length}).`);
+
+    // Verify turn advanced
+    if (timeoutGame.activePlayerIdx !== 1) {
+      throw new Error(`Expected active turn to advance to P2 (index 1) after projectile timed out, got index ${timeoutGame.activePlayerIdx}`);
+    }
+    console.log("✓ Turn advanced successfully to P2 on projectile timeout.");
+
     console.log("\nALL TESTS PASSED SUCCESSFULLY! 🎉");
   }, 50);
 }

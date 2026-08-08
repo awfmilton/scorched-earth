@@ -1563,18 +1563,23 @@
               const proj = activeProjs[pIdx];
               if (!this.projectiles.includes(proj)) continue;
 
+              // Normalize: the loop does name matching with .includes(), which throws
+              // on a projectile spawned without a weapon name
+              if (typeof proj.weapon !== 'string') proj.weapon = '';
+
               proj.flightTicks = (proj.flightTicks || 0) + 1;
               if (proj.flightTicks > 500) {
+                if (proj.weapon === 'Tracer' && proj.path) {
+                  this.persistentTracers = this.persistentTracers || [];
+                  this.persistentTracers.push(proj.path);
+                }
                 this.projectiles = this.projectiles.filter(p => p !== proj);
+                this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx);
                 if (this.projectiles.length === 0) {
                   this.nextTurn();
                 }
                 continue;
               }
-
-              // Normalize: the loop does name matching with .includes(), which throws
-              // on a projectile spawned without a weapon name
-              if (typeof proj.weapon !== 'string') proj.weapon = '';
 
               // 1. Check Roller custom downhill logic
               if (proj.rolling) {
