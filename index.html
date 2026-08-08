@@ -283,6 +283,22 @@
         }
       };
 
+      // Isolated generator for visual-only non-gameplay deterministic randomness
+      let visualState = 12345;
+      const visualRNG = {
+        next() {
+          visualState = (visualState * 1664525 + 1013904223) | 0;
+          return (visualState >>> 0) / 4294967296;
+        },
+        range(a, b) {
+          return a + (b - a) * this.next();
+        },
+        choice(arr) {
+          const idx = Math.floor(this.range(0, arr.length));
+          return arr[idx];
+        }
+      };
+
       // Sizing function supporting zero-size layout and high DPI screens
       function resize() {
         if (typeof document === 'undefined' || typeof window === 'undefined') return;
@@ -617,11 +633,31 @@
           this.newRound(this.seed);
 
           if (!this.headless) {
-            this.canvas = document.getElementById('game');
-            this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
-            window.addEventListener('resize', () => resize());
-            resize();
-            this.setupInput();
+            if (typeof document !== 'undefined') {
+              this.canvas = document.getElementById('game');
+              this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+              if (typeof window !== 'undefined') {
+                window.addEventListener('resize', () => resize());
+                resize();
+              }
+              this.setupInput();
+            }
+
+            // Particle pool initialization (600 particles hard cap)
+            this.particlePool = Array.from({ length: 600 }, () => ({
+              active: false,
+              x: 0,
+              y: 0,
+              vx: 0,
+              vy: 0,
+              color: '#ffffff',
+              life: 0,
+              maxLife: 0,
+              size: 2,
+              type: '',
+              bounces: 0
+            }));
+            this.explosions = [];
           }
         }
 
@@ -630,7 +666,7 @@
             if (!this.roster || this.activePlayerIdx === undefined) return;
             const activeTank = this.roster[this.activePlayerIdx];
             if (!activeTank || activeTank.hp <= 0 || activeTank.type !== 'Human') return;
-            if (this.projectile) return; // Ignore while a projectile is live
+            if (this.projectile || this.anyTankFalling()) return; // Ignore while projectile is live or tanks are falling
 
             let changed = false;
             if (e.key === 'ArrowLeft') {
@@ -691,7 +727,8 @@
             y: startY,
             vx: vx,
             vy: vy,
-            weapon: weapon
+            weapon: weapon,
+            shooterIdx: this.activePlayerIdx
           };
 
           if (!this.headless) {
@@ -718,6 +755,15 @@
           this.terrain.generate(roundSeed);
           // Regenerate wind: signed horizontal acceleration, let's say between -150 and 150
           this.wind = rng.range(-150, 150);
+
+          if (!this.headless) {
+            if (this.particlePool) {
+              this.particlePool.forEach(p => { p.active = false; });
+            }
+            if (this.explosions) {
+              this.explosions.length = 0;
+            }
+          }
         }
 
         snapTanksToTerrain() {
@@ -859,7 +905,9 @@
               selectedWeapon: 'Baby Missile',
               shield: null,
               x: x,
-              y: 0
+              y: 0,
+              damageDealt: 0,
+              kills: 0
             };
           });
 
@@ -867,7 +915,7 @@
           this.activePlayerIdx = 0;
           this.projectile = null; // Will store active projectile { x, y, vx, vy, ... }
 
-          if (!this.headless) {
+          if (!this.headless && typeof document !== 'undefined') {
             const setupEl = document.getElementById('setup');
             if (setupEl) {
               setupEl.hidden = true;
@@ -901,20 +949,178 @@
           }
         }
 
-        onImpact(x, y) {
-          if (!this.headless) {
-            sfx('explode');
+        explosion(x, y, radius, damage, shooterIdx) {
+          // 1. Carve terrain
+          this.terrain.carve(x, y, radius);
+
+          // Track newly killed tanks to trigger chain reaction explosions
+          const deadTanksToExplode = [];
+
+          // 2. Apply falloff damage to every tank inside the radius
+          if (this.roster) {
+            const shooter = (shooterIdx !== undefined && shooterIdx !== null) ? this.roster[shooterIdx] : null;
+
+            this.roster.forEach((tank, idx) => {
+              if (tank.hp <= 0) return;
+
+              // Distance from explosion center (x, y) to tank center (tank.x, tank.y - 3)
+              const dx = tank.x - x;
+              const dy = (tank.y - 3) - y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+
+              if (dist < radius) {
+                const dmg = damage * (1 - dist / radius);
+                const clampedDmg = Math.max(0, dmg);
+
+                if (clampedDmg > 0) {
+                  // Accumulate damageDealt on the firing tank
+                  if (shooter) {
+                    shooter.damageDealt = (shooter.damageDealt || 0) + clampedDmg;
+                  }
+
+                  const prevHp = tank.hp;
+                  tank.hp = Math.max(0, tank.hp - clampedDmg);
+
+                  // Mark dead and credit kill
+                  if (prevHp > 0 && tank.hp <= 0) {
+                    if (shooter) {
+                      shooter.kills = (shooter.kills || 0) + 1;
+                    }
+                    deadTanksToExplode.push({ tank, idx });
+                  }
+                }
+              }
+            });
           }
+
+          // 3. Audio/Visual effects
+          if (!this.headless) {
+            sfx('explode', { radius });
+
+            // Push expanding fireball ring
+            if (this.explosions) {
+              this.explosions.push({
+                x: x,
+                y: y,
+                maxRadius: radius,
+                currentRadius: 0,
+                life: 0.5,
+                maxLife: 0.5
+              });
+            }
+
+            // Spawn smoke and debris particles
+            this.spawnCraterEffects(x, y, radius);
+          }
+
+          // 4. Chain reactions: dead tanks explode sequentially
+          deadTanksToExplode.forEach(item => {
+            this.explosion(item.tank.x, item.tank.y - 3, 35, 50, shooterIdx);
+          });
+        }
+
+        reSeatTanks() {
+          if (!this.roster) return;
+          this.roster.forEach(tank => {
+            if (tank.hp <= 0) return;
+            const groundY = CONST.WORLD_H - this.terrain.heightAt(tank.x);
+            if (tank.y < groundY - 0.01) {
+              tank.falling = true;
+              if (tank.vy === undefined || tank.vy === null) {
+                tank.vy = 0;
+              }
+            } else {
+              tank.y = groundY;
+              tank.falling = false;
+              tank.vy = 0;
+            }
+          });
+        }
+
+        onImpact(x, y, weapon, shooterIdx) {
+          const wp = weapon || 'Baby Missile';
+          const radius = (wp === 'Baby Missile') ? 30 : 30;
+          const damage = (wp === 'Baby Missile') ? 60 : 60;
+
+          this.lastShooterIdx = shooterIdx;
+
+          this.explosion(x, y, radius, damage, shooterIdx);
+
+          this.terrain.settle();
+          this.reSeatTanks();
+
           if (this.config && typeof this.config.onImpact === 'function') {
             this.config.onImpact(x, y);
           }
         }
 
+        anyTankFalling() {
+          if (!this.roster) return false;
+          return this.roster.some(tank => tank.hp > 0 && tank.falling);
+        }
+
         stepPhysics(dt) {
           this.roundState.ticks++;
 
+          // Update falling tanks
+          if (this.roster) {
+            this.roster.forEach(tank => {
+              if (tank.hp <= 0) return;
+              const groundY = CONST.WORLD_H - this.terrain.heightAt(tank.x);
+
+              if (tank.y < groundY - 0.01) {
+                if (!tank.falling) {
+                  tank.falling = true;
+                  tank.vy = 0;
+                }
+                tank.vy += CONST.GRAVITY * dt;
+                tank.y += tank.vy * dt;
+
+                const newGroundY = CONST.WORLD_H - this.terrain.heightAt(tank.x);
+                if (tank.y >= newGroundY) {
+                  tank.y = newGroundY;
+                  tank.falling = false;
+                  const impactVy = tank.vy;
+                  tank.vy = 0;
+
+                  // Parachute consumption check defensively
+                  const hasParachute = tank.inventory && tank.inventory['Parachute'] > 0;
+                  if (hasParachute) {
+                    tank.inventory['Parachute']--;
+                  } else {
+                    // Drop damage proportional to impact velocity, capped
+                    const dropDmg = Math.min(80, Math.max(0, impactVy * 0.15));
+                    if (dropDmg > 5) {
+                      const prevHp = tank.hp;
+                      tank.hp = Math.max(0, tank.hp - dropDmg);
+                      if (prevHp > 0 && tank.hp <= 0) {
+                        if (this.lastShooterIdx !== undefined && this.roster[this.lastShooterIdx]) {
+                          this.roster[this.lastShooterIdx].kills = (this.roster[this.lastShooterIdx].kills || 0) + 1;
+                        }
+                      }
+                    }
+                  }
+                }
+              } else {
+                if (tank.y > groundY) {
+                  tank.y = groundY;
+                }
+                tank.falling = false;
+                tank.vy = 0;
+              }
+            });
+          }
+
+          // If active player is dead, skip to next living player
+          if (this.roster && this.activePlayerIdx !== undefined) {
+            const activeTank = this.roster[this.activePlayerIdx];
+            if (activeTank && activeTank.hp <= 0) {
+              this.nextTurn();
+            }
+          }
+
           // If no projectile is live, and the active player is AI, trigger its shot deterministically
-          if (!this.projectile && this.roster && this.activePlayerIdx !== undefined) {
+          if (!this.projectile && !this.anyTankFalling() && this.roster && this.activePlayerIdx !== undefined) {
             const activeTank = this.roster[this.activePlayerIdx];
             if (activeTank && activeTank.hp > 0 && activeTank.type !== 'Human') {
               this.checkAIShot();
@@ -937,6 +1143,23 @@
 
               this.projectile.x += step_vx * sdt;
               this.projectile.y += step_vy * sdt;
+
+              // Spawn trail particle if not headless
+              if (!this.headless) {
+                const col = visualRNG.choice(['#ff3300', '#ffaa00', '#ffff00', '#ff6600']);
+                const jx = visualRNG.range(-5, 5);
+                const jy = visualRNG.range(-5, 5);
+                this.spawnParticle(
+                  'spark',
+                  this.projectile.x,
+                  this.projectile.y,
+                  -step_vx * 0.05 + jx,
+                  -step_vy * 0.05 + jy,
+                  col,
+                  visualRNG.range(0.2, 0.4),
+                  visualRNG.range(1.0, 2.5)
+                );
+              }
 
               const px = this.projectile.x;
               const py = this.projectile.y;
@@ -994,8 +1217,10 @@
                 if (this.projectile.y >= groundY) {
                   const impactX = this.projectile.x;
                   const impactY = this.projectile.y;
+                  const weapon = this.projectile.weapon;
+                  const shooterIdx = this.projectile.shooterIdx;
                   this.projectile = null;
-                  this.onImpact(impactX, impactY);
+                  this.onImpact(impactX, impactY, weapon, shooterIdx);
                   this.nextTurn();
                   break;
                 }
@@ -1010,8 +1235,10 @@
                       this.projectile.y >= tank.y - 6 && this.projectile.y <= tank.y) {
                     const impactX = this.projectile.x;
                     const impactY = this.projectile.y;
+                    const weapon = this.projectile.weapon;
+                    const shooterIdx = this.projectile.shooterIdx;
                     this.projectile = null;
-                    this.onImpact(impactX, impactY);
+                    this.onImpact(impactX, impactY, weapon, shooterIdx);
                     this.nextTurn();
                     hitTank = true;
                     break;
@@ -1023,8 +1250,174 @@
           }
         }
 
+        spawnParticle(type, x, y, vx, vy, color, maxLife, size) {
+          if (this.headless || !this.particlePool) return;
+          const p = this.particlePool.find(item => !item.active);
+          if (!p) return; // Hard cap near 600 reached
+          p.active = true;
+          p.type = type;
+          p.x = x;
+          p.y = y;
+          p.vx = vx;
+          p.vy = vy;
+          p.color = color;
+          p.life = maxLife;
+          p.maxLife = maxLife;
+          p.size = size || 2;
+          p.bounces = 0;
+        }
+
+        updateParticles(dt) {
+          if (this.headless || !this.particlePool) return;
+          for (let i = 0; i < this.particlePool.length; i++) {
+            const p = this.particlePool[i];
+            if (!p.active) continue;
+
+            p.life -= dt;
+            if (p.life <= 0) {
+              p.active = false;
+              continue;
+            }
+
+            if (p.type === 'spark') {
+              p.x += p.vx * dt;
+              p.y += p.vy * dt;
+              p.vx *= 0.95;
+              p.vy *= 0.95;
+            } else if (p.type === 'smoke') {
+              p.x += p.vx * dt;
+              p.y += p.vy * dt;
+              p.vy -= 10 * dt; // Smoke rises slightly
+            } else if (p.type === 'debris') {
+              p.vy += CONST.GRAVITY * dt;
+              p.x += p.vx * dt;
+              p.y += p.vy * dt;
+
+              if (p.x < 0 || p.x > CONST.WORLD_W) {
+                p.active = false;
+                continue;
+              }
+
+              const groundY = CONST.WORLD_H - this.terrain.heightAt(p.x);
+              if (p.y >= groundY) {
+                p.y = groundY;
+                p.vy = -p.vy * 0.4;
+                p.vx *= 0.5;
+                p.bounces++;
+                if (Math.abs(p.vy) < 10 || p.bounces > 4) {
+                  p.vy = 0;
+                  p.vx = 0;
+                  p.y = groundY;
+                }
+              }
+            }
+          }
+        }
+
+        drawParticles(ctx) {
+          if (this.headless || !this.particlePool) return;
+          for (let i = 0; i < this.particlePool.length; i++) {
+            const p = this.particlePool[i];
+            if (!p.active) continue;
+
+            ctx.save();
+            const alpha = Math.max(0, Math.min(1, p.life / p.maxLife));
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            if (p.type === 'smoke') {
+              ctx.arc(p.x, p.y, p.size * (1 + (1 - p.life / p.maxLife) * 1.5), 0, Math.PI * 2);
+            } else {
+              ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            }
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+
+        spawnCraterEffects(x, y, radius) {
+          if (this.headless) return;
+          const smokeCount = Math.floor(radius / 2);
+          for (let i = 0; i < smokeCount; i++) {
+            const angle = visualRNG.range(0, Math.PI * 2);
+            const r = visualRNG.range(0, radius * 0.8);
+            const px = x + r * Math.cos(angle);
+            const py = y + r * Math.sin(angle);
+
+            const vx = visualRNG.range(-15, 15);
+            const vy = visualRNG.range(-30, -10);
+
+            const size = visualRNG.range(3, 8);
+            const maxLife = visualRNG.range(0.8, 1.5);
+            const colors = ['#555555', '#777777', '#999999', '#333333'];
+            const color = visualRNG.choice(colors);
+
+            this.spawnParticle('smoke', px, py, vx, vy, color, maxLife, size);
+          }
+
+          const debrisCount = Math.floor(radius / 3);
+          for (let i = 0; i < debrisCount; i++) {
+            const angle = visualRNG.range(-Math.PI * 0.8, -Math.PI * 0.2);
+            const speed = visualRNG.range(50, 150);
+            const vx = speed * Math.cos(angle);
+            const vy = speed * Math.sin(angle);
+
+            const maxLife = visualRNG.range(2.0, 4.0);
+            const size = visualRNG.range(1.5, 3.5);
+            const colors = ['#8b5a2b', '#5c3a21', '#3d2514', '#4a4a4a'];
+            const color = visualRNG.choice(colors);
+
+            this.spawnParticle('debris', x, y - 2, vx, vy, color, maxLife, size);
+          }
+        }
+
+        updateExplosions(dt) {
+          if (this.headless || !this.explosions) return;
+          for (let i = this.explosions.length - 1; i >= 0; i--) {
+            const exp = this.explosions[i];
+            exp.life -= dt;
+            const progress = 1 - (exp.life / exp.maxLife);
+            exp.currentRadius = exp.maxRadius * progress;
+            if (exp.life <= 0) {
+              this.explosions.splice(i, 1);
+            }
+          }
+        }
+
+        drawExplosions(ctx) {
+          if (this.headless || !this.explosions) return;
+          for (let i = 0; i < this.explosions.length; i++) {
+            const exp = this.explosions[i];
+            ctx.save();
+            const alpha = Math.max(0, Math.min(1, exp.life / exp.maxLife));
+            ctx.globalAlpha = alpha;
+
+            ctx.strokeStyle = '#ff3300';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(exp.x, exp.y, exp.currentRadius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffaa00';
+            ctx.beginPath();
+            ctx.arc(exp.x, exp.y, exp.currentRadius * 0.8, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#ffff00';
+            ctx.beginPath();
+            ctx.arc(exp.x, exp.y, exp.currentRadius * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+          }
+        }
+
         update(dt) {
           this.stepPhysics(dt);
+          if (!this.headless) {
+            this.updateParticles(dt);
+            this.updateExplosions(dt);
+          }
         }
 
         draw() {
@@ -1097,6 +1490,12 @@
             ctx.arc(this.projectile.x, this.projectile.y, 3, 0, Math.PI * 2);
             ctx.fill();
           }
+
+          // Draw particles
+          this.drawParticles(ctx);
+
+          // Draw explosions
+          this.drawExplosions(ctx);
 
           ctx.restore();
         }

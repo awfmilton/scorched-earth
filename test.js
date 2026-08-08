@@ -594,6 +594,220 @@ function runTests() {
     }
     console.log(`✓ AI player 2 fired projectile with angle ${aiGame.roster[1].angle} and power ${aiGame.roster[1].power}.`);
 
+    // === Chunk 5: Impact Resolution, Falling, Parachute, Particles, and Chain Reactions ===
+    console.log("\n=== Running Impact Resolution & Falling Tests ===");
+
+    // Test 4.1: Direct hit reduces target hp and heights array differs
+    const impactGame = SCORCHED.createHeadlessGame({ seed: 500 });
+    impactGame.start({
+      players: [
+        { name: 'P1', type: 'Human', color: '#ff00ff' },
+        { name: 'P2', type: 'Human', color: '#00ffff' }
+      ],
+      rounds: 5,
+      startingCash: 10000,
+      wallType: 'off'
+    });
+
+    // Make flat terrain of height 100
+    for (let i = 0; i < SCORCHED.CONST.WORLD_W; i++) {
+      impactGame.terrain.heights[i] = 100;
+    }
+    impactGame.roster[0].x = 100;
+    impactGame.roster[1].x = 200;
+    impactGame.snapTanksToTerrain();
+
+    const initialHeight100 = impactGame.terrain.heightAt(100);
+    const initialTargetHp = impactGame.roster[1].hp;
+
+    // Trigger onImpact directly at target P2 location (x = 200, y = 600)
+    const pxY = SCORCHED.CONST.WORLD_H - 100; // 600
+    // Keep a heights snapshot before impact
+    const heightsSnapshot = new Float32Array(impactGame.terrain.heights);
+
+    impactGame.onImpact(200, pxY, 'Baby Missile', 0); // Fired by P1 (idx 0)
+
+    const postImpactTargetHp = impactGame.roster[1].hp;
+    const heightsDiffer = Array.from(impactGame.terrain.heights).some((h, idx) => h !== heightsSnapshot[idx]);
+
+    if (postImpactTargetHp >= initialTargetHp) {
+      throw new Error(`Expected target HP to be reduced from ${initialTargetHp}, but got ${postImpactTargetHp}`);
+    }
+    if (!heightsDiffer) {
+      throw new Error("Expected heights array to differ after carve and settle!");
+    }
+    console.log(`✓ Direct hit reduced HP from ${initialTargetHp} to ${postImpactTargetHp}. Heights array changed.`);
+
+    // Test 4.2: Tank standing over freshly carved crater falls, taking damage that scales with fall height
+    const fallGame = SCORCHED.createHeadlessGame({ seed: 600 });
+    fallGame.start({
+      players: [
+        { name: 'P1', type: 'Human', color: '#ff00ff' },
+        { name: 'P2', type: 'Human', color: '#00ffff' }
+      ],
+      rounds: 5,
+      startingCash: 10000,
+      wallType: 'off'
+    });
+
+    for (let i = 0; i < SCORCHED.CONST.WORLD_W; i++) {
+      fallGame.terrain.heights[i] = 200; // High terrain so there is room to fall
+    }
+    fallGame.roster[0].x = 100;
+    fallGame.roster[1].x = 200;
+    fallGame.snapTanksToTerrain();
+
+    // Directly carve crater at P2 (x = 200) without applying direct hit damage so we can measure drop damage purely
+    const targetY = fallGame.roster[1].y;
+    fallGame.terrain.carve(200, targetY, 40);
+    fallGame.terrain.settle();
+    fallGame.reSeatTanks(); // Mark tank falling
+
+    if (!fallGame.roster[1].falling) {
+      throw new Error("Expected P2 tank to enter a falling state after terrain under it is carved!");
+    }
+
+    let iterations = 0;
+    while (fallGame.roster[1].falling && iterations < 1000) {
+      fallGame.stepPhysics(SCORCHED.CONST.TICK);
+      iterations++;
+    }
+
+    const fallDamageHp = fallGame.roster[1].hp;
+    if (fallDamageHp >= 100) {
+      throw new Error("Expected falling tank to take drop damage, but hp remained at 100!");
+    }
+    console.log(`✓ Tank fell into carved crater, taking drop damage. HP reduced to ${fallDamageHp}.`);
+
+    // Test 4.3: Parachute is consumed to take zero drop damage
+    const parachuteGame = SCORCHED.createHeadlessGame({ seed: 700 });
+    parachuteGame.start({
+      players: [
+        { name: 'P1', type: 'Human', color: '#ff00ff' },
+        { name: 'P2', type: 'Human', color: '#00ffff' }
+      ],
+      rounds: 5,
+      startingCash: 10000,
+      wallType: 'off'
+    });
+
+    for (let i = 0; i < SCORCHED.CONST.WORLD_W; i++) {
+      parachuteGame.terrain.heights[i] = 200;
+    }
+    parachuteGame.roster[0].x = 100;
+    parachuteGame.roster[1].x = 200;
+    parachuteGame.snapTanksToTerrain();
+
+    // Give P2 a Parachute defensively
+    parachuteGame.roster[1].inventory['Parachute'] = 1;
+
+    parachuteGame.terrain.carve(200, parachuteGame.roster[1].y, 40);
+    parachuteGame.terrain.settle();
+    parachuteGame.reSeatTanks();
+
+    iterations = 0;
+    while (parachuteGame.roster[1].falling && iterations < 1000) {
+      parachuteGame.stepPhysics(SCORCHED.CONST.TICK);
+      iterations++;
+    }
+
+    if (parachuteGame.roster[1].inventory['Parachute'] !== 0) {
+      throw new Error("Expected Parachute to be consumed!");
+    }
+    if (parachuteGame.roster[1].hp !== 100) {
+      throw new Error(`Expected zero drop damage with parachute, but HP was ${parachuteGame.roster[1].hp}`);
+    }
+    console.log("✓ Parachute successfully consumed, preventing drop damage entirely.");
+
+    // Test 4.4: Particle pool is safe, and particles can be spawned (simulated non-headless scenario)
+    // Create a mock non-headless Game instance to verify particles
+    const mockCanvas = { getContext: () => ({}) };
+    const globalDocument = global.document;
+    global.document = {
+      getElementById: (id) => (id === 'game' ? mockCanvas : null),
+      createElement: () => ({ appendChild: () => {}, querySelector: () => null })
+    };
+    const globalWindow = global.window;
+    global.window = {
+      addEventListener: () => {},
+      innerWidth: 1024,
+      innerHeight: 768,
+      devicePixelRatio: 1
+    };
+
+    const visualGame = new SCORCHED.Game({ headless: false, seed: 800 });
+    visualGame.start({
+      players: [
+        { name: 'P1', type: 'Human', color: '#ff00ff' },
+        { name: 'P2', type: 'Human', color: '#00ffff' }
+      ],
+      rounds: 5,
+      startingCash: 10000,
+      wallType: 'off'
+    });
+
+    // Check pre-allocated particle pool
+    if (!visualGame.particlePool || visualGame.particlePool.length !== 600) {
+      throw new Error("Expected visual game particle pool of exactly 600 particles!");
+    }
+
+    // Spawn 700 particles to test hard capping at 600
+    for (let i = 0; i < 700; i++) {
+      visualGame.spawnParticle('spark', 100, 100, 10, 10, '#ff0000', 1.0, 2);
+    }
+
+    const activeParticlesCount = visualGame.particlePool.filter(p => p.active).length;
+    if (activeParticlesCount > 600) {
+      throw new Error(`Expected active particles to not exceed cap of 600, got ${activeParticlesCount}`);
+    }
+    console.log(`✓ Pre-allocated particle pool verified. Spawning 700 particles capped active count at ${activeParticlesCount}.`);
+
+    // Clean up globals
+    global.document = globalDocument;
+    global.window = globalWindow;
+
+    // Test 4.5: A kill during flight leaves the turn order intact, with the turn still advancing
+    const killGame = SCORCHED.createHeadlessGame({ seed: 900 });
+    killGame.start({
+      players: [
+        { name: 'P1', type: 'Human', color: '#ff00ff' },
+        { name: 'P2', type: 'Human', color: '#00ffff' },
+        { name: 'P3', type: 'Human', color: '#ff0000' }
+      ],
+      rounds: 5,
+      startingCash: 10000,
+      wallType: 'off'
+    });
+
+    for (let i = 0; i < SCORCHED.CONST.WORLD_W; i++) {
+      killGame.terrain.heights[i] = 100;
+    }
+    killGame.roster[0].x = 100;
+    killGame.roster[1].x = 200;
+    killGame.roster[2].x = 300;
+    killGame.snapTanksToTerrain();
+
+    // P1 active, shooter idx = 0. We'll set P2 HP to 10 so a direct hit kills it.
+    killGame.roster[1].hp = 10;
+    killGame.activePlayerIdx = 0;
+
+    // Trigger impact on P2 (x=200)
+    killGame.onImpact(200, 600, 'Baby Missile', 0);
+
+    if (killGame.roster[1].hp !== 0) {
+      throw new Error(`Expected P2 to be killed, got hp ${killGame.roster[1].hp}`);
+    }
+    if (killGame.roster[0].kills !== 1) {
+      throw new Error(`Expected P1 shooter to get 1 kill, got ${killGame.roster[0].kills}`);
+    }
+
+    // Call nextTurn() simulating stepPhysics ending bullet trajectory
+    killGame.nextTurn();
+    if (killGame.activePlayerIdx !== 2) {
+      throw new Error(`Expected active turn to advance to P3 (idx 2) because P2 is dead, but got idx ${killGame.activePlayerIdx}`);
+    }
+    console.log("✓ Target killed during flight. Firing tank credited with kill. Turn advanced to remaining alive player.");
+
     console.log("\nALL TESTS PASSED SUCCESSFULLY! 🎉");
   }, 50);
 }
