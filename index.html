@@ -621,12 +621,210 @@
             this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
             window.addEventListener('resize', () => resize());
             resize();
+            this.setupInput();
           }
+        }
+
+        setupInput() {
+          window.addEventListener('keydown', (e) => {
+            if (!this.roster || this.activePlayerIdx === undefined) return;
+            const activeTank = this.roster[this.activePlayerIdx];
+            if (!activeTank || activeTank.hp <= 0 || activeTank.type !== 'Human') return;
+            if (this.projectile) return; // Ignore while a projectile is live
+
+            let changed = false;
+            if (e.key === 'ArrowLeft') {
+              const diff = e.shiftKey ? 5 : 1;
+              activeTank.angle = Math.min(180, Math.max(0, activeTank.angle + diff));
+              changed = true;
+            } else if (e.key === 'ArrowRight') {
+              const diff = e.shiftKey ? 5 : 1;
+              activeTank.angle = Math.min(180, Math.max(0, activeTank.angle - diff));
+              changed = true;
+            } else if (e.key === 'ArrowUp') {
+              const diff = e.shiftKey ? 25 : 5;
+              activeTank.power = Math.min(1000, Math.max(0, activeTank.power + diff));
+              changed = true;
+            } else if (e.key === 'ArrowDown') {
+              const diff = e.shiftKey ? 25 : 5;
+              activeTank.power = Math.min(1000, Math.max(0, activeTank.power - diff));
+              changed = true;
+            } else if (e.key === ' ' || e.code === 'Space') {
+              this.fireActiveWeapon();
+              e.preventDefault();
+            } else if (e.key === '[' || e.key === ']' || e.key === 'Tab') {
+              this.cycleWeapon(e.key === '[' ? -1 : 1);
+              e.preventDefault();
+            }
+
+            if (changed) {
+              this.updateHUD();
+            }
+          });
+        }
+
+        fireActiveWeapon() {
+          if (!this.roster || this.activePlayerIdx === undefined) return;
+          const activeTank = this.roster[this.activePlayerIdx];
+          if (!activeTank || activeTank.hp <= 0 || this.projectile) return;
+
+          // Check ammo if any (here infinite for Baby Missile)
+          const weapon = activeTank.selectedWeapon || 'Baby Missile';
+          const ammo = activeTank.inventory[weapon];
+          if (ammo !== undefined && ammo <= 0) return;
+
+          if (ammo !== undefined && ammo !== Infinity) {
+            activeTank.inventory[weapon]--;
+          }
+
+          const angleRad = (activeTank.angle * Math.PI) / 180;
+          const barrelLen = 12;
+          const startX = activeTank.x + barrelLen * Math.cos(angleRad);
+          const startY = activeTank.y - 6 - barrelLen * Math.sin(angleRad);
+
+          // Velocity is proportional to power
+          const vx = activeTank.power * Math.cos(angleRad);
+          const vy = -activeTank.power * Math.sin(angleRad);
+
+          this.projectile = {
+            x: startX,
+            y: startY,
+            vx: vx,
+            vy: vy,
+            weapon: weapon
+          };
+
+          if (!this.headless) {
+            sfx('launch');
+          }
+        }
+
+        cycleWeapon(dir) {
+          if (!this.roster || this.activePlayerIdx === undefined) return;
+          const activeTank = this.roster[this.activePlayerIdx];
+          if (!activeTank) return;
+
+          const weapons = Object.keys(activeTank.inventory);
+          if (weapons.length <= 1) return;
+
+          let idx = weapons.indexOf(activeTank.selectedWeapon);
+          idx = (idx + dir + weapons.length) % weapons.length;
+          activeTank.selectedWeapon = weapons[idx];
+          this.updateHUD();
         }
 
         newRound(roundSeed) {
           this.seed = roundSeed;
           this.terrain.generate(roundSeed);
+          // Regenerate wind: signed horizontal acceleration, let's say between -150 and 150
+          this.wind = rng.range(-150, 150);
+        }
+
+        snapTanksToTerrain() {
+          if (!this.roster) return;
+          this.roster.forEach(tank => {
+            tank.y = CONST.WORLD_H - this.terrain.heightAt(tank.x);
+          });
+        }
+
+        updateHUD() {
+          if (this.headless) return;
+          const hud = document.getElementById('hud');
+          if (!hud) return;
+
+          if (!this.roster || this.activePlayerIdx === undefined) {
+            hud.textContent = 'No active player';
+            return;
+          }
+
+          const activeTank = this.roster[this.activePlayerIdx];
+          if (!activeTank) {
+            hud.textContent = 'No active player';
+            return;
+          }
+
+          const weapon = activeTank.selectedWeapon || 'Baby Missile';
+          const ammoVal = activeTank.inventory[weapon];
+          const ammoStr = ammoVal === Infinity ? 'INF' : ammoVal;
+
+          const windSpeed = Math.round(Math.abs(this.wind || 0));
+          const windDir = (this.wind || 0) < 0 ? '←' : '→';
+
+          // Inline styling using helper elements or just setting textContent in a safe and structured way
+          // Let's create static sub-elements once or update textContent using an elegant formatting scheme.
+          // To ensure we update textContent with inline styles only, never rebuilding innerHTML per frame:
+          // We can construct text contents for specific parts, or structure hud cleanly.
+          // Let's check how the instructions specify: "fill #hud with the active tank's name in its colour, hp, angle, power, selected weapon with remaining ammo, cash, wind as a direction arrow beside its speed value, plus a compact controls legend. updateHUD() writes textContent with inline styles only, never rebuilding innerHTML per frame, returning immediately when headless. Call it on every input, on every turn change."
+          // Since we want inline styles (like text color), we can create sub elements in DOMContentLoaded or lazily if not present, and update their textContent. Let's do lazy creation of sub-span elements inside #hud if #hud is empty or has wrong children. This is extremely fast and avoids innerHTML rebuilds.
+
+          let nameSpan = hud.querySelector('.hud-name');
+          let hpSpan = hud.querySelector('.hud-hp');
+          let angleSpan = hud.querySelector('.hud-angle');
+          let powerSpan = hud.querySelector('.hud-power');
+          let weaponSpan = hud.querySelector('.hud-weapon');
+          let cashSpan = hud.querySelector('.hud-cash');
+          let windSpan = hud.querySelector('.hud-wind');
+          let legendSpan = hud.querySelector('.hud-legend');
+
+          if (!nameSpan) {
+            hud.innerHTML = ''; // Initial clear
+
+            nameSpan = document.createElement('span');
+            nameSpan.className = 'hud-name';
+            nameSpan.style.fontWeight = 'bold';
+            nameSpan.style.marginRight = '15px';
+
+            hpSpan = document.createElement('span');
+            hpSpan.className = 'hud-hp';
+            hpSpan.style.marginRight = '15px';
+
+            angleSpan = document.createElement('span');
+            angleSpan.className = 'hud-angle';
+            angleSpan.style.marginRight = '15px';
+
+            powerSpan = document.createElement('span');
+            powerSpan.className = 'hud-power';
+            powerSpan.style.marginRight = '15px';
+
+            weaponSpan = document.createElement('span');
+            weaponSpan.className = 'hud-weapon';
+            weaponSpan.style.marginRight = '15px';
+
+            cashSpan = document.createElement('span');
+            cashSpan.className = 'hud-cash';
+            cashSpan.style.marginRight = '15px';
+
+            windSpan = document.createElement('span');
+            windSpan.className = 'hud-wind';
+            windSpan.style.marginRight = '15px';
+
+            legendSpan = document.createElement('span');
+            legendSpan.className = 'hud-legend';
+            legendSpan.style.color = '#888';
+            legendSpan.style.fontSize = '12px';
+            legendSpan.style.marginLeft = 'auto';
+
+            hud.appendChild(nameSpan);
+            hud.appendChild(hpSpan);
+            hud.appendChild(angleSpan);
+            hud.appendChild(powerSpan);
+            hud.appendChild(weaponSpan);
+            hud.appendChild(cashSpan);
+            hud.appendChild(windSpan);
+            hud.appendChild(legendSpan);
+          }
+
+          nameSpan.textContent = activeTank.name.toUpperCase();
+          nameSpan.style.color = activeTank.color;
+
+          hpSpan.textContent = `HP: ${activeTank.hp}`;
+          angleSpan.textContent = `ANG: ${activeTank.angle}°`;
+          powerSpan.textContent = `PWR: ${activeTank.power}`;
+          weaponSpan.textContent = `WEAP: ${weapon} (${ammoStr})`;
+          cashSpan.textContent = `CASH: $${activeTank.cash}`;
+          windSpan.textContent = `WIND: ${windDir} ${windSpeed}`;
+
+          legendSpan.textContent = 'L/R: Angle | U/D: Power | Space: Fire | [/]: Weapon | Shift: Coarse';
         }
 
         start(config) {
@@ -657,22 +855,172 @@
               angle: 45,
               power: 500,
               cash: this.startingCash,
-              inventory: {},
+              inventory: { 'Baby Missile': Infinity },
+              selectedWeapon: 'Baby Missile',
               shield: null,
-              x: x
+              x: x,
+              y: 0
             };
           });
+
+          this.snapTanksToTerrain();
+          this.activePlayerIdx = 0;
+          this.projectile = null; // Will store active projectile { x, y, vx, vy, ... }
 
           if (!this.headless) {
             const setupEl = document.getElementById('setup');
             if (setupEl) {
               setupEl.hidden = true;
             }
+            this.updateHUD();
+          }
+        }
+
+        nextTurn() {
+          if (!this.roster || this.roster.length === 0) return;
+          let nextIdx = this.activePlayerIdx;
+          for (let i = 0; i < this.roster.length; i++) {
+            nextIdx = (nextIdx + 1) % this.roster.length;
+            if (this.roster[nextIdx].hp > 0) {
+              this.activePlayerIdx = nextIdx;
+              this.updateHUD();
+              return;
+            }
+          }
+          this.updateHUD();
+        }
+
+        checkAIShot() {
+          if (!this.roster || this.activePlayerIdx === undefined) return;
+          const activeTank = this.roster[this.activePlayerIdx];
+          if (activeTank && activeTank.hp > 0 && activeTank.type !== 'Human' && !this.projectile) {
+            // Pick deterministic angle and power using our rng
+            activeTank.angle = Math.round(rng.range(30, 150));
+            activeTank.power = Math.round(rng.range(200, 800));
+            this.fireActiveWeapon();
+          }
+        }
+
+        onImpact(x, y) {
+          if (!this.headless) {
+            sfx('explode');
+          }
+          if (this.config && typeof this.config.onImpact === 'function') {
+            this.config.onImpact(x, y);
           }
         }
 
         stepPhysics(dt) {
           this.roundState.ticks++;
+
+          // If no projectile is live, and the active player is AI, trigger its shot deterministically
+          if (!this.projectile && this.roster && this.activePlayerIdx !== undefined) {
+            const activeTank = this.roster[this.activePlayerIdx];
+            if (activeTank && activeTank.hp > 0 && activeTank.type !== 'Human') {
+              this.checkAIShot();
+            }
+          }
+
+          if (this.projectile) {
+            // Apply wind and gravity once per tick
+            this.projectile.vy += CONST.GRAVITY * dt;
+            this.projectile.vx += (this.wind || 0) * dt;
+
+            const step_vx = this.projectile.vx;
+            const step_vy = this.projectile.vy;
+            const speed = Math.sqrt(step_vx * step_vx + step_vy * step_vy);
+            const numSteps = Math.max(10, Math.ceil(speed * dt));
+            const sdt = dt / numSteps;
+
+            for (let s = 0; s < numSteps; s++) {
+              if (!this.projectile) break;
+
+              this.projectile.x += step_vx * sdt;
+              this.projectile.y += step_vy * sdt;
+
+              const px = this.projectile.x;
+              const py = this.projectile.y;
+
+              // Wall and ceiling boundaries checks based on wallType
+              if (this.wallType === 'off') {
+                if (px < 0 || px > CONST.WORLD_W) {
+                  this.projectile = null;
+                  this.nextTurn();
+                  break;
+                }
+              } else if (this.wallType === 'rubber') {
+                if (this.projectile.x < 0) {
+                  this.projectile.vx = -this.projectile.vx;
+                  this.projectile.x = -this.projectile.x;
+                  if (!this.headless) sfx('bounce');
+                } else if (this.projectile.x > CONST.WORLD_W) {
+                  this.projectile.vx = -this.projectile.vx;
+                  this.projectile.x = CONST.WORLD_W - (this.projectile.x - CONST.WORLD_W);
+                  if (!this.headless) sfx('bounce');
+                }
+              } else if (this.wallType === 'wrap') {
+                this.projectile.x = (this.projectile.x % CONST.WORLD_W + CONST.WORLD_W) % CONST.WORLD_W;
+              } else if (this.wallType === 'concrete') {
+                // Concrete bounces off left/right and ceiling
+                if (this.projectile.x < 0) {
+                  this.projectile.vx = -this.projectile.vx;
+                  this.projectile.x = -this.projectile.x;
+                  if (!this.headless) sfx('bounce');
+                } else if (this.projectile.x > CONST.WORLD_W) {
+                  this.projectile.vx = -this.projectile.vx;
+                  this.projectile.x = CONST.WORLD_W - (this.projectile.x - CONST.WORLD_W);
+                  if (!this.headless) sfx('bounce');
+                }
+                if (this.projectile.y < 0) {
+                  this.projectile.vy = -this.projectile.vy;
+                  this.projectile.y = -this.projectile.y;
+                  if (!this.headless) sfx('bounce');
+                }
+              }
+
+              // Check if projectile fell below world bottom
+              if (this.projectile && this.projectile.y > CONST.WORLD_H) {
+                this.projectile = null;
+                this.nextTurn();
+                break;
+              }
+
+              if (!this.projectile) break;
+
+              // Collision with terrain
+              const terrainX = Math.floor(this.projectile.x);
+              if (terrainX >= 0 && terrainX < CONST.WORLD_W) {
+                const groundY = CONST.WORLD_H - this.terrain.heightAt(this.projectile.x);
+                if (this.projectile.y >= groundY) {
+                  const impactX = this.projectile.x;
+                  const impactY = this.projectile.y;
+                  this.projectile = null;
+                  this.onImpact(impactX, impactY);
+                  this.nextTurn();
+                  break;
+                }
+              }
+
+              // Collision with tank hulls
+              let hitTank = false;
+              for (let i = 0; i < this.roster.length; i++) {
+                const tank = this.roster[i];
+                if (tank.hp > 0) {
+                  if (this.projectile.x >= tank.x - 8 && this.projectile.x <= tank.x + 8 &&
+                      this.projectile.y >= tank.y - 6 && this.projectile.y <= tank.y) {
+                    const impactX = this.projectile.x;
+                    const impactY = this.projectile.y;
+                    this.projectile = null;
+                    this.onImpact(impactX, impactY);
+                    this.nextTurn();
+                    hitTank = true;
+                    break;
+                  }
+                }
+              }
+              if (hitTank) break;
+            }
+          }
         }
 
         update(dt) {
@@ -700,6 +1048,56 @@
           ctx.save();
           ctx.scale(cssWidth / CONST.WORLD_W, cssHeight / CONST.WORLD_H);
           this.terrain.draw(ctx);
+
+          // Draw tanks
+          if (this.roster) {
+            this.roster.forEach((tank, idx) => {
+              if (tank.hp <= 0) return;
+
+              ctx.fillStyle = tank.color;
+              ctx.strokeStyle = tank.color;
+
+              // Hull
+              ctx.fillRect(tank.x - 8, tank.y - 6, 16, 6);
+
+              // Dome
+              ctx.beginPath();
+              ctx.arc(tank.x, tank.y - 6, 4, Math.PI, 0);
+              ctx.fill();
+
+              // Barrel
+              const angleRad = (tank.angle * Math.PI) / 180;
+              const barrelLen = 12;
+              const bx = tank.x + barrelLen * Math.cos(angleRad);
+              const by = tank.y - 6 - barrelLen * Math.sin(angleRad);
+
+              ctx.beginPath();
+              ctx.moveTo(tank.x, tank.y - 6);
+              ctx.lineTo(bx, by);
+              ctx.lineWidth = 2;
+              ctx.stroke();
+
+              // Active player indicator (small triangle pointing down)
+              if (idx === this.activePlayerIdx) {
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.moveTo(tank.x - 4, tank.y - 20);
+                ctx.lineTo(tank.x + 4, tank.y - 20);
+                ctx.lineTo(tank.x, tank.y - 14);
+                ctx.closePath();
+                ctx.fill();
+              }
+            });
+          }
+
+          // Draw active projectile
+          if (this.projectile) {
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(this.projectile.x, this.projectile.y, 3, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
           ctx.restore();
         }
       }
