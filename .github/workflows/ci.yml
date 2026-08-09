@@ -18,19 +18,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          elif [ -f package.json ]; then
-            npm install
-          fi
+        run: npm ci
 
       - name: Run tests
-        run: |
-          if grep -q '"test"' package.json 2>/dev/null; then
-            npm test
-          else
-            node --test
-          fi
+        run: npm test
