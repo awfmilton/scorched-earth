@@ -1,6 +1,14 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const crypto = require('node:crypto');
+const { WebSocketServer, WebSocket } = require('ws');
+const { C2S, ERRORS, validate } = require('./lib/protocol.js');
+
+// A client frame larger than this is refused before it is parsed.
+const MAX_PAYLOAD_BYTES = 4096;
+// Ping every client on this cadence; a client that misses a whole cycle is half-open.
+const HEARTBEAT_INTERVAL_MS = 30000;
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -100,8 +108,120 @@ function createServer() {
   });
 }
 
+/**
+ * Attach a WebSocket endpoint to an EXISTING http.Server so both protocols share
+ * one port (the client in lib/net-client.js dials `ws://<location.host>` with no
+ * path, so upgrades are accepted on any path rather than a fixed one).
+ *
+ * Room/game rules deliberately live outside this layer: pass an `onMessage`
+ * handler to plug the RoomManager in without this file knowing the game.
+ */
+function attachWebSocketServer(httpServer, options = {}) {
+  const {
+    onMessage = null,
+    onConnect = null,
+    onDisconnect = null,
+    maxPayloadBytes = MAX_PAYLOAD_BYTES,
+    heartbeatIntervalMs = HEARTBEAT_INTERVAL_MS
+  } = options;
+
+  const wss = new WebSocketServer({ server: httpServer });
+  const clients = new Map(); // connectionId -> ws
+
+  function send(connectionId, msg) {
+    const ws = clients.get(connectionId);
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(msg));
+      return true;
+    }
+    return false;
+  }
+
+  function broadcast(connectionIds, msg) {
+    for (const id of connectionIds) send(id, msg);
+  }
+
+  function sendError(connectionId, code, message) {
+    send(connectionId, { type: 'ERROR', code, message });
+  }
+
+  wss.on('connection', (ws) => {
+    const connectionId = crypto.randomUUID();
+    clients.set(connectionId, ws);
+
+    ws.isAlive = true;
+    ws.on('pong', () => { ws.isAlive = true; });
+
+    let closed = false;
+    function handleClose() {
+      if (closed) return;
+      closed = true;
+      clients.delete(connectionId);
+      if (onDisconnect) onDisconnect({ connectionId, send, broadcast });
+    }
+    ws.on('close', handleClose);
+    // An errored socket never reliably emits 'close' first — clean up here too.
+    ws.on('error', handleClose);
+
+    ws.on('message', (raw, isBinary) => {
+      if (isBinary) {
+        sendError(connectionId, ERRORS.BAD_MESSAGE, 'Binary frames are not accepted');
+        return;
+      }
+
+      // Size is checked on the raw bytes, before any parse work is done.
+      if (raw.length > maxPayloadBytes) {
+        sendError(connectionId, ERRORS.BAD_MESSAGE, 'Payload too large');
+        return;
+      }
+
+      let msg;
+      try {
+        msg = JSON.parse(raw.toString('utf8'));
+      } catch {
+        sendError(connectionId, ERRORS.BAD_MESSAGE, 'Malformed JSON');
+        return;
+      }
+
+      const result = validate(msg);
+      if (!result.ok) {
+        sendError(connectionId, ERRORS.BAD_MESSAGE, result.error);
+        return;
+      }
+
+      // validate() also accepts server->client types; a client may only send C2S.
+      if (!Object.values(C2S).includes(msg.type)) {
+        sendError(connectionId, ERRORS.BAD_MESSAGE, `Not a client message type: ${msg.type}`);
+        return;
+      }
+
+      if (onMessage) onMessage({ connectionId, msg, send, broadcast });
+    });
+
+    if (onConnect) onConnect({ connectionId, send, broadcast });
+  });
+
+  const heartbeat = setInterval(() => {
+    for (const ws of clients.values()) {
+      if (ws.isAlive === false) {
+        ws.terminate(); // 'close' fires, which unregisters the connection
+        continue;
+      }
+      ws.isAlive = false;
+      ws.ping();
+    }
+  }, heartbeatIntervalMs);
+  // Never hold the process (or a test run) open on the timer alone.
+  if (typeof heartbeat.unref === 'function') heartbeat.unref();
+
+  wss.on('close', () => clearInterval(heartbeat));
+
+  return { wss, clients, send, broadcast, close: () => new Promise(resolve => wss.close(resolve)) };
+}
+
 if (require.main === module) {
   const server = createServer();
+  attachWebSocketServer(server);
   const port = Number(process.env.PORT) || 8080;
   const host = '0.0.0.0';
   server.listen(port, host, () => {
@@ -109,4 +229,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { createServer };
+module.exports = { createServer, attachWebSocketServer, MAX_PAYLOAD_BYTES };
