@@ -18,6 +18,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
 
-      - name: Run smoke tests
-        run: node --test tests/
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
