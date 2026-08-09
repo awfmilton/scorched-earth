@@ -224,6 +224,7 @@ function evaluateScript(customGlobals = {}) {
     Float32Array,
     console,
     setTimeout,
+    clearTimeout,
     requestAnimationFrame: () => {}, // no-op requestAnimationFrame
     performance: { now: () => Date.now() },
     ...customGlobals
@@ -1444,6 +1445,239 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
       // Assert: the projectile list is now empty and the turn advanced to player index 1
       assert.strictEqual(game.projectiles.length, 0, 'Expected projectile to be removed from the list');
       assert.strictEqual(game.activePlayerIdx, 1, 'Expected active turn to advance to player 1');
+    });
+
+    describe('NetClient tests', () => {
+
+      it('should instantiate NetClient and derive dynamic WebSocket URL from location.host', () => {
+        let constructedUrl = '';
+        const mockWS = class MockWS {
+          static CONNECTING = 0;
+          static OPEN = 1;
+          static CLOSING = 2;
+          static CLOSED = 3;
+          constructor(url) {
+            constructedUrl = url;
+            this.readyState = 0; // CONNECTING
+          }
+        };
+
+        const ctx = evaluateScript({
+          location: {
+            protocol: 'https:',
+            host: 'custom-domain.com:443'
+          },
+          WebSocket: mockWS
+        });
+
+        const net = new ctx.globalThis.SCORCHED.NetClient();
+        assert.strictEqual(net.state, 'lost');
+
+        net.connect();
+        assert.strictEqual(constructedUrl, 'wss://custom-domain.com:443');
+        assert.strictEqual(net.state, 'connecting');
+
+        // Test with http:
+        ctx.location.protocol = 'http:';
+        net.connect();
+        assert.strictEqual(constructedUrl, 'ws://custom-domain.com:443');
+      });
+
+      it('should handle state transitions and callbacks', () => {
+        let latestWS = null;
+        const mockWS = class MockWS {
+          static CONNECTING = 0;
+          static OPEN = 1;
+          static CLOSING = 2;
+          static CLOSED = 3;
+          constructor(url) {
+            this.readyState = 0;
+            latestWS = this;
+          }
+          close() {
+            this.readyState = 3;
+            if (this.onclose) this.onclose();
+          }
+        };
+
+        const ctx = evaluateScript({
+          location: { protocol: 'http:', host: 'localhost' },
+          WebSocket: mockWS
+        });
+
+        const net = new ctx.globalThis.SCORCHED.NetClient();
+        const states = [];
+        net.onStateChange((s) => {
+          states.push(s);
+        });
+
+        net.connect();
+        assert.strictEqual(net.state, 'connecting');
+        assert.deepStrictEqual(states, ['connecting']);
+
+        // simulate successful open
+        latestWS.readyState = 1; // OPEN
+        if (latestWS.onopen) latestWS.onopen();
+        assert.strictEqual(net.state, 'live');
+        assert.deepStrictEqual(states, ['connecting', 'live']);
+
+        // simulate close/reconnect
+        latestWS.close();
+        assert.strictEqual(net.state, 'reconnecting');
+        assert.deepStrictEqual(states, ['connecting', 'live', 'reconnecting']);
+
+        net.disconnect();
+      });
+
+      it('should silently no-op when send is called on a non-open socket', () => {
+        const ctx = evaluateScript();
+        const net = new ctx.globalThis.SCORCHED.NetClient();
+        assert.doesNotThrow(() => {
+          net.send('MY_MESSAGE', { foo: 'bar' });
+        });
+      });
+
+      it('should handle parse errors and surface them through onError callback', () => {
+        let latestWS = null;
+        const mockWS = class MockWS {
+          static CONNECTING = 0;
+          static OPEN = 1;
+          static CLOSING = 2;
+          static CLOSED = 3;
+          constructor(url) {
+            this.readyState = 0;
+            latestWS = this;
+          }
+        };
+
+        const ctx = evaluateScript({
+          location: { protocol: 'http:', host: 'localhost' },
+          WebSocket: mockWS
+        });
+
+        const net = new ctx.globalThis.SCORCHED.NetClient();
+        let surfacedError = null;
+        net.onError((err) => {
+          surfacedError = err;
+        });
+
+        net.connect();
+        latestWS.readyState = 1;
+        if (latestWS.onopen) latestWS.onopen();
+
+        // Send corrupt message
+        latestWS.onmessage({ data: 'invalid-json{' });
+        assert.ok(surfacedError);
+        assert.strictEqual(surfacedError.type, 'PARSE_ERROR');
+
+        // Send S2C ERROR frame
+        latestWS.onmessage({ data: JSON.stringify({ type: 'ERROR', payload: 'server full' }) });
+        assert.strictEqual(surfacedError.type, 'ERROR');
+        assert.strictEqual(surfacedError.payload, 'server full');
+
+        net.disconnect();
+      });
+
+      it('should send REJOIN message on reconnect if sessionStorage contains token', () => {
+        const mockStore = {};
+        const mockSessionStorage = {
+          setItem(key, value) {
+            mockStore[key] = String(value);
+          },
+          getItem(key) {
+            return mockStore[key] || null;
+          },
+          removeItem(key) {
+            delete mockStore[key];
+          }
+        };
+
+        let latestWS = null;
+        const mockWS = class MockWS {
+          static CONNECTING = 0;
+          static OPEN = 1;
+          static CLOSING = 2;
+          static CLOSED = 3;
+          constructor(url) {
+            this.readyState = 0;
+            latestWS = this;
+            this.sentMessages = [];
+          }
+          send(data) {
+            this.sentMessages.push(JSON.parse(data));
+          }
+        };
+
+        const ctx = evaluateScript({
+          location: { protocol: 'http:', host: 'localhost' },
+          WebSocket: mockWS,
+          sessionStorage: mockSessionStorage
+        });
+
+        const net = new ctx.globalThis.SCORCHED.NetClient();
+        net.setSessionToken('abc-code', 'xyz-player-token', 2);
+
+        net.connect();
+        latestWS.readyState = 1; // OPEN
+        if (latestWS.onopen) latestWS.onopen();
+
+        assert.strictEqual(latestWS.sentMessages.length, 1);
+        assert.strictEqual(latestWS.sentMessages[0].type, 'REJOIN');
+        assert.deepStrictEqual(latestWS.sentMessages[0].payload, {
+          code: 'abc-code',
+          playerToken: 'xyz-player-token',
+          slot: 2
+        });
+
+        net.disconnect();
+      });
+
+      it('should reconnect with exponential backoff', (t, done) => {
+        let wsInstanceCount = 0;
+        const mockWS = class MockWS {
+          static CONNECTING = 0;
+          static OPEN = 1;
+          static CLOSING = 2;
+          static CLOSED = 3;
+          constructor(url) {
+            wsInstanceCount++;
+            this.readyState = 0;
+          }
+        };
+
+        const ctx = evaluateScript({
+          location: { protocol: 'http:', host: 'localhost' },
+          WebSocket: mockWS
+        });
+
+        const net = new ctx.globalThis.SCORCHED.NetClient();
+        net.backoffDelay = 10;
+        net.maxBackoffDelay = 100;
+
+        net.connect();
+        assert.strictEqual(wsInstanceCount, 1);
+
+        // Simulate close event
+        net.socket.onclose();
+
+        setTimeout(() => {
+          // Should have reconnected
+          assert.strictEqual(wsInstanceCount, 2);
+          assert.strictEqual(net.backoffDelay, 20); // Doubled backoff delay
+
+          // Simulate close event again
+          net.socket.onclose();
+
+          setTimeout(() => {
+            assert.strictEqual(wsInstanceCount, 3);
+            assert.strictEqual(net.backoffDelay, 40); // Doubled backoff delay again
+
+            net.disconnect();
+            done();
+          }, 30);
+        }, 20);
+      });
+
     });
 
   });
