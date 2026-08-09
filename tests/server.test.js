@@ -96,23 +96,31 @@ describe('HTTP Server Tests', () => {
 
   it('Server should serve files under lib/ directory with correct MIME type', async () => {
     const libDir = path.join(__dirname, '..', 'lib');
-    if (!fs.existsSync(libDir)) {
+    // Probe filename must not collide with real sources: lib/room-code.js and
+    // lib/terrain.js land in later chunks, and this test deletes what it writes.
+    const jsFile = path.join(libDir, '__mime-probe.js');
+    const createdLibDir = !fs.existsSync(libDir);
+    if (createdLibDir) {
       fs.mkdirSync(libDir);
     }
-    const jsFile = path.join(libDir, 'terrain.js');
-    fs.writeFileSync(jsFile, '// terrain library mock code\n');
+    fs.writeFileSync(jsFile, '// mime probe\n');
 
     const server = createServer();
     const port = await startServer(server);
     try {
-      const res = await request(port, '/lib/terrain.js');
+      const res = await request(port, '/lib/__mime-probe.js');
       assert.strictEqual(res.statusCode, 200);
       assert.strictEqual(res.headers['content-type'], 'text/javascript; charset=utf-8');
       assert.ok(res.headers['cache-control'].includes('max-age'));
     } finally {
-      fs.unlinkSync(jsFile);
-      fs.rmdirSync(libDir);
+      // Close the server first: a throwing cleanup step must never leak the
+      // listening handle, or the test runner hangs until the CI timeout.
       await stopServer(server);
+      fs.rmSync(jsFile, { force: true });
+      if (createdLibDir) {
+        // Only remove lib/ if this test created it, and tolerate other files.
+        try { fs.rmdirSync(libDir); } catch { /* later chunks' sources live here */ }
+      }
     }
   });
 
