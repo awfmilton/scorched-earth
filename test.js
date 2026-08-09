@@ -1484,11 +1484,18 @@ function runTests() {
     console.log(`Test 13 finished after ${t13Ticks} ticks.`);
     console.log(`Impact registered at X: ${test13ImpactX}, Y: ${test13ImpactY}`);
 
-    if (!test13ImpactX) {
+    if (SCORCHED.CONST.MAX_FLIGHT_TICKS !== 1800) {
+      throw new Error(`Expected CONST.MAX_FLIGHT_TICKS to be 1800, but got ${SCORCHED.CONST.MAX_FLIGHT_TICKS}`);
+    }
+
+    if (test13ImpactX === null) {
       throw new Error("Expected projectile to register onImpact, but it was silently despawned or did not land!");
     }
     if (t13Ticks < 500) {
       throw new Error(`Expected flight ticks to be at least 500, but got ${t13Ticks}!`);
+    }
+    if (t13Ticks >= SCORCHED.CONST.MAX_FLIGHT_TICKS) {
+      throw new Error(`Expected flight ticks (${t13Ticks}) to be strictly less than MAX_FLIGHT_TICKS (${SCORCHED.CONST.MAX_FLIGHT_TICKS})!`);
     }
     console.log("✓ Projectile with widened flight-lifetime cap successfully registered onImpact without despawning.");
 
