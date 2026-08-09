@@ -1,4 +1,9 @@
 {
+  "name": "scorched-earth",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "node --test"
+  },
   "dependencies": {
     "ws": "^8.21.3"
   }
