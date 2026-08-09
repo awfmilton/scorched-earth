@@ -2,10 +2,12 @@ const test = require('node:test');
 const { describe, it } = test;
 const assert = require('node:assert');
 const fs = require('fs');
+const path = require('path');
 const vm = require('vm');
 
 // 1. Read and extract the script block from index.html
-const html = fs.readFileSync('index.html', 'utf8');
+// Resolve relative to this file so the suite runs from any working directory.
+const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
 if (!scriptMatch) {
   throw new Error("Could not find script block in index.html");
@@ -1329,6 +1331,64 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
       }
 
       assert.strictEqual(leaveGame.activePlayerIdx, 1);
+    });
+
+    it('Test 13: Widened Projectile Flight-Lifetime Cap', () => {
+      const test13Game = SCORCHED.createHeadlessGame({ seed: 777 });
+      test13Game.start({
+        players: [
+          { name: 'P1', type: 'Human', color: '#ff00ff' },
+          { name: 'P2', type: 'Human', color: '#00ffff' }
+        ],
+        rounds: 1,
+        startingCash: 10000,
+        wallType: 'rubber'
+      });
+      test13Game.wind = 0;
+
+      // plateau heights = 690 under the tank, pit heights = 2 elsewhere
+      for (let i = 0; i < SCORCHED.CONST.WORLD_W; i++) {
+        if (i >= 80 && i <= 120) {
+          test13Game.terrain.heights[i] = 690;
+        } else {
+          test13Game.terrain.heights[i] = 2;
+        }
+      }
+
+      test13Game.roster[0].x = 100;
+      test13Game.roster[1].x = 1100;
+      test13Game.snapTanksToTerrain();
+
+      test13Game.activePlayerIdx = 0;
+      test13Game.roster[0].angle = 88;
+      test13Game.roster[0].power = 1000;
+
+      let test13ImpactX = null;
+      let test13ImpactY = null;
+      test13Game.config.onImpact = (x, y) => {
+        test13ImpactX = x;
+        test13ImpactY = y;
+      };
+
+      test13Game.fireActiveWeapon();
+      assert.ok(test13Game.projectile, 'Expected projectile to be live for Test 13');
+
+      let t13Ticks = 0;
+      while (test13Game.projectile && t13Ticks < 2000) {
+        test13Game.stepPhysics(SCORCHED.CONST.TICK);
+        t13Ticks++;
+      }
+
+      assert.strictEqual(SCORCHED.CONST.MAX_FLIGHT_TICKS, 1800,
+        `Expected CONST.MAX_FLIGHT_TICKS to be 1800, but got ${SCORCHED.CONST.MAX_FLIGHT_TICKS}`);
+      assert.notStrictEqual(test13ImpactX, null,
+        'Expected projectile to register onImpact, but it was silently despawned or did not land');
+      assert.notStrictEqual(test13ImpactY, null,
+        'Expected onImpact to report a Y coordinate');
+      assert.ok(t13Ticks >= 500,
+        `Expected flight ticks to be at least 500, but got ${t13Ticks}`);
+      assert.ok(t13Ticks < SCORCHED.CONST.MAX_FLIGHT_TICKS,
+        `Expected flight ticks (${t13Ticks}) to be strictly less than MAX_FLIGHT_TICKS (${SCORCHED.CONST.MAX_FLIGHT_TICKS})`);
     });
 
   });

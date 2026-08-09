@@ -275,7 +275,8 @@
         WORLD_W: 1200,
         WORLD_H: 700,
         GRAVITY: 260,
-        TICK: 1/60
+        TICK: 1/60,
+        MAX_FLIGHT_TICKS: 1800
       };
 
       const WEAPONS = [
@@ -1564,7 +1565,7 @@
               if (!this.projectiles.includes(proj)) continue;
 
               proj.flightTicks = (proj.flightTicks || 0) + 1;
-              if (proj.flightTicks > 500) {
+              if (proj.flightTicks > CONST.MAX_FLIGHT_TICKS) {
                 this.projectiles = this.projectiles.filter(p => p !== proj);
                 if (this.projectiles.length === 0) {
                   this.nextTurn();
@@ -1725,8 +1726,8 @@
                 continue;
               }
 
-              const step_vx = proj.vx;
-              const step_vy = proj.vy;
+              let step_vx = proj.vx;
+              let step_vy = proj.vy;
               const speed = Math.sqrt(step_vx * step_vx + step_vy * step_vy);
               const numSteps = Math.max(10, Math.ceil(speed * dt));
               const sdt = dt / numSteps;
@@ -1773,11 +1774,13 @@
                 } else if (this.wallType === 'rubber') {
                   if (proj.x < 0) {
                     proj.vx = -proj.vx;
+                    step_vx = -step_vx;
                     proj.x = -proj.x;
                     proj.bounces = (proj.bounces || 0) + 1;
                     if (!this.headless) sfx('bounce');
                   } else if (proj.x > CONST.WORLD_W) {
                     proj.vx = -proj.vx;
+                    step_vx = -step_vx;
                     proj.x = CONST.WORLD_W - (proj.x - CONST.WORLD_W);
                     proj.bounces = (proj.bounces || 0) + 1;
                     if (!this.headless) sfx('bounce');
@@ -1787,17 +1790,20 @@
                 } else if (this.wallType === 'concrete') {
                   if (proj.x < 0) {
                     proj.vx = -proj.vx;
+                    step_vx = -step_vx;
                     proj.x = -proj.x;
                     proj.bounces = (proj.bounces || 0) + 1;
                     if (!this.headless) sfx('bounce');
                   } else if (proj.x > CONST.WORLD_W) {
                     proj.vx = -proj.vx;
+                    step_vx = -step_vx;
                     proj.x = CONST.WORLD_W - (proj.x - CONST.WORLD_W);
                     proj.bounces = (proj.bounces || 0) + 1;
                     if (!this.headless) sfx('bounce');
                   }
                   if (proj.y < 0) {
                     proj.vy = -proj.vy;
+                    step_vy = -step_vy;
                     proj.y = -proj.y;
                     proj.bounces = (proj.bounces || 0) + 1;
                     if (!this.headless) sfx('bounce');
