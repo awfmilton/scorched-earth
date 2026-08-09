@@ -19,10 +19,9 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: README.md
 
       - name: Install dependencies
-        run: npm ci || true
+        run: npm ci
 
       - name: Run smoke tests
-        run: npm test || node --test tests/smoke.test.js
+        run: npm test
