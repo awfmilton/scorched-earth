@@ -31,15 +31,15 @@ Before starting a game, you can customise the match settings in the setup screen
   * **Human:** Controlled manually via keyboard.
   * **Moron:** Shoots randomly without targeting.
   * **Shooter:** Targets opponents but doesn't adjust for mistakes.
-  * **Poolshark:** Attempts to use wall bounces (under rubber or concrete wall modes) to hit targets.
+  * **Poolshark:** Attempts to use wall bounces to hit targets. The bank shot is only computed under the **rubber** wall mode; in every other mode it aims directly.
   * **Cyborg:** Implements error-correcting telemetry feedback to calibrate subsequent shots with deadly precision.
 * **Rounds (1-20):** Select the number of rounds for the match (defaults to 5).
 * **Starting Cash:** Choose the starting capital allocated to each player (defaults to $10,000).
 * **Wall Type:**
-  * **Off (Wrap-around / None):** Projectiles fly off-screen and disappear.
+  * **Off (None):** No wall at all — a projectile that leaves the left or right edge is removed and the turn ends.
   * **Rubber (Bouncing):** Projectiles bounce off the left and right borders of the screen.
   * **Wrap (Screen wrap):** Projectiles wrapping around from one side of the screen to the other.
-  * **Concrete (Solid):** Projectiles explode on impact with screen edges, or in certain modes trigger concrete borders.
+  * **Concrete (Solid):** Projectiles bounce off the left and right borders **and off the top of the screen** — the ceiling bounce is the only difference from rubber.
 * **Retro Tank Colors:** Choose from 8 retro CGA/EGA-inspired colors: Magenta, Cyan, Red, Green, Yellow, Blue, Orange, and White.
 * **Weapons Availability:** Toggle between **All Weapons** (full shop arsenal available) or **Basic Only** (restricting weapon types to basic missiles).
 
@@ -75,7 +75,7 @@ Players can purchase weapons and defensive equipment in the intermission shop be
 | **Shield** | 1,000 | 1 | 100 | Shield | Standard forcefield protecting against initial damage. |
 | **Heavy Shield** | 2,500 | 1 | 200 | Shield | Heavy duty forcefield offering robust protection. |
 | **Magnetic Shield** | 4,000 | 1 | 150 | Shield | High-tech field deflecting falling materials and absorbing blasts. |
-| **Battery** | 500 | 2 | - | Battery | Restores 25 HP to your tank. |
+| **Battery** | 500 | 2 | - | Battery | Recharges a raised shield by +50 (up to that shield's strength) if one is up and below its cap; otherwise restores +30 HP, capped at 100. |
 | **Parachute** | 500 | 3 | - | Parachute | Prevents fall/drop damage when terrain collapses underneath your tank. |
 | **Guidance Computer** | 2,000 | 1 | - | Utility | Assists in highlighting predicted projectile paths. |
 | **Auto Defense** | 3,000 | 1 | - | Utility | Automatically deploys a replacement shield if a current shield collapses during a turn. |
@@ -90,7 +90,12 @@ The game features a fully simulated round-by-round financial economy to encourag
 ## Tests
 A robust headless smoke test suite is included in the project to verify core systems, AI calculations, wind-velocity vectors, physics simulation, shop transactions, and deterministic PRNG seeds.
 
-To execute the test suite locally, run:
+To execute the test suite locally, run the same command CI does:
+```bash
+node --test tests/
+```
+
+On Windows shells that rewrite the trailing path separator, point Node at the file instead:
 ```bash
 node --test tests/smoke.test.js
 ```
