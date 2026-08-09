@@ -1,3 +1,6 @@
+# Dependencies
+node_modules/
+
 # Editor scratch files and directories
 .vscode/
 .idea/
