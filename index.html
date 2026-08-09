@@ -486,6 +486,239 @@
         });
       }
 
+      class NetClient {
+        constructor() {
+          this.socket = null;
+          this.state = 'lost';
+          this.onStateChangeCallback = null;
+          this.onErrorCallback = null;
+          this.backoffDelay = 1000;
+          this.maxBackoffDelay = 30000;
+          this.reconnectTimer = null;
+          this.shouldReconnect = true;
+
+          // Dispatch table keyed on S2C message names from lib/protocol.js,
+          // mirrored inline as byte-identical string literals.
+          this.dispatchTable = {
+            WELCOME: null,
+            ROOM_STATE: null,
+            GAME_START: null,
+            TURN_START: null,
+            PROJECTILE_FIRED: null,
+            IMPACT: null,
+            CHAT: null,
+            ERROR: null,
+            REJOIN_ACK: null,
+            welcome: null,
+            room_state: null,
+            game_start: null,
+            turn_start: null,
+            projectile_fired: null,
+            impact: null,
+            chat: null,
+            error: null,
+            rejoin_ack: null
+          };
+        }
+
+        register(type, handler) {
+          this.dispatchTable[type] = handler;
+        }
+
+        onStateChange(cb) {
+          this.onStateChangeCallback = cb;
+        }
+
+        onError(cb) {
+          this.onErrorCallback = cb;
+        }
+
+        setState(newState) {
+          if (this.state !== newState) {
+            this.state = newState;
+            if (this.onStateChangeCallback) {
+              try {
+                this.onStateChangeCallback(newState);
+              } catch (e) {
+                console.error("Error in onStateChange callback:", e);
+              }
+            }
+          }
+        }
+
+        connect() {
+          if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+          }
+
+          if (this.socket) {
+            try {
+              this.socket.onopen = null;
+              this.socket.onmessage = null;
+              this.socket.onclose = null;
+              this.socket.onerror = null;
+              this.socket.close();
+            } catch (e) {}
+          }
+
+          this.shouldReconnect = true;
+          this.setState('connecting');
+
+          const protocol = (typeof location !== 'undefined' && location.protocol === 'https:') ? 'wss://' : 'ws://';
+          const host = (typeof location !== 'undefined') ? location.host : 'localhost';
+          const url = protocol + host;
+
+          const WSClass = (typeof WebSocket !== 'undefined') ? WebSocket : (typeof globalThis !== 'undefined' ? globalThis.WebSocket : null);
+          if (!WSClass) {
+            this.handleError({ type: 'CONNECTION_ERROR', error: new Error('WebSocket is not defined') });
+            this.setState('lost');
+            return;
+          }
+
+          try {
+            this.socket = new WSClass(url);
+          } catch (err) {
+            this.handleError({ type: 'CONNECTION_ERROR', error: err });
+            this.setState('lost');
+            this.scheduleReconnect();
+            return;
+          }
+
+          this.socket.onopen = () => {
+            this.setState('live');
+            this.backoffDelay = 1000; // Reset backoff delay on successful connection
+
+            const session = this.getSessionToken();
+            if (session) {
+              this.send('REJOIN', session);
+            }
+          };
+
+          this.socket.onmessage = (event) => {
+            try {
+              const msg = JSON.parse(event.data);
+              if (!msg || typeof msg !== 'object') {
+                throw new Error('Invalid message format');
+              }
+
+              const type = msg.type || msg.event;
+              const payload = msg.payload !== undefined ? msg.payload : msg.data;
+
+              console.debug("Received S2C message:", type, payload);
+
+              if (type === 'ERROR' || type === 'error') {
+                this.handleError(msg);
+              }
+
+              if (type && this.dispatchTable[type]) {
+                this.dispatchTable[type](payload);
+              }
+            } catch (err) {
+              this.handleError({ type: 'PARSE_ERROR', error: err, data: event.data });
+            }
+          };
+
+          this.socket.onclose = () => {
+            if (this.state !== 'lost') {
+              this.setState('reconnecting');
+            }
+            this.scheduleReconnect();
+          };
+
+          this.socket.onerror = (err) => {
+            this.handleError({ type: 'SOCKET_ERROR', error: err });
+          };
+        }
+
+        scheduleReconnect() {
+          if (!this.shouldReconnect) return;
+          if (this.reconnectTimer) return;
+
+          this.reconnectTimer = setTimeout(() => {
+            this.reconnectTimer = null;
+            this.backoffDelay = Math.min(this.backoffDelay * 2, this.maxBackoffDelay);
+            this.connect();
+          }, this.backoffDelay);
+        }
+
+        disconnect() {
+          this.shouldReconnect = false;
+          if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+          }
+          if (this.socket) {
+            try {
+              this.socket.close();
+            } catch (e) {}
+            this.socket = null;
+          }
+          this.setState('lost');
+        }
+
+        send(type, payload) {
+          const WSClass = (typeof WebSocket !== 'undefined') ? WebSocket : (typeof globalThis !== 'undefined' ? globalThis.WebSocket : null);
+          if (this.socket && WSClass && this.socket.readyState === WSClass.OPEN) {
+            try {
+              this.socket.send(JSON.stringify({ type, payload }));
+            } catch (err) {
+              this.handleError({ type: 'SEND_ERROR', error: err });
+            }
+          }
+        }
+
+        handleError(errObj) {
+          if (this.onErrorCallback) {
+            try {
+              this.onErrorCallback(errObj);
+            } catch (e) {
+              console.error("Error in Net error handler:", e);
+            }
+          } else {
+            console.error("Net error:", errObj);
+          }
+        }
+
+        setSessionToken(code, playerToken, slot) {
+          if (typeof sessionStorage !== 'undefined') {
+            try {
+              sessionStorage.setItem('scorched_online_code', code);
+              sessionStorage.setItem('scorched_online_playerToken', playerToken);
+              sessionStorage.setItem('scorched_online_slot', slot);
+            } catch (e) {
+              console.warn('sessionStorage is not writable:', e);
+            }
+          }
+        }
+
+        getSessionToken() {
+          if (typeof sessionStorage !== 'undefined') {
+            try {
+              const code = sessionStorage.getItem('scorched_online_code');
+              const playerToken = sessionStorage.getItem('scorched_online_playerToken');
+              const slot = sessionStorage.getItem('scorched_online_slot');
+              if (code && playerToken && slot !== null) {
+                return { code, playerToken, slot: parseInt(slot, 10) };
+              }
+            } catch (e) {
+              console.warn('sessionStorage is not readable:', e);
+            }
+          }
+          return null;
+        }
+
+        clearSessionToken() {
+          if (typeof sessionStorage !== 'undefined') {
+            try {
+              sessionStorage.removeItem('scorched_online_code');
+              sessionStorage.removeItem('scorched_online_playerToken');
+              sessionStorage.removeItem('scorched_online_slot');
+            } catch (e) {}
+          }
+        }
+      }
+
       class Terrain {
         constructor() {
           this.heights = new Float32Array(CONST.WORLD_W);
@@ -673,6 +906,7 @@
         constructor(opts = {}) {
           this.headless = !!opts.headless;
           this.seed = opts.seed !== undefined ? opts.seed : 42;
+          this.mode = opts.mode || 'local';
           this.roundState = {
             ticks: 0
           };
@@ -680,6 +914,15 @@
           this.projectiles = [];
           this.terrain = new Terrain();
           this.newRound(this.seed);
+
+          this.net = null;
+          if (this.mode === 'online') {
+            this.net = new NetClient();
+            this.net.onStateChange(() => {
+              this.updateHUD();
+            });
+            this.net.connect();
+          }
 
           if (!this.headless) {
             if (typeof document !== 'undefined') {
@@ -877,6 +1120,7 @@
           let weaponSpan = hud.querySelector('.hud-weapon');
           let cashSpan = hud.querySelector('.hud-cash');
           let windSpan = hud.querySelector('.hud-wind');
+          let netSpan = hud.querySelector('.hud-net');
           let legendSpan = hud.querySelector('.hud-legend');
 
           if (!nameSpan) {
@@ -911,6 +1155,11 @@
             windSpan.className = 'hud-wind';
             windSpan.style.marginRight = '15px';
 
+            netSpan = document.createElement('span');
+            netSpan.className = 'hud-net';
+            netSpan.style.marginRight = '15px';
+            netSpan.style.fontWeight = 'bold';
+
             legendSpan = document.createElement('span');
             legendSpan.className = 'hud-legend';
             legendSpan.style.color = '#888';
@@ -924,7 +1173,18 @@
             hud.appendChild(weaponSpan);
             hud.appendChild(cashSpan);
             hud.appendChild(windSpan);
+            hud.appendChild(netSpan);
             hud.appendChild(legendSpan);
+          } else if (!netSpan && legendSpan) {
+            netSpan = document.createElement('span');
+            netSpan.className = 'hud-net';
+            netSpan.style.marginRight = '15px';
+            netSpan.style.fontWeight = 'bold';
+            if (typeof hud.insertBefore === 'function') {
+              hud.insertBefore(netSpan, legendSpan);
+            } else {
+              hud.appendChild(netSpan);
+            }
           }
 
           nameSpan.textContent = activeTank.name.toUpperCase();
@@ -936,6 +1196,22 @@
           weaponSpan.textContent = `WEAP: ${weapon} (${ammoStr})`;
           cashSpan.textContent = `CASH: $${activeTank.cash}`;
           windSpan.textContent = `WIND: ${windDir} ${windSpeed}`;
+
+          if (this.mode === 'online') {
+            if (netSpan) {
+              netSpan.style.display = '';
+              let stateColor = '#ff0000';
+              const netState = this.net ? this.net.state : 'lost';
+              if (netState === 'live') stateColor = '#00ff00';
+              else if (netState === 'connecting' || netState === 'reconnecting') stateColor = '#ffff00';
+              netSpan.textContent = `NET: ${netState.toUpperCase()}`;
+              netSpan.style.color = stateColor;
+            }
+          } else {
+            if (netSpan) {
+              netSpan.style.display = 'none';
+            }
+          }
 
           legendSpan.textContent = 'L/R: Angle | U/D: Power | Space: Fire | [/]: Weapon | Shift: Coarse';
         }
@@ -2895,7 +3171,8 @@
         createHeadlessGame,
         Terrain,
         WEAPONS,
-        ITEMS
+        ITEMS,
+        NetClient
       };
     })();
   </script>
