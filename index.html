@@ -267,6 +267,7 @@
     </div>
   </div>
   <div id="shop" hidden></div>
+  <script src="lib/terrain.js"></script>
   <script>
     (function() {
       'use strict';
@@ -486,63 +487,78 @@
         });
       }
 
+      let TerrainLib;
+      if (typeof window !== 'undefined' && window.Terrain) {
+        TerrainLib = window.Terrain;
+      } else if (typeof globalThis !== 'undefined' && globalThis.Terrain) {
+        TerrainLib = globalThis.Terrain;
+      } else {
+        try {
+          TerrainLib = require('./lib/terrain.js');
+        } catch (e) {
+          // Fallback if needed
+        }
+      }
+
       class Terrain {
         constructor() {
           this.heights = new Float32Array(CONST.WORLD_W);
         }
 
         generate(seed) {
-          rng.seed(seed);
-          const minH = CONST.WORLD_H * 0.15;
-          const maxH = CONST.WORLD_H * 0.80;
+          if (TerrainLib) {
+            rng.seed(seed);
+            const h = TerrainLib.generateTerrain(rng, CONST.WORLD_W, CONST.WORLD_H);
+            this.heights.set(h);
+          } else {
+            // Original inlined generator fallback (needed for isolated VM test runs)
+            rng.seed(seed);
+            const minH = CONST.WORLD_H * 0.15;
+            const maxH = CONST.WORLD_H * 0.80;
 
-          // Standard midpoint displacement for 1D
-          const heights = this.heights;
-          const N = heights.length;
+            const heights = this.heights;
+            const N = heights.length;
 
-          heights[0] = rng.range(minH + (maxH - minH) * 0.2, maxH - (maxH - minH) * 0.2);
-          heights[N - 1] = rng.range(minH + (maxH - minH) * 0.2, maxH - (maxH - minH) * 0.2);
+            heights[0] = rng.range(minH + (maxH - minH) * 0.2, maxH - (maxH - minH) * 0.2);
+            heights[N - 1] = rng.range(minH + (maxH - minH) * 0.2, maxH - (maxH - minH) * 0.2);
 
-          // Roughness controls the initial displacement size
-          let roughness = 0.35;
+            let roughness = 0.35;
 
-          function displace(left, right, r) {
-            if (right - left <= 1) return;
-            const mid = Math.floor((left + right) / 2);
-            // Height is the average of endpoints + random offset proportional to interval length
-            const avg = (heights[left] + heights[right]) / 2;
-            const rangeVal = (right - left) * r;
-            const offset = rng.range(-rangeVal, rangeVal);
-            heights[mid] = avg + offset;
+            function displace(left, right, r) {
+              if (right - left <= 1) return;
+              const mid = Math.floor((left + right) / 2);
+              const avg = (heights[left] + heights[right]) / 2;
+              const rangeVal = (right - left) * r;
+              const offset = rng.range(-rangeVal, rangeVal);
+              heights[mid] = avg + offset;
 
-            displace(left, mid, r * 0.55);
-            displace(mid, right, r * 0.55);
-          }
-
-          displace(0, N - 1, roughness);
-
-          // Smoothing pass: 5-point moving average, run 4 times
-          const temp = new Float32Array(N);
-          for (let pass = 0; pass < 4; pass++) {
-            for (let i = 0; i < N; i++) {
-              let sum = 0;
-              let count = 0;
-              for (let di = -2; di <= 2; di++) {
-                const idx = i + di;
-                if (idx >= 0 && idx < N) {
-                  sum += heights[idx];
-                  count++;
-                }
-              }
-              temp[i] = sum / count;
+              displace(left, mid, r * 0.55);
+              displace(mid, right, r * 0.55);
             }
-            heights.set(temp);
-          }
 
-          // Clamp to safety range
-          for (let i = 0; i < N; i++) {
-            if (heights[i] < minH) heights[i] = minH;
-            if (heights[i] > maxH) heights[i] = maxH;
+            displace(0, N - 1, roughness);
+
+            const temp = new Float32Array(N);
+            for (let pass = 0; pass < 4; pass++) {
+              for (let i = 0; i < N; i++) {
+                let sum = 0;
+                let count = 0;
+                for (let di = -2; di <= 2; di++) {
+                  const idx = i + di;
+                  if (idx >= 0 && idx < N) {
+                    sum += heights[idx];
+                    count++;
+                  }
+                }
+                temp[i] = sum / count;
+              }
+              heights.set(temp);
+            }
+
+            for (let i = 0; i < N; i++) {
+              if (heights[i] < minH) heights[i] = minH;
+              if (heights[i] > maxH) heights[i] = maxH;
+            }
           }
         }
 
