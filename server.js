@@ -219,9 +219,84 @@ function attachWebSocketServer(httpServer, options = {}) {
   return { wss, clients, send, broadcast, close: () => new Promise(resolve => wss.close(resolve)) };
 }
 
+function createRoomManagerHandlers(roomManager) {
+  return {
+    onMessage: ({ connectionId, msg, send, broadcast }) => {
+      try {
+        let result;
+        switch (msg.type) {
+          case C2S.CREATE_ROOM:
+            result = roomManager.createRoom(connectionId);
+            break;
+          case C2S.JOIN_ROOM:
+            result = roomManager.join(connectionId, msg.code);
+            break;
+          case C2S.SET_PROFILE:
+            result = roomManager.setProfile(connectionId, { name: msg.name, colour: msg.colour });
+            break;
+          case C2S.START_GAME:
+            result = roomManager.start(connectionId);
+            break;
+          case C2S.FIRE:
+          case C2S.RESOLVE_SHOT:
+          case C2S.REJOIN:
+            send(connectionId, {
+              type: 'ERROR',
+              code: ERRORS.BAD_MESSAGE,
+              message: `Message type ${msg.type} is not supported yet`
+            });
+            return;
+          default:
+            send(connectionId, {
+              type: 'ERROR',
+              code: ERRORS.BAD_MESSAGE,
+              message: `Unsupported message type: ${msg.type}`
+            });
+            return;
+        }
+
+        if (result) {
+          if (result.replies) {
+            for (const reply of result.replies) {
+              send(reply.to, reply.msg);
+            }
+          }
+          if (result.broadcasts) {
+            for (const b of result.broadcasts) {
+              broadcast(b.to, b.msg);
+            }
+          }
+        }
+      } catch (err) {
+        const code = err.code || ERRORS.BAD_MESSAGE;
+        send(connectionId, {
+          type: 'ERROR',
+          code,
+          message: err.message || 'Internal server error'
+        });
+      }
+    },
+    onDisconnect: ({ connectionId, send, broadcast }) => {
+      const res = roomManager.disconnect(connectionId);
+      if (res && res.broadcasts) {
+        for (const b of res.broadcasts) {
+          broadcast(b.to, b.msg);
+        }
+      }
+    }
+  };
+}
+
 if (require.main === module) {
+  const RoomManager = require('./lib/room-manager.js');
+  const roomManager = new RoomManager();
+  const handlers = createRoomManagerHandlers(roomManager);
+
   const server = createServer();
-  attachWebSocketServer(server);
+  attachWebSocketServer(server, {
+    onMessage: handlers.onMessage,
+    onDisconnect: handlers.onDisconnect
+  });
   const port = Number(process.env.PORT) || 8080;
   const host = '0.0.0.0';
   server.listen(port, host, () => {
@@ -229,4 +304,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { createServer, attachWebSocketServer, MAX_PAYLOAD_BYTES };
+module.exports = { createServer, attachWebSocketServer, MAX_PAYLOAD_BYTES, createRoomManagerHandlers };
