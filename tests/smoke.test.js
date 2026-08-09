@@ -1391,6 +1391,61 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
         `Expected flight ticks (${t13Ticks}) to be strictly less than MAX_FLIGHT_TICKS (${SCORCHED.CONST.MAX_FLIGHT_TICKS})`);
     });
 
+    it('Test 14: Projectile Flight-Lifetime timeout resolves as a real impact', () => {
+      const game = SCORCHED.createHeadlessGame({ seed: 777 });
+      game.start({
+        players: [
+          { name: 'P1', type: 'Human', color: '#ff00ff' },
+          { name: 'P2', type: 'Human', color: '#00ffff' }
+        ],
+        rounds: 1,
+        startingCash: 10000,
+        wallType: 'rubber'
+      });
+      game.wind = 0;
+
+      game.roster[0].inventory['Tracer'] = 1;
+      game.roster[0].selectedWeapon = 'Tracer';
+      game.activePlayerIdx = 0;
+
+      let onImpactCalled = false;
+      let impactX = null;
+      let impactY = null;
+
+      game.config.onImpact = (x, y) => {
+        onImpactCalled = true;
+        impactX = x;
+        impactY = y;
+      };
+
+      game.fireActiveWeapon();
+      assert.strictEqual(game.projectiles.length, 1, 'Expected one projectile to be fired');
+
+      const proj = game.projectiles[0];
+      assert.strictEqual(proj.weapon, 'Tracer');
+
+      // Drive projectile to the cap by setting flightTicks = CONST.MAX_FLIGHT_TICKS - 5
+      proj.flightTicks = SCORCHED.CONST.MAX_FLIGHT_TICKS - 5;
+
+      // Step physics 6 times (so it exceeds MAX_FLIGHT_TICKS)
+      for (let i = 0; i < 6; i++) {
+        game.stepPhysics(SCORCHED.CONST.TICK);
+      }
+
+      // Assert: onImpact fired
+      assert.strictEqual(onImpactCalled, true, 'Expected onImpact to be called on flight lifetime timeout');
+      assert.strictEqual(game.lastShooterIdx, 0, 'Expected shooterIdx to be 0');
+
+      // Assert: a fired Tracer path was pushed to persistentTracers
+      assert.ok(game.persistentTracers && game.persistentTracers.length > 0, 'Expected tracer path to be pushed to persistentTracers');
+      const savedPath = game.persistentTracers[0];
+      assert.ok(Array.isArray(savedPath) && savedPath.length > 0, 'Expected a non-empty path array');
+
+      // Assert: the projectile list is now empty and the turn advanced to player index 1
+      assert.strictEqual(game.projectiles.length, 0, 'Expected projectile to be removed from the list');
+      assert.strictEqual(game.activePlayerIdx, 1, 'Expected active turn to advance to player 1');
+    });
+
   });
 
 });
