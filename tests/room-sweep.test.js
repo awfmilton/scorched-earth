@@ -145,6 +145,7 @@ describe('RoomManager Room Sweep Tests', () => {
   it('determinism: sweep(FIXED_TS) twice on identical managers gives identical results', () => {
     const originalRandomInt = crypto.randomInt;
     const originalRandomBytes = crypto.randomBytes;
+    const originalDateNow = Date.now;
 
     let countInt = 0;
     crypto.randomInt = (min, max) => {
@@ -154,6 +155,7 @@ describe('RoomManager Room Sweep Tests', () => {
     crypto.randomBytes = (size) => {
       return Buffer.alloc(size, 0x42);
     };
+    Date.now = () => 1786292068000;
 
     const createAndSetManager = () => {
       const rm = new RoomManager();
@@ -184,6 +186,7 @@ describe('RoomManager Room Sweep Tests', () => {
     } finally {
       crypto.randomInt = originalRandomInt;
       crypto.randomBytes = originalRandomBytes;
+      Date.now = originalDateNow;
     }
   });
 
