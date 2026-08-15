@@ -238,14 +238,14 @@ function createRoomManagerHandlers(roomManager) {
             result = roomManager.start(connectionId);
             break;
           case C2S.FIRE:
+            result = roomManager.fire(connectionId, msg);
+            break;
           case C2S.RESOLVE_SHOT:
+            result = roomManager.resolveShot(connectionId, msg);
+            break;
           case C2S.REJOIN:
-            send(connectionId, {
-              type: 'ERROR',
-              code: ERRORS.BAD_MESSAGE,
-              message: `Message type ${msg.type} is not supported yet`
-            });
-            return;
+            result = roomManager.rejoin(connectionId, msg);
+            break;
           default:
             send(connectionId, {
               type: 'ERROR',
