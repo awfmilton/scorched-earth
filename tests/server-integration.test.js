@@ -105,7 +105,7 @@ describe('Server Integration with RoomManager', () => {
 
     const errorMsg = await nextMessage(clientA);
     assert.strictEqual(errorMsg.type, 'ERROR');
-    assert.strictEqual(errorMsg.code, 'BAD_MESSAGE');
+    assert.strictEqual(errorMsg.code, 'NOT_YOUR_TURN');
 
     // 6. Close every socket and the server in the teardown hook; the test process must exit with no hanging handle
     await new Promise((resolve) => {
