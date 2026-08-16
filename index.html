@@ -510,6 +510,8 @@
           this.maxBackoffDelay = 30000;
           this.reconnectTimer = null;
           this.shouldReconnect = true;
+          this.awaitingRejoinAck = false;
+          this.pendingSlot = null;
 
           // Dispatch table keyed on S2C message names from lib/protocol.js,
           // mirrored inline as byte-identical string literals.
@@ -604,7 +606,9 @@
             this.backoffDelay = 1000; // Reset backoff delay on successful connection
 
             const session = this.getSessionToken();
+            this.awaitingRejoinAck = !!session;
             if (session) {
+              this.pendingSlot = session.slot;
               this.send('REJOIN', { code: session.code, playerToken: session.playerToken });
             }
           };
@@ -620,6 +624,35 @@
 
               console.debug("Received S2C message:", type, msg);
 
+              // A non-ERROR frame answering an open socket resolves a pending
+              // REJOIN — the server accepted (ROOM_STATE / REJOIN_ACK / ...).
+              if (this.awaitingRejoinAck && type !== 'ERROR' && type !== 'error') {
+                this.awaitingRejoinAck = false;
+              }
+
+              if (type === 'ROOM_STATE' && typeof msg.playerToken === 'string') {
+                // Direct reply to CREATE_ROOM / JOIN_ROOM / REJOIN carries our
+                // REJOIN credential at the top level; retain it with the room
+                // code and our pending slot (null until ROUND_START) so a later
+                // reconnect can resume through the onopen REJOIN gating above.
+                this.setSessionToken(msg.code, msg.playerToken, this.pendingSlot);
+              }
+
+              if (type === 'ROUND_START' && typeof msg.yourSlot === 'number') {
+                this.pendingSlot = msg.yourSlot;
+                const session = this.getSessionToken();
+                if (session && session.slot !== msg.yourSlot) {
+                  this.setSessionToken(session.code, session.playerToken, msg.yourSlot);
+                }
+              }
+
+              if (type === 'ROUND_END' || type === 'round_end') {
+                // The session belongs to the round that just ended; a later
+                // reconnect falls back to the lobby and must not re-present it.
+                this.pendingSlot = null;
+                this.clearSessionToken();
+              }
+
               if (type === 'ERROR' || type === 'error') {
                 this.handleError(msg);
               }
@@ -633,6 +666,7 @@
           };
 
           this.socket.onclose = () => {
+            this.awaitingRejoinAck = false;
             if (this.state !== 'lost') {
               this.setState('reconnecting');
             }
@@ -657,6 +691,7 @@
 
         disconnect() {
           this.shouldReconnect = false;
+          this.awaitingRejoinAck = false;
           if (this.reconnectTimer) {
             clearTimeout(this.reconnectTimer);
             this.reconnectTimer = null;
@@ -668,6 +703,21 @@
             this.socket = null;
           }
           this.setState('lost');
+        }
+
+        // The player is leaving the room on purpose: tear the session down so
+        // the onopen REJOIN gating has nothing to present afterward.
+        leaveRoom() {
+          this.pendingSlot = null;
+          this.clearSessionToken();
+          this.disconnect();
+        }
+
+        // End-of-round signal from the game loop (mirror of the server's
+        // ROUND_END frame): the session belongs to the finished round.
+        endRound() {
+          this.pendingSlot = null;
+          this.clearSessionToken();
         }
 
         send(type, fields) {
@@ -682,6 +732,30 @@
         }
 
         handleError(errObj) {
+          // A plain top-level ERROR right after we presented a stored REJOIN
+          // means the server rejected the resume. Drop the token, stop the
+          // backoff loop (we are still connected, so 'reconnecting' is wrong),
+          // and fall back to the lobby so the onopen REJOIN gating cannot
+          // re-send the same doomed credential forever.
+          const refusedRejoin = this.awaitingRejoinAck &&
+            errObj && errObj.type === 'ERROR' &&
+            !(typeof lib !== 'undefined' && lib && lib.ERR);
+          if (refusedRejoin) {
+            this.awaitingRejoinAck = false;
+            this.pendingSlot = null;
+            this.clearSessionToken();
+            this.shouldReconnect = false;
+            if (this.reconnectTimer) {
+              clearTimeout(this.reconnectTimer);
+              this.reconnectTimer = null;
+            }
+            if (this.state !== 'lost') {
+              this.setState('live'); // fall back to the lobby on this socket
+            }
+          } else if (this.awaitingRejoinAck) {
+            // REJOIN_ACK (or any other message) answers the REJOIN.
+            this.awaitingRejoinAck = false;
+          }
           if (this.onErrorCallback) {
             try {
               this.onErrorCallback(errObj);
@@ -2397,6 +2471,12 @@
 
         handleRoundEnd() {
           this.roundOver = true;
+
+          // The session token only resumes the round that just ended; drop it
+          // so a later reconnect cannot re-present it.
+          if (this.net) {
+            this.net.endRound();
+          }
 
           // 1. Calculate and apply payouts
           if (this.roster) {
