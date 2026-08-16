@@ -193,3 +193,71 @@ test('ROOM_STATE validation with bad player object', () => {
   };
   assert.deepStrictEqual(validate(badRoomState), { ok: false, error: 'Invalid value or type for field: players' });
 });
+
+test('RESOLVE_SHOT accepts absent or well-formed eliminated slot array', () => {
+  // Field entirely absent — nobody died
+  const absentMsg = { type: C2S.RESOLVE_SHOT, shotId: 42 };
+  assert.deepStrictEqual(validate(absentMsg), { ok: true, msg: absentMsg });
+
+  // Empty array — nobody died, explicit
+  const emptyMsg = { type: C2S.RESOLVE_SHOT, shotId: 42, eliminated: [] };
+  assert.deepStrictEqual(validate(emptyMsg), { ok: true, msg: emptyMsg });
+
+  // Populated array of integer slots
+  const popMsg = { type: C2S.RESOLVE_SHOT, shotId: 'shot-1', eliminated: [0, 2, 3] };
+  assert.deepStrictEqual(validate(popMsg), { ok: true, msg: popMsg });
+
+  // Full roster capacity is fine
+  const fullMsg = { type: C2S.RESOLVE_SHOT, shotId: 42, eliminated: [0, 1, 2, 3] };
+  assert.deepStrictEqual(validate(fullMsg), { ok: true, msg: fullMsg });
+});
+
+test('RESOLVE_SHOT rejects malformed eliminated slot array', () => {
+  // Over-length array (longer than MAX_PLAYERS)
+  assert.deepStrictEqual(
+    validate({ type: C2S.RESOLVE_SHOT, shotId: 1, eliminated: [0, 1, 2, 3, 0] }),
+    { ok: false, error: 'Invalid value or type for field: eliminated' }
+  );
+
+  // Out-of-range slots (negative and >= MAX_PLAYERS), including string entries
+  assert.deepStrictEqual(
+    validate({ type: C2S.RESOLVE_SHOT, shotId: 1, eliminated: [-1] }),
+    { ok: false, error: 'Invalid value or type for field: eliminated' }
+  );
+  assert.deepStrictEqual(
+    validate({ type: C2S.RESOLVE_SHOT, shotId: 1, eliminated: [4] }),
+    { ok: false, error: 'Invalid value or type for field: eliminated' }
+  );
+  assert.deepStrictEqual(
+    validate({ type: C2S.RESOLVE_SHOT, shotId: 1, eliminated: ['2'] }),
+    { ok: false, error: 'Invalid value or type for field: eliminated' }
+  );
+
+  // Non-integer entries
+  assert.deepStrictEqual(
+    validate({ type: C2S.RESOLVE_SHOT, shotId: 1, eliminated: [1.5] }),
+    { ok: false, error: 'Invalid value or type for field: eliminated' }
+  );
+  assert.deepStrictEqual(
+    validate({ type: C2S.RESOLVE_SHOT, shotId: 1, eliminated: [NaN] }),
+    { ok: false, error: 'Invalid value or type for field: eliminated' }
+  );
+
+  // Duplicate entries
+  assert.deepStrictEqual(
+    validate({ type: C2S.RESOLVE_SHOT, shotId: 1, eliminated: [1, 2, 1] }),
+    { ok: false, error: 'Invalid value or type for field: eliminated' }
+  );
+
+  // Not an array at all
+  assert.deepStrictEqual(
+    validate({ type: C2S.RESOLVE_SHOT, shotId: 1, eliminated: 2 }),
+    { ok: false, error: 'Invalid value or type for field: eliminated' }
+  );
+
+  // shotId remains required even though eliminated is optional
+  assert.deepStrictEqual(
+    validate({ type: C2S.RESOLVE_SHOT, eliminated: [0] }),
+    { ok: false, error: 'Missing required field: shotId' }
+  );
+});
