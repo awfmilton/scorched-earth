@@ -500,6 +500,39 @@
         }
       }
 
+      // Player-facing text for each protocol ERROR code in lib/protocol.js.
+      // The server builds ERROR frames with roomError(code), which sets
+      // `message` to the code itself — so the code, not `message`, is what
+      // carries meaning here.
+      const NET_ERROR_TEXT = {
+        UNKNOWN_ROOM: 'No room exists with that code.',
+        ROOM_FULL: 'That room is already full.',
+        NOT_YOUR_TURN: 'It is not your turn.',
+        ALREADY_FIRED: 'You have already fired this turn.',
+        NOT_HOST: 'Only the host can start the game.',
+        NOT_ENOUGH_PLAYERS: 'Not enough players to start.',
+        COLOUR_TAKEN: 'That colour is already taken.',
+        BAD_MESSAGE: 'The server rejected that message.'
+      };
+
+      // handleError() emits two different shapes: a flat server ERROR frame
+      // ({ type:'ERROR', code, message }) and a local transport failure
+      // ({ type:'SOCKET_ERROR'|..., error }). Reading `.message` off either one
+      // blindly would print an enum or undefined, so branch on the shape.
+      function formatNetError(err) {
+        if (!err || typeof err !== 'object') return 'Network error.';
+        if (err.type === 'ERROR') {
+          return NET_ERROR_TEXT[err.code] || err.message || err.code || 'Server error.';
+        }
+        switch (err.type) {
+          case 'CONNECTION_ERROR': return 'Could not reach the game server.';
+          case 'SOCKET_ERROR': return 'Connection error — retrying...';
+          case 'PARSE_ERROR': return 'Received a malformed message from the server.';
+          case 'SEND_ERROR': return 'Could not send to the server.';
+          default: return 'Network error.';
+        }
+      }
+
       class NetClient {
         constructor() {
           this.socket = null;
@@ -511,27 +544,39 @@
           this.reconnectTimer = null;
           this.shouldReconnect = true;
 
+          // Latest lobby snapshot received via ROOM_STATE frames
+          // ({ code, phase, hostSlot, players:[{slot,name,colour,connected,alive}] }).
+          this.roomState = null;
+
           // Dispatch table keyed on S2C message names from lib/protocol.js,
           // mirrored inline as byte-identical string literals.
+          // Handlers receive the flat parsed frame; gameplay frames stay
+          // log-only until they are bound to the Game object in later chunks.
           this.dispatchTable = {
-            WELCOME: null,
-            ROOM_STATE: null,
-            GAME_START: null,
-            TURN_START: null,
-            PROJECTILE_FIRED: null,
-            IMPACT: null,
-            CHAT: null,
-            ERROR: null,
-            REJOIN_ACK: null,
-            welcome: null,
-            room_state: null,
-            game_start: null,
-            turn_start: null,
-            projectile_fired: null,
-            impact: null,
-            chat: null,
-            error: null,
-            rejoin_ack: null
+            ROOM_STATE: (msg) => this.handleRoomState(msg),
+            ROUND_START: (msg) => console.log('ROUND_START:', msg),
+            FIRE_SYNC: (msg) => console.log('FIRE_SYNC:', msg),
+            TURN_SYNC: (msg) => console.log('TURN_SYNC:', msg),
+            PLAYER_LEFT: (msg) => console.log('PLAYER_LEFT:', msg),
+            ROUND_END: (msg) => console.log('ROUND_END:', msg),
+            ERROR: (msg) => {
+              console.warn('Server ERROR:', msg.code, msg.message);
+            }
+          };
+        }
+
+        handleRoomState(msg) {
+          this.roomState = {
+            code: msg.code,
+            phase: msg.phase,
+            hostSlot: msg.hostSlot,
+            players: Array.isArray(msg.players) ? msg.players.map((p) => ({
+              slot: p.slot,
+              name: p.name,
+              colour: p.colour,
+              connected: p.connected,
+              alive: p.alive
+            })) : []
           };
         }
 
@@ -620,12 +665,15 @@
 
               console.debug("Received S2C message:", type, msg);
 
-              if (type === 'ERROR' || type === 'error') {
-                this.handleError(msg);
-              }
-
-              if (type && this.dispatchTable[type]) {
-                this.dispatchTable[type](msg);
+              const handler = type ? this.dispatchTable[type] : null;
+              if (handler) {
+                handler(msg);
+                if (type === 'ERROR') {
+                  // Surface the server error once, via the onError callback.
+                  this.handleError(msg);
+                }
+              } else {
+                console.warn('Unrecognised S2C message type:', type, msg);
               }
             } catch (err) {
               this.handleError({ type: 'PARSE_ERROR', error: err, data: event.data });
@@ -936,6 +984,9 @@
             this.net.onStateChange(() => {
               this.updateHUD();
             });
+            this.net.onError((err) => {
+              this.showNetError(err);
+            });
             this.net.connect();
           }
 
@@ -1229,6 +1280,21 @@
           }
 
           legendSpan.textContent = 'L/R: Angle | U/D: Power | Space: Fire | [/]: Weapon | Shift: Coarse';
+        }
+
+        // Put a net error somewhere the player can actually read it. #error-msg
+        // lives in the #setup modal, which start() hides — but a rejected join
+        // (ROOM_FULL, UNKNOWN_ROOM) arrives while the modal is still open, so
+        // that is the surface those errors need. Errors raised after start()
+        // still land here and reach the console; there is no in-game banner to
+        // route them to yet, and adding one belongs with the chunk that builds
+        // the lobby UI rather than this dispatch-table swap.
+        showNetError(err) {
+          const text = formatNetError(err);
+          console.warn('Net error:', text, err);
+          if (this.headless || typeof document === 'undefined') return;
+          const errorMsg = document.getElementById('error-msg');
+          if (errorMsg) errorMsg.textContent = text;
         }
 
         start(config) {

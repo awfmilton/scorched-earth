@@ -1578,6 +1578,75 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
         net.disconnect();
       });
 
+      // The test above proves NetClient offers an onError hook. These two prove
+      // the app actually wires it up — without them an ERROR frame can reach
+      // handleError() and die in console.error with the player none the wiser.
+      function onlineGameCtx() {
+        let latestWS = null;
+        const mockWS = class MockWS {
+          static CONNECTING = 0;
+          static OPEN = 1;
+          static CLOSING = 2;
+          static CLOSED = 3;
+          constructor(url) {
+            this.readyState = 0;
+            latestWS = this;
+          }
+          close() {
+            this.readyState = 3;
+          }
+        };
+
+        const { documentMock, windowMock, elements } = createDomMock();
+        const ctx = evaluateScript({
+          document: documentMock,
+          window: windowMock,
+          location: { protocol: 'http:', host: 'localhost' },
+          WebSocket: mockWS
+        });
+
+        const game = new ctx.globalThis.SCORCHED.Game({ headless: false, seed: 100, mode: 'online' });
+        latestWS.readyState = 1;
+        if (latestWS.onopen) latestWS.onopen();
+
+        return { game, elements, ws: () => latestWS };
+      }
+
+      it('should render a server ERROR frame into the player-visible #error-msg', () => {
+        const { game, elements, ws } = onlineGameCtx();
+
+        // A join is rejected before start() runs, so the setup modal holding
+        // #error-msg is still on screen.
+        assert.strictEqual(elements['setup'].hidden, false, "Setup modal should still be open during join");
+        assert.strictEqual(elements['error-msg'].textContent, '');
+
+        ws().onmessage({ data: JSON.stringify({ type: 'ERROR', code: 'ROOM_FULL', message: 'ROOM_FULL' }) });
+
+        assert.strictEqual(
+          elements['error-msg'].textContent,
+          'That room is already full.',
+          "A rejected join must show readable text, not the raw protocol code"
+        );
+
+        game.net.disconnect();
+      });
+
+      it('should render a transport error without leaking the wrong object shape', () => {
+        const { game, elements, ws } = onlineGameCtx();
+
+        // Local failures are { type, error }, not { code, message } — reading
+        // .message off one of these would put "undefined" in front of the player.
+        ws().onerror(new Error('socket blew up'));
+
+        assert.strictEqual(
+          elements['error-msg'].textContent,
+          'Connection error — retrying...',
+          "Transport failures should still be reported to the player"
+        );
+
+        game.net.disconnect();
+      });
+
       it('should send REJOIN message on reconnect if sessionStorage contains token', () => {
         const mockStore = {};
         const mockSessionStorage = {
