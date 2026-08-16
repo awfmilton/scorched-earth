@@ -605,7 +605,7 @@
 
             const session = this.getSessionToken();
             if (session) {
-              this.send('REJOIN', session);
+              this.send('REJOIN', { code: session.code, playerToken: session.playerToken });
             }
           };
 
@@ -616,17 +616,16 @@
                 throw new Error('Invalid message format');
               }
 
-              const type = msg.type || msg.event;
-              const payload = msg.payload !== undefined ? msg.payload : msg.data;
+              const type = msg.type;
 
-              console.debug("Received S2C message:", type, payload);
+              console.debug("Received S2C message:", type, msg);
 
               if (type === 'ERROR' || type === 'error') {
                 this.handleError(msg);
               }
 
               if (type && this.dispatchTable[type]) {
-                this.dispatchTable[type](payload);
+                this.dispatchTable[type](msg);
               }
             } catch (err) {
               this.handleError({ type: 'PARSE_ERROR', error: err, data: event.data });
@@ -671,11 +670,11 @@
           this.setState('lost');
         }
 
-        send(type, payload) {
+        send(type, fields) {
           const WSClass = (typeof WebSocket !== 'undefined') ? WebSocket : (typeof globalThis !== 'undefined' ? globalThis.WebSocket : null);
           if (this.socket && WSClass && this.socket.readyState === WSClass.OPEN) {
             try {
-              this.socket.send(JSON.stringify({ type, payload }));
+              this.socket.send(JSON.stringify({ type, ...(fields || {}) }));
             } catch (err) {
               this.handleError({ type: 'SEND_ERROR', error: err });
             }

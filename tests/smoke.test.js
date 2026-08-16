@@ -1570,10 +1570,10 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
         assert.ok(surfacedError);
         assert.strictEqual(surfacedError.type, 'PARSE_ERROR');
 
-        // Send S2C ERROR frame
-        latestWS.onmessage({ data: JSON.stringify({ type: 'ERROR', payload: 'server full' }) });
+        // Send S2C ERROR frame (flat shape, schema fields at top level)
+        latestWS.onmessage({ data: JSON.stringify({ type: 'ERROR', code: 'ROOM_FULL', message: 'server full' }) });
         assert.strictEqual(surfacedError.type, 'ERROR');
-        assert.strictEqual(surfacedError.payload, 'server full');
+        assert.strictEqual(surfacedError.message, 'server full');
 
         net.disconnect();
       });
@@ -1623,10 +1623,10 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
 
         assert.strictEqual(latestWS.sentMessages.length, 1);
         assert.strictEqual(latestWS.sentMessages[0].type, 'REJOIN');
-        assert.deepStrictEqual(latestWS.sentMessages[0].payload, {
+        assert.deepStrictEqual(latestWS.sentMessages[0], {
+          type: 'REJOIN',
           code: 'abc-code',
-          playerToken: 'xyz-player-token',
-          slot: 2
+          playerToken: 'xyz-player-token'
         });
 
         net.disconnect();
