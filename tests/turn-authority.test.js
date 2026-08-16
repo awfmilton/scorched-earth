@@ -111,4 +111,136 @@ describe('RoomManager Turn Authority Tests', () => {
     assert.deepStrictEqual(endMsg.scores, []);
   });
 
+  it('applies a shooter-reported elimination and the turn skips the dead slot', () => {
+    const rm = new RoomManager();
+
+    rm.createRoom('conn_1');
+    const room = rm.getRoomByConnection('conn_1');
+    rm.join('conn_2', room.code);
+    rm.join('conn_3', room.code);
+    rm.start('conn_1');
+
+    // Eliminate one of three: Player 3 (slot 2) dies on Player 1's shot.
+    const fireRes = rm.fire('conn_1', { angle: 45, power: 500 });
+    const shotId = fireRes.broadcasts[0].msg.shotId;
+    const resolveRes = rm.resolveShot('conn_1', { shotId, eliminated: [2] });
+
+    assert.strictEqual(room.players.get(2).alive, false);
+    assert.strictEqual(room.players.get(0).alive, true);
+    assert.strictEqual(room.players.get(1).alive, true);
+
+    // Round continues: turn advanced to next living player, no ROUND_END.
+    assert.strictEqual(room.phase, 'playing');
+    assert.strictEqual(room.activeSlot, 1);
+    assert.strictEqual(resolveRes.broadcasts[0].msg.type, 'TURN_SYNC');
+
+    // Turn skips the dead slot: after Player 2 resolves, slot 2 is skipped.
+    const fireRes2 = rm.fire('conn_2', { angle: 45, power: 500 });
+    const shotId2 = fireRes2.broadcasts[0].msg.shotId;
+    rm.resolveShot('conn_2', { shotId: shotId2 });
+    assert.strictEqual(room.activeSlot, 0);
+  });
+
+  it('ends the round when eliminations leave one survivor, naming the winner', () => {
+    const rm = new RoomManager();
+
+    rm.createRoom('conn_1');
+    const room = rm.getRoomByConnection('conn_1');
+    rm.join('conn_2', room.code);
+    rm.join('conn_3', room.code);
+    rm.start('conn_1');
+
+    const fireRes = rm.fire('conn_1', { angle: 45, power: 500 });
+    const shotId = fireRes.broadcasts[0].msg.shotId;
+    const resolveRes = rm.resolveShot('conn_1', { shotId, eliminated: [1, 2] });
+
+    assert.strictEqual(room.players.get(1).alive, false);
+    assert.strictEqual(room.players.get(2).alive, false);
+    assert.strictEqual(room.phase, 'ended');
+
+    assert.strictEqual(resolveRes.broadcasts.length, 1);
+    const endMsg = resolveRes.broadcasts[0].msg;
+    assert.strictEqual(endMsg.type, 'ROUND_END');
+    assert.strictEqual(endMsg.winnerSlot, 0); // Player 1 (slot 0) is the survivor
+  });
+
+  it('silently skips unknown and already-dead slots without throwing', () => {
+    const rm = new RoomManager();
+
+    rm.createRoom('conn_1');
+    const room = rm.getRoomByConnection('conn_1');
+    rm.join('conn_2', room.code);
+    rm.join('conn_3', room.code);
+    rm.start('conn_1');
+
+    // Unknown slot (3 is valid in protocol shape but nobody sits there) is ignored.
+    const fireRes = rm.fire('conn_1', { angle: 45, power: 500 });
+    const shotId = fireRes.broadcasts[0].msg.shotId;
+    assert.doesNotThrow(() => {
+      rm.resolveShot('conn_1', { shotId, eliminated: [3] });
+    });
+    assert.strictEqual(room.players.get(0).alive, true);
+    assert.strictEqual(room.players.get(1).alive, true);
+    assert.strictEqual(room.players.get(2).alive, true);
+    assert.strictEqual(room.activeSlot, 1);
+
+    // Kill Player 3 (slot 2) on Player 2's shot.
+    const fireRes2 = rm.fire('conn_2', { angle: 45, power: 500 });
+    const shotId2 = fireRes2.broadcasts[0].msg.shotId;
+    rm.resolveShot('conn_2', { shotId: shotId2, eliminated: [2] });
+    assert.strictEqual(room.players.get(2).alive, false);
+    assert.strictEqual(room.activeSlot, 0); // skipped dead slot 2
+
+    // Reporting the already-dead slot again is a no-op.
+    const fireRes3 = rm.fire('conn_1', { angle: 45, power: 500 });
+    const shotId3 = fireRes3.broadcasts[0].msg.shotId;
+    assert.doesNotThrow(() => {
+      rm.resolveShot('conn_1', { shotId: shotId3, eliminated: [2] });
+    });
+    assert.strictEqual(room.players.get(2).alive, false);
+    assert.strictEqual(room.players.get(0).alive, true);
+    assert.strictEqual(room.players.get(1).alive, true);
+    assert.strictEqual(room.activeSlot, 1);
+  });
+
+  it('keeps the silent-no-op guards killing nobody: off-turn, stale shotId, replay', () => {
+    const rm = new RoomManager();
+
+    rm.createRoom('conn_1');
+    const room = rm.getRoomByConnection('conn_1');
+    rm.join('conn_2', room.code);
+    rm.join('conn_3', room.code);
+    rm.start('conn_1');
+
+    const fireRes = rm.fire('conn_1', { angle: 45, power: 500 });
+    const shotId = fireRes.broadcasts[0].msg.shotId;
+
+    // Off-turn resolve with eliminations kills nobody.
+    const offTurn = rm.resolveShot('conn_2', { shotId, eliminated: [0] });
+    assert.deepStrictEqual(offTurn, { replies: [], broadcasts: [] });
+    assert.strictEqual(room.players.get(0).alive, true);
+    assert.strictEqual(room.awaitingResolution, true);
+    assert.strictEqual(room.activeSlot, 0);
+
+    // Mismatched shotId with eliminations kills nobody.
+    const stale = rm.resolveShot('conn_1', { shotId: shotId + 1, eliminated: [1] });
+    assert.deepStrictEqual(stale, { replies: [], broadcasts: [] });
+    assert.strictEqual(room.players.get(1).alive, true);
+    assert.strictEqual(room.awaitingResolution, true);
+    assert.strictEqual(room.activeSlot, 0);
+
+    // Valid resolve applies eliminations exactly once.
+    const valid = rm.resolveShot('conn_1', { shotId, eliminated: [2] });
+    assert.ok(valid);
+    assert.strictEqual(room.players.get(2).alive, false);
+    assert.strictEqual(room.activeSlot, 1);
+
+    // Replayed valid resolve applies eliminations zero additional times.
+    const replay = rm.resolveShot('conn_1', { shotId, eliminated: [1] });
+    assert.deepStrictEqual(replay, { replies: [], broadcasts: [] });
+    assert.strictEqual(room.players.get(1).alive, true);
+    assert.strictEqual(room.players.get(2).alive, false);
+    assert.strictEqual(room.activeSlot, 1);
+  });
+
 });
