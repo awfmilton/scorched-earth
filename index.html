@@ -511,27 +511,39 @@
           this.reconnectTimer = null;
           this.shouldReconnect = true;
 
+          // Latest lobby snapshot received via ROOM_STATE frames
+          // ({ code, phase, hostSlot, players:[{slot,name,colour,connected,alive}] }).
+          this.roomState = null;
+
           // Dispatch table keyed on S2C message names from lib/protocol.js,
           // mirrored inline as byte-identical string literals.
+          // Handlers receive the flat parsed frame; gameplay frames stay
+          // log-only until they are bound to the Game object in later chunks.
           this.dispatchTable = {
-            WELCOME: null,
-            ROOM_STATE: null,
-            GAME_START: null,
-            TURN_START: null,
-            PROJECTILE_FIRED: null,
-            IMPACT: null,
-            CHAT: null,
-            ERROR: null,
-            REJOIN_ACK: null,
-            welcome: null,
-            room_state: null,
-            game_start: null,
-            turn_start: null,
-            projectile_fired: null,
-            impact: null,
-            chat: null,
-            error: null,
-            rejoin_ack: null
+            ROOM_STATE: (msg) => this.handleRoomState(msg),
+            ROUND_START: (msg) => console.log('ROUND_START:', msg),
+            FIRE_SYNC: (msg) => console.log('FIRE_SYNC:', msg),
+            TURN_SYNC: (msg) => console.log('TURN_SYNC:', msg),
+            PLAYER_LEFT: (msg) => console.log('PLAYER_LEFT:', msg),
+            ROUND_END: (msg) => console.log('ROUND_END:', msg),
+            ERROR: (msg) => {
+              console.warn('Server ERROR:', msg.code, msg.message);
+            }
+          };
+        }
+
+        handleRoomState(msg) {
+          this.roomState = {
+            code: msg.code,
+            phase: msg.phase,
+            hostSlot: msg.hostSlot,
+            players: Array.isArray(msg.players) ? msg.players.map((p) => ({
+              slot: p.slot,
+              name: p.name,
+              colour: p.colour,
+              connected: p.connected,
+              alive: p.alive
+            })) : []
           };
         }
 
@@ -620,13 +632,16 @@
 
               console.debug("Received S2C message:", type, msg);
 
-              if (type === 'ERROR' || type === 'error') {
+            const handler = type ? this.dispatchTable[type] : null;
+            if (handler) {
+              handler(msg);
+              if (type === 'ERROR') {
+                // Surface the server error once, via the onError callback.
                 this.handleError(msg);
               }
-
-              if (type && this.dispatchTable[type]) {
-                this.dispatchTable[type](msg);
-              }
+            } else {
+              console.warn('Unrecognised S2C message type:', type, msg);
+            }
             } catch (err) {
               this.handleError({ type: 'PARSE_ERROR', error: err, data: event.data });
             }
