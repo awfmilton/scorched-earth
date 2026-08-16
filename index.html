@@ -500,6 +500,39 @@
         }
       }
 
+      // Player-facing text for each protocol ERROR code in lib/protocol.js.
+      // The server builds ERROR frames with roomError(code), which sets
+      // `message` to the code itself — so the code, not `message`, is what
+      // carries meaning here.
+      const NET_ERROR_TEXT = {
+        UNKNOWN_ROOM: 'No room exists with that code.',
+        ROOM_FULL: 'That room is already full.',
+        NOT_YOUR_TURN: 'It is not your turn.',
+        ALREADY_FIRED: 'You have already fired this turn.',
+        NOT_HOST: 'Only the host can start the game.',
+        NOT_ENOUGH_PLAYERS: 'Not enough players to start.',
+        COLOUR_TAKEN: 'That colour is already taken.',
+        BAD_MESSAGE: 'The server rejected that message.'
+      };
+
+      // handleError() emits two different shapes: a flat server ERROR frame
+      // ({ type:'ERROR', code, message }) and a local transport failure
+      // ({ type:'SOCKET_ERROR'|..., error }). Reading `.message` off either one
+      // blindly would print an enum or undefined, so branch on the shape.
+      function formatNetError(err) {
+        if (!err || typeof err !== 'object') return 'Network error.';
+        if (err.type === 'ERROR') {
+          return NET_ERROR_TEXT[err.code] || err.message || err.code || 'Server error.';
+        }
+        switch (err.type) {
+          case 'CONNECTION_ERROR': return 'Could not reach the game server.';
+          case 'SOCKET_ERROR': return 'Connection error — retrying...';
+          case 'PARSE_ERROR': return 'Received a malformed message from the server.';
+          case 'SEND_ERROR': return 'Could not send to the server.';
+          default: return 'Network error.';
+        }
+      }
+
       class NetClient {
         constructor() {
           this.socket = null;
@@ -632,16 +665,16 @@
 
               console.debug("Received S2C message:", type, msg);
 
-            const handler = type ? this.dispatchTable[type] : null;
-            if (handler) {
-              handler(msg);
-              if (type === 'ERROR') {
-                // Surface the server error once, via the onError callback.
-                this.handleError(msg);
+              const handler = type ? this.dispatchTable[type] : null;
+              if (handler) {
+                handler(msg);
+                if (type === 'ERROR') {
+                  // Surface the server error once, via the onError callback.
+                  this.handleError(msg);
+                }
+              } else {
+                console.warn('Unrecognised S2C message type:', type, msg);
               }
-            } else {
-              console.warn('Unrecognised S2C message type:', type, msg);
-            }
             } catch (err) {
               this.handleError({ type: 'PARSE_ERROR', error: err, data: event.data });
             }
@@ -951,6 +984,9 @@
             this.net.onStateChange(() => {
               this.updateHUD();
             });
+            this.net.onError((err) => {
+              this.showNetError(err);
+            });
             this.net.connect();
           }
 
@@ -1244,6 +1280,21 @@
           }
 
           legendSpan.textContent = 'L/R: Angle | U/D: Power | Space: Fire | [/]: Weapon | Shift: Coarse';
+        }
+
+        // Put a net error somewhere the player can actually read it. #error-msg
+        // lives in the #setup modal, which start() hides — but a rejected join
+        // (ROOM_FULL, UNKNOWN_ROOM) arrives while the modal is still open, so
+        // that is the surface those errors need. Errors raised after start()
+        // still land here and reach the console; there is no in-game banner to
+        // route them to yet, and adding one belongs with the chunk that builds
+        // the lobby UI rather than this dispatch-table swap.
+        showNetError(err) {
+          const text = formatNetError(err);
+          console.warn('Net error:', text, err);
+          if (this.headless || typeof document === 'undefined') return;
+          const errorMsg = document.getElementById('error-msg');
+          if (errorMsg) errorMsg.textContent = text;
         }
 
         start(config) {
