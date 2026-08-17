@@ -357,6 +357,69 @@
         }
       };
 
+      // === BEGIN SIMULATION PATH ===
+      /*
+       * Deterministic Trigonometric Helpers
+       * Math.sin, Math.cos and Math.tan are not required by IEEE-754 or ECMAScript to be
+       * correctly rounded, and differ across JS engines (V8, JSC, SpiderMonkey).
+       * In lockstep simulation, differences compound until trajectories desync.
+       * To preserve exact lockstep determinism across simulation paths, detSin, detCos, and detTan
+       * use range-reduction to [-pi/4, pi/4] followed by fixed polynomial evaluation using ONLY + - * /.
+       * Do not reassociate or optimize arithmetic operation ordering: operation order is part of the contract.
+       *
+       * Note: Math.sqrt is IEEE-754 correctly rounded across engines and is deliberately exempt from replacement.
+       */
+      const TRIG_PI = Math.PI;
+      const TRIG_TWO_PI = 2 * Math.PI;
+      const TRIG_HALF_PI = Math.PI / 2;
+      const TRIG_QUARTER_PI = Math.PI / 4;
+
+      function detSin(x) {
+        // Normalize x to [-PI, PI]
+        let y = x % TRIG_TWO_PI;
+        if (y > TRIG_PI) y = y - TRIG_TWO_PI;
+        if (y < -TRIG_PI) y = y + TRIG_TWO_PI;
+
+        // Reduce to [-PI/2, PI/2]
+        if (y > TRIG_HALF_PI) y = TRIG_PI - y;
+        else if (y < -TRIG_HALF_PI) y = -TRIG_PI - y;
+
+        // Range reduce to [-PI/4, PI/4] then polynomial evaluation
+        if (y > TRIG_QUARTER_PI) {
+          const z = TRIG_HALF_PI - y;
+          const z2 = z * z;
+          const z4 = z2 * z2;
+          const z6 = z4 * z2;
+          const z8 = z6 * z2;
+          const z10 = z8 * z2;
+          return 1 - (z2 / 2) + (z4 / 24) - (z6 / 720) + (z8 / 40320) - (z10 / 3628800);
+        } else if (y < -TRIG_QUARTER_PI) {
+          const z = TRIG_HALF_PI + y;
+          const z2 = z * z;
+          const z4 = z2 * z2;
+          const z6 = z4 * z2;
+          const z8 = z6 * z2;
+          const z10 = z8 * z2;
+          return -(1 - (z2 / 2) + (z4 / 24) - (z6 / 720) + (z8 / 40320) - (z10 / 3628800));
+        } else {
+          const y2 = y * y;
+          const y3 = y * y2;
+          const y5 = y3 * y2;
+          const y7 = y5 * y2;
+          const y9 = y7 * y2;
+          const y11 = y9 * y2;
+          return y - (y3 / 6) + (y5 / 120) - (y7 / 5040) + (y9 / 362880) - (y11 / 39916800);
+        }
+      }
+
+      function detCos(x) {
+        return detSin(x + TRIG_HALF_PI);
+      }
+
+      function detTan(x) {
+        return detSin(x) / detCos(x);
+      }
+
       // Sizing function supporting zero-size layout and high DPI screens
       function resize() {
         if (typeof document === 'undefined' || typeof window === 'undefined') return;
@@ -1047,12 +1110,12 @@
 
           const angleRad = (activeTank.angle * Math.PI) / 180;
           const barrelLen = 12;
-          const startX = activeTank.x + barrelLen * Math.cos(angleRad);
-          const startY = activeTank.y - 6 - barrelLen * Math.sin(angleRad);
+          const startX = activeTank.x + barrelLen * detCos(angleRad);
+          const startY = activeTank.y - 6 - barrelLen * detSin(angleRad);
 
           // Velocity is proportional to power
-          const vx = activeTank.power * Math.cos(angleRad);
-          const vy = -activeTank.power * Math.sin(angleRad);
+          const vx = activeTank.power * detCos(angleRad);
+          const vy = -activeTank.power * detSin(angleRad);
 
           this.projectile = {
             x: startX,
@@ -1371,7 +1434,10 @@
             let minDist = Infinity;
             this.roster.forEach((tank, idx) => {
               if (idx !== this.activePlayerIdx && tank.hp > 0) {
-                const dist = Math.hypot(tank.x - activeTank.x, tank.y - activeTank.y);
+                const dx = tank.x - activeTank.x;
+                const dy = tank.y - activeTank.y;
+                // Note: Math.sqrt is IEEE-754 correctly rounded across engines and is deliberately exempt
+                const dist = Math.sqrt(dx * dx + dy * dy);
                 if (dist < minDist) {
                   minDist = dist;
                   target = tank;
@@ -1399,7 +1465,7 @@
 
               for (let angle of startAngles) {
                 const angleRad = (angle * Math.PI) / 180;
-                const T = Math.tan(angleRad);
+                const T = detTan(angleRad);
                 const denom = dy + dx * T;
                 if (denom > 0) {
                   const v2 = (g * dx * dx * (1 + T * T)) / (2 * denom);
@@ -1440,7 +1506,7 @@
 
               for (let angle of startAngles) {
                 const angleRad = (angle * Math.PI) / 180;
-                const T = Math.tan(angleRad);
+                const T = detTan(angleRad);
                 const denom = dy + dx * T;
                 if (denom > 0) {
                   const v2 = (g * dx * dx * (1 + T * T)) / (2 * denom);
@@ -1498,7 +1564,7 @@
 
               for (let angle of startAngles) {
                 const angleRad = (angle * Math.PI) / 180;
-                const T = Math.tan(angleRad);
+                const T = detTan(angleRad);
                 const denom = g + aw * T;
                 const numer = dy + dx * T;
                 if (denom > 0 && numer > 0) {
@@ -1713,7 +1779,7 @@
             const endCol = Math.min(CONST.WORLD_W - 1, Math.ceil(x + redistributionRadius));
             const copy = new Float32Array(this.terrain.heights);
             for (let col = startCol; col <= endCol; col++) {
-              const shift = Math.round((this.wind || 0) * 0.15 + Math.sin(col * 0.05) * 12);
+              const shift = Math.round((this.wind || 0) * 0.15 + detSin(col * 0.05) * 12);
               const srcCol = Math.max(0, Math.min(CONST.WORLD_W - 1, col - shift));
               this.terrain.heights[col] = copy[srcCol];
             }
@@ -1735,8 +1801,8 @@
             for (let i = 0; i < 5; i++) {
               const angle = Math.PI * (0.2 + 0.6 * (i / 4));
               const speed = gameplayRNG.range(120, 200);
-              const vx = speed * Math.cos(angle);
-              const vy = -speed * Math.sin(angle);
+              const vx = speed * detCos(angle);
+              const vy = -speed * detSin(angle);
               this.projectiles.push({
                 x: x,
                 y: y - 5,
@@ -1750,8 +1816,8 @@
             for (let i = 0; i < 4; i++) {
               const angle = Math.PI * (0.2 + 0.6 * (i / 3));
               const speed = gameplayRNG.range(120, 200);
-              const vx = speed * Math.cos(angle);
-              const vy = -speed * Math.sin(angle);
+              const vx = speed * detCos(angle);
+              const vy = -speed * detSin(angle);
               this.projectiles.push({
                 x: x,
                 y: y - 5,
@@ -1768,8 +1834,8 @@
             for (let i = 0; i < 15; i++) {
               const angle = Math.PI * (0.1 + 0.8 * (i / 14));
               const speed = gameplayRNG.range(50, 150);
-              const vx = speed * Math.cos(angle);
-              const vy = -speed * Math.sin(angle);
+              const vx = speed * detCos(angle);
+              const vy = -speed * detSin(angle);
               this.projectiles.push({
                 x: x,
                 y: y - 5,
@@ -2334,6 +2400,7 @@
           }
         }
 
+        // === END SIMULATION PATH ===
         spawnCraterEffects(x, y, radius) {
           if (this.headless) return;
           const smokeCount = Math.floor(radius / 2);
@@ -2880,8 +2947,8 @@
               // Barrel
               const angleRad = (tank.angle * Math.PI) / 180;
               const barrelLen = 12;
-              const bx = tank.x + barrelLen * Math.cos(angleRad);
-              const by = tank.y - 6 - barrelLen * Math.sin(angleRad);
+              const bx = tank.x + barrelLen * detCos(angleRad);
+              const by = tank.y - 6 - barrelLen * detSin(angleRad);
 
               ctx.beginPath();
               ctx.moveTo(tank.x, tank.y - 6);
@@ -2953,10 +3020,10 @@
               // Run simple fast simulation
               const angleRad = (activeTank.angle * Math.PI) / 180;
               const barrelLen = 12;
-              let px = activeTank.x + barrelLen * Math.cos(angleRad);
-              let py = activeTank.y - 6 - barrelLen * Math.sin(angleRad);
-              let pvx = activeTank.power * Math.cos(angleRad);
-              let pvy = -activeTank.power * Math.sin(angleRad);
+              let px = activeTank.x + barrelLen * detCos(angleRad);
+              let py = activeTank.y - 6 - barrelLen * detSin(angleRad);
+              let pvx = activeTank.power * detCos(angleRad);
+              let pvy = -activeTank.power * detSin(angleRad);
               const sim_dt = 1/30;
               let hitX = px;
               let hitY = py;
@@ -3212,7 +3279,10 @@
         Terrain,
         WEAPONS,
         ITEMS,
-        NetClient
+        NetClient,
+        detSin,
+        detCos,
+        detTan
       };
     })();
   </script>
