@@ -2508,6 +2508,10 @@
             });
           }
 
+          if (this.mode === 'online') {
+            return;
+          }
+
           // 2. Check if this was the final round
           if (this.currentRound >= this.rounds) {
             if (!this.headless) {
