@@ -344,9 +344,9 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
 
       const preShotHeights = new Float32Array(game.terrain.heights);
 
-      // Fire Baby Missile at angle 61, power 530 (experimentally verified to hit P2 on seed 12345)
-      game.roster[0].angle = 61;
-      game.roster[0].power = 530;
+      // Fire Baby Missile at angle 30, power 340 (experimentally verified to hit P2 on seed 12345)
+      game.roster[0].angle = 30;
+      game.roster[0].power = 340;
       game.roster[0].selectedWeapon = 'Baby Missile';
 
       let impactRegistered = false;
