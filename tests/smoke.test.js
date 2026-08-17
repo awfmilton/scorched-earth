@@ -4,6 +4,7 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const terrainLib = require('../lib/terrain.js');
 
 // 1. Read and extract the script block from index.html
 // Resolve relative to this file so the suite runs from any working directory.
@@ -227,6 +228,7 @@ function evaluateScript(customGlobals = {}) {
     clearTimeout,
     requestAnimationFrame: () => {}, // no-op requestAnimationFrame
     performance: { now: () => Date.now() },
+    Terrain: terrainLib,
     ...customGlobals
   };
   context.globalThis = context;
@@ -288,6 +290,24 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
       const heights = game.terrain.heights;
       const isConstant = Array.from(heights).every(h => h === heights[0]);
       assert.strictEqual(isConstant, false, "Terrain heights profile must not be constant/flat");
+    });
+
+    it('Page-level Terrain class generate(seed) yields identical heights for same seed and differs for different seeds', () => {
+      const t1 = new SCORCHED.Terrain();
+      t1.generate(12345);
+      const heights1 = new Float32Array(t1.heights);
+
+      const t2 = new SCORCHED.Terrain();
+      t2.generate(12345);
+      const heights2 = new Float32Array(t2.heights);
+
+      assert.deepStrictEqual(heights1, heights2, "Calling generate(seed) twice with same seed yields identical heights");
+
+      const t3 = new SCORCHED.Terrain();
+      t3.generate(54321);
+      const heights3 = new Float32Array(t3.heights);
+
+      assert.notDeepStrictEqual(heights1, heights3, "Calling generate(seed) with different seeds yields different heights");
     });
 
     it('Two tanks spawn on the terrain surface at hp === 100', () => {

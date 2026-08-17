@@ -786,60 +786,9 @@
         }
 
         generate(seed) {
-          if (TerrainLib) {
-            rng.seed(seed);
-            const h = TerrainLib.generateTerrain(rng, CONST.WORLD_W, CONST.WORLD_H);
-            this.heights.set(h);
-          } else {
-            // Original inlined generator fallback (needed for isolated VM test runs)
-            rng.seed(seed);
-            const minH = CONST.WORLD_H * 0.15;
-            const maxH = CONST.WORLD_H * 0.80;
-
-            const heights = this.heights;
-            const N = heights.length;
-
-            heights[0] = rng.range(minH + (maxH - minH) * 0.2, maxH - (maxH - minH) * 0.2);
-            heights[N - 1] = rng.range(minH + (maxH - minH) * 0.2, maxH - (maxH - minH) * 0.2);
-
-            let roughness = 0.35;
-
-            function displace(left, right, r) {
-              if (right - left <= 1) return;
-              const mid = Math.floor((left + right) / 2);
-              const avg = (heights[left] + heights[right]) / 2;
-              const rangeVal = (right - left) * r;
-              const offset = rng.range(-rangeVal, rangeVal);
-              heights[mid] = avg + offset;
-
-              displace(left, mid, r * 0.55);
-              displace(mid, right, r * 0.55);
-            }
-
-            displace(0, N - 1, roughness);
-
-            const temp = new Float32Array(N);
-            for (let pass = 0; pass < 4; pass++) {
-              for (let i = 0; i < N; i++) {
-                let sum = 0;
-                let count = 0;
-                for (let di = -2; di <= 2; di++) {
-                  const idx = i + di;
-                  if (idx >= 0 && idx < N) {
-                    sum += heights[idx];
-                    count++;
-                  }
-                }
-                temp[i] = sum / count;
-              }
-              heights.set(temp);
-            }
-
-            for (let i = 0; i < N; i++) {
-              if (heights[i] < minH) heights[i] = minH;
-              if (heights[i] > maxH) heights[i] = maxH;
-            }
-          }
+          rng.seed(seed);
+          const h = TerrainLib.generateTerrain(rng, CONST.WORLD_W, CONST.WORLD_H);
+          this.heights.set(h);
         }
 
         heightAt(x) {
