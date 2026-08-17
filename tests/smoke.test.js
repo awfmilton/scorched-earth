@@ -1721,6 +1721,103 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
         net.disconnect();
       });
 
+    describe('Online Mode handleRoundEnd tests', () => {
+
+      it('Test online mode handleRoundEnd does not call showMatchSummary, startShopIntermission, or startNextRound', () => {
+        const game = SCORCHED.createHeadlessGame({ seed: 5000 });
+        game.mode = 'online';
+        game.start({
+          players: [
+            { name: 'P1', type: 'Human', color: '#ff00ff' },
+            { name: 'P2', type: 'Human', color: '#00ffff' }
+          ],
+          rounds: 1,
+          startingCash: 1000
+        });
+
+        let calledSummary = false;
+        let calledIntermission = false;
+        let calledNextRound = false;
+
+        game.showMatchSummary = () => { calledSummary = true; };
+        game.startShopIntermission = () => { calledIntermission = true; };
+        game.startNextRound = () => { calledNextRound = true; };
+
+        game.roster[0].damageDealt = 100;
+        game.roster[0].kills = 1;
+        game.roster[0].hp = 100;
+        game.roster[1].hp = 0;
+
+        game.currentRound = 1;
+        game.rounds = 1;
+
+        game.handleRoundEnd();
+
+        assert.strictEqual(game.roundOver, true, 'Match should be left in a terminal state (roundOver = true)');
+        assert.strictEqual(calledSummary, false, 'showMatchSummary should not be called');
+        assert.strictEqual(calledIntermission, false, 'startShopIntermission should not be called');
+        assert.strictEqual(calledNextRound, false, 'startNextRound should not be called');
+
+        // Verify local payouts still ran
+        assert.strictEqual(game.roster[0].cash, 1000 + 100 + 500 + 100);
+      });
+
+      it('Test online mode handleRoundEnd when currentRound < rounds', () => {
+        const game = SCORCHED.createHeadlessGame({ seed: 5001 });
+        game.mode = 'online';
+        game.start({
+          players: [
+            { name: 'P1', type: 'Human', color: '#ff00ff' },
+            { name: 'P2', type: 'Human', color: '#00ffff' }
+          ],
+          rounds: 5,
+          startingCash: 1000
+        });
+
+        let calledSummary = false;
+        let calledIntermission = false;
+        let calledNextRound = false;
+
+        game.showMatchSummary = () => { calledSummary = true; };
+        game.startShopIntermission = () => { calledIntermission = true; };
+        game.startNextRound = () => { calledNextRound = true; };
+
+        game.currentRound = 1;
+        game.rounds = 5;
+
+        game.handleRoundEnd();
+
+        assert.strictEqual(game.roundOver, true);
+        assert.strictEqual(calledSummary, false);
+        assert.strictEqual(calledIntermission, false);
+        assert.strictEqual(calledNextRound, false);
+      });
+
+      it('Test local mode handleRoundEnd continues to function as before', () => {
+        const game = SCORCHED.createHeadlessGame({ seed: 5002 });
+        game.mode = 'local';
+        game.start({
+          players: [
+            { name: 'P1', type: 'Human', color: '#ff00ff' },
+            { name: 'P2', type: 'Human', color: '#00ffff' }
+          ],
+          rounds: 2,
+          startingCash: 1000
+        });
+
+        let calledNextRound = false;
+        game.startNextRound = () => { calledNextRound = true; };
+
+        game.currentRound = 1;
+        game.rounds = 2;
+
+        game.handleRoundEnd();
+
+        assert.strictEqual(calledNextRound, true, 'Local headless mode should call startNextRound when currentRound < rounds');
+      });
+
+    });
+
       it('should reconnect with exponential backoff', (t, done) => {
         let wsInstanceCount = 0;
         const mockWS = class MockWS {
