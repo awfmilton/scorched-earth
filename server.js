@@ -9,6 +9,8 @@ const { C2S, ERRORS, validate } = require('./lib/protocol.js');
 const MAX_PAYLOAD_BYTES = 4096;
 // Ping every client on this cadence; a client that misses a whole cycle is half-open.
 const HEARTBEAT_INTERVAL_MS = 30000;
+// Sweep abandoned and stale rooms on this cadence.
+const SWEEP_INTERVAL_MS = 30000;
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -293,10 +295,35 @@ if (require.main === module) {
   const handlers = createRoomManagerHandlers(roomManager);
 
   const server = createServer();
-  attachWebSocketServer(server, {
+  const { send, broadcast } = attachWebSocketServer(server, {
     onMessage: handlers.onMessage,
     onDisconnect: handlers.onDisconnect
   });
+
+  const sweepTimer = setInterval(() => {
+    try {
+      const result = roomManager.sweep(Date.now());
+      if (result) {
+        if (result.replies) {
+          for (const r of result.replies) {
+            send(r.to, r.msg);
+          }
+        }
+        if (result.broadcasts) {
+          for (const b of result.broadcasts) {
+            broadcast(b.to, b.msg);
+          }
+        }
+      }
+    } catch {
+      // Catch socket errors during delivery so the interval keeps running
+    }
+  }, SWEEP_INTERVAL_MS);
+
+  if (typeof sweepTimer.unref === 'function') {
+    sweepTimer.unref();
+  }
+
   const port = Number(process.env.PORT) || 8080;
   const host = '0.0.0.0';
   server.listen(port, host, () => {
