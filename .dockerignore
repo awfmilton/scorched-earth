@@ -1,0 +1,15 @@
+node_modules
+.git
+.github
+.claude
+.scaffold-cache
+*.md
+tests
+scripts
+a.js
+index_pr105.html
+index_pr105_utf8.html
+package_pr105.json
+test_pr105.js
+test_pr105_utf8.js
+check.js
