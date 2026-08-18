@@ -1,15 +1,28 @@
 # Scorched Earth
 
 ## What It Is
-A single-file HTML5 Canvas replica of the MS-DOS classic artillery game *Scorched Earth*. Built with pure vanilla ES6, there is no build step, no bundlers, no external assets, and absolutely zero external dependencies. The entire gameplay engine, sound synthesis via Web Audio API, physics, terrain generator, and intermission shop are self-contained in a single lightweight file.
+A single-file HTML5 Canvas replica of the MS-DOS classic artillery game *Scorched Earth*. Built with pure vanilla ES6, single-player runs with no build step; multiplayer requires the Node relay. The entire gameplay engine, sound synthesis via Web Audio API, physics, terrain generator, and intermission shop are self-contained in a single lightweight file.
 
 ## How to Run
-There are two ways to launch the game:
+There are two ways to launch the game depending on your desired game mode:
+
+### Single-Player / Local Static Mode
+Run single-player matches locally with no dependencies or build steps:
 1. **Directly in a Browser:** Open the `index.html` file directly from your local file system (`file://` protocol) in any modern web browser.
-2. **Local HTTP Server:** Serve the directory over a plain static HTTP server. For example:
+2. **Local Static HTTP Server:** Serve the directory over a plain static HTTP server:
    * Using Python: `python3 -m http.server 8000`
    * Using Node: `npx serve .`
    * Then navigate to `http://localhost:8000` (or the specified port) in your browser.
+
+### Multiplayer Relay Mode
+To play online multiplayer across browsers or devices:
+1. **Local Relay:** Install dependencies and start the Node relay server:
+   ```bash
+   npm ci
+   npm start
+   ```
+   This starts `server.js` listening on `http://0.0.0.0:8080` by default, serving `index.html` and providing the WebSocket endpoint on that same port.
+2. **Hosted Instance:** Point your web browser to a deployed relay instance.
 
 ## Controls
 The active human player can control their tank using the following key bindings:
