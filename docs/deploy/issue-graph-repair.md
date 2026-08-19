@@ -27,3 +27,35 @@ This file records the mapping from retired issue #198 to its jules-lane replacem
 
 - **Chunk 1/11**: Consumes issue #222 (`jules` lane)
 - **Chunk 7/11**: Consumes issue #222 (`jules` lane)
+
+---
+
+# Issue Graph Repair: Retiring #199 in Favor of Dependency-Free Smoke Script #226
+
+## Summary
+
+Issue #199 was blocked on #189, which was closed as `wont-fix` as a deliberate decision. To avoid reviving rejected work purely to satisfy a stale dependency edge while retaining the essential remote smoke test, issue #199 was retired and replaced by issue #226 on the `jules` lane without any dependency on #189.
+
+## Repair Details
+
+### 1. New Jules-Lane Issue (Chunk 3/11 Vehicle)
+- **Issue Number**: #226
+- **Lane**: `jules`
+- **Title**: [Agent] [Chunk 3/11] Add scripts/smoke-remote.mjs as a remote check that fails when the URL is dead
+- **Scope**: Dependency-free remote smoke script (`scripts/smoke-remote.mjs`).
+- **Constraints**: Re-filed without dependency on #189; #189 remains `wont-fix`.
+- **URL**: `https://github.com/awfmilton/scorched-earth/issues/226`
+
+### 2. Closure of Legacy Issue #199
+- **Retired Issue**: #199
+- **Closure Status**: Closed as `not planned`
+- **Closure Note**: Blocked on #189 (which remains closed `wont-fix`). Superseded by jules-lane issue #226 without dependency on #189.
+- **Cross-link**: #226
+- **Closure Link**: `https://github.com/awfmilton/scorched-earth/issues/199#issuecomment-5336618775`
+
+## Dependency Graph Mapping
+
+This section records the mapping from retired issue #199 to its jules-lane replacement #226.
+
+- **Chunk 3/11**: Consumes issue #226 (`jules` lane)
+- **Chunk 7/11**: Consumes issue #226 (`jules` lane)
