@@ -1755,6 +1755,8 @@
           deadTanksToExplode.forEach(item => {
             this.explosion(item.tank.x, item.tank.y - 3, 35, 50, shooterIdx);
           });
+          
+          this.terrain.settle();
         }
 
         reSeatTanks() {

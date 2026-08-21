@@ -20,6 +20,7 @@ function evaluateIndexHtml() {
     Terrain: require('../lib/terrain.js'),
     document: {
       getElementById: () => null,
+      addEventListener: () => {}
     },
     window: {
       addEventListener: () => {},
