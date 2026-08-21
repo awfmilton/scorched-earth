@@ -877,12 +877,14 @@
       class Terrain {
         constructor() {
           this.heights = new Float32Array(CONST.WORLD_W);
+          this.biome = 'plains';
         }
 
         generate(seed) {
           terrainRNG.seed(seed);
           const h = TerrainLib.generateTerrain(terrainRNG, CONST.WORLD_W, CONST.WORLD_H);
           this.heights.set(h);
+          this.biome = h.biome || 'plains';
         }
 
         heightAt(x) {
@@ -976,8 +978,20 @@
 
           // Sky gradient
           const skyGrad = ctx.createLinearGradient(0, 0, 0, CONST.WORLD_H);
-          skyGrad.addColorStop(0, '#020010');
-          skyGrad.addColorStop(1, '#1b1b3a');
+          if (this.biome === 'mountains') {
+            skyGrad.addColorStop(0, '#001a33');
+            skyGrad.addColorStop(1, '#334d66');
+          } else if (this.biome === 'plains') {
+            skyGrad.addColorStop(0, '#002200');
+            skyGrad.addColorStop(1, '#004411');
+          } else if (this.biome === 'plateau') {
+            skyGrad.addColorStop(0, '#331a00');
+            skyGrad.addColorStop(1, '#663300');
+          } else {
+            skyGrad.addColorStop(0, '#020010');
+            skyGrad.addColorStop(1, '#1b1b3a');
+          }
+
           ctx.fillStyle = skyGrad;
           ctx.fillRect(0, 0, CONST.WORLD_W, CONST.WORLD_H);
 
@@ -991,8 +1005,20 @@
           ctx.closePath();
 
           const groundGrad = ctx.createLinearGradient(0, CONST.WORLD_H * 0.15, 0, CONST.WORLD_H);
-          groundGrad.addColorStop(0, '#5a3d28');
-          groundGrad.addColorStop(1, '#1f140c');
+          if (this.biome === 'mountains') {
+            groundGrad.addColorStop(0, '#888888');
+            groundGrad.addColorStop(1, '#222222');
+          } else if (this.biome === 'plains') {
+            groundGrad.addColorStop(0, '#226622');
+            groundGrad.addColorStop(1, '#003300');
+          } else if (this.biome === 'plateau') {
+            groundGrad.addColorStop(0, '#cc8844');
+            groundGrad.addColorStop(1, '#664422');
+          } else {
+            groundGrad.addColorStop(0, '#5a3d28');
+            groundGrad.addColorStop(1, '#1f140c');
+          }
+          
           ctx.fillStyle = groundGrad;
           ctx.fill();
 
