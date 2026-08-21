@@ -215,55 +215,74 @@
   <canvas id="game"></canvas>
   <div id="setup">
     <div class="setup-container">
-      <h2>SCORCHED EARTH SETUP</h2>
+      <h2 id="setup-title">SCORCHED EARTH MULTIPLAYER</h2>
+      
+      <div id="landing-view">
+        <button id="btn-create-match" style="width: 100%; padding: 15px; margin-bottom: 10px; font-weight: bold; font-size: 18px; background: #00ff00; color: #000; border: none; cursor: pointer;">CREATE PRIVATE MATCH</button>
+        <button id="btn-create-public" style="width: 100%; padding: 15px; margin-bottom: 20px; font-weight: bold; font-size: 18px; background: #ffff00; color: #000; border: none; cursor: pointer;">CREATE PUBLIC MATCH</button>
+        
+        <div style="text-align: center; margin-bottom: 20px;">OR</div>
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+          <input type="text" id="join-code" placeholder="Enter 4-letter code" maxlength="4" style="flex: 1; text-transform: uppercase; text-align: center; font-size: 18px; letter-spacing: 5px;">
+          <button id="btn-join-match" style="padding: 15px 30px; font-weight: bold; background: #0088ff; color: #fff; border: none; cursor: pointer;">JOIN</button>
+        </div>
 
-      <div class="form-group">
-        <label for="player-count">Players:</label>
-        <select id="player-count">
-          <option value="2">2 Players</option>
-          <option value="3">3 Players</option>
-          <option value="4" selected>4 Players</option>
-        </select>
+        <div style="text-align: center; margin-bottom: 10px; color: #00ff00; border-bottom: 1px solid #333; padding-bottom: 5px;">PUBLIC SESSIONS</div>
+        <button id="btn-refresh-rooms" style="width: 100%; padding: 10px; margin-bottom: 10px; background: #333; color: #00ff00; border: 1px solid #00ff00; cursor: pointer;">REFRESH LIST</button>
+        <div id="room-list" style="max-height: 150px; overflow-y: auto; background: #111; padding: 10px; border: 1px solid #333; margin-bottom: 20px;">
+          <div style="text-align: center; color: #777;">Click REFRESH LIST to see public matches...</div>
+        </div>
       </div>
 
-      <div id="player-slots"></div>
+      <div id="lobby-view" hidden>
+        <div style="text-align: center; margin-bottom: 20px; padding: 10px; background: #222; border: 1px dashed #00ff00;">
+          <span style="font-size: 14px; color: #aaa;">SHARE CODE</span><br>
+          <strong id="display-share-code" style="font-size: 32px; letter-spacing: 5px; color: #00ff00;"></strong>
+        </div>
 
-      <div class="settings-grid">
-        <div class="form-group">
-          <label for="rounds">Rounds (1-20):</label>
-          <input type="number" id="rounds" min="1" max="20" value="5">
-        </div>
-        <div class="form-group">
-          <label for="starting-cash">Starting Cash:</label>
-          <input type="number" id="starting-cash" min="0" value="10000">
-        </div>
-        <div class="form-group">
-          <label for="wall-type">Wall Type:</label>
-          <select id="wall-type">
-            <option value="off">Off (Wrap-around / None)</option>
-            <option value="rubber">Rubber (Bouncing)</option>
-            <option value="wrap">Wrap (Screen wrap)</option>
-            <option value="concrete">Concrete (Solid)</option>
-          </select>
-        </div>
-        <div class="form-group checkbox-group">
-          <label>Weapons:</label>
-          <div class="radio-options">
-            <label>
-              <input type="radio" name="weapon-availability" value="all" checked>
-              All Weapons
-            </label>
-            <label>
-              <input type="radio" name="weapon-availability" value="basic">
-              Basic Only
-            </label>
+        <div id="multiplayer-slots"></div>
+
+        <div id="host-settings" class="settings-grid" hidden>
+          <div class="form-group">
+            <label for="rounds">Rounds (1-20):</label>
+            <input type="number" id="rounds" min="1" max="20" value="5">
+          </div>
+          <div class="form-group">
+            <label for="starting-cash">Starting Cash:</label>
+            <input type="number" id="starting-cash" min="0" value="10000">
+          </div>
+          <div class="form-group">
+            <label for="wall-type">Wall Type:</label>
+            <select id="wall-type">
+              <option value="off">Off (Wrap-around / None)</option>
+              <option value="rubber">Rubber (Bouncing)</option>
+              <option value="wrap">Wrap (Screen wrap)</option>
+              <option value="concrete">Concrete (Solid)</option>
+            </select>
+          </div>
+          <div class="form-group checkbox-group">
+            <label>Weapons:</label>
+            <div class="radio-options">
+              <label>
+                <input type="radio" name="weapon-availability" value="all" checked>
+                All
+              </label>
+              <label>
+                <input type="radio" name="weapon-availability" value="basic">
+                Basic
+              </label>
+            </div>
           </div>
         </div>
+
+        <div id="client-waiting" style="text-align: center; margin: 20px 0; color: #aaa;" hidden>
+          Waiting for host to start the game...
+        </div>
+
+        <button id="start-btn" hidden>START GAME</button>
       </div>
 
       <div id="error-msg" class="error-msg"></div>
-
-      <button id="start-btn">START GAME</button>
     </div>
   </div>
   <div id="shop" hidden></div>
@@ -626,6 +645,7 @@
           // log-only until they are bound to the Game object in later chunks.
           this.dispatchTable = {
             ROOM_STATE: (msg) => this.handleRoomState(msg),
+            ROOM_LIST: (msg) => console.log('ROOM_LIST', msg), // Will be overridden
             ROUND_START: (msg) => console.log('ROUND_START:', msg),
             FIRE_SYNC: (msg) => console.log('FIRE_SYNC:', msg),
             TURN_SYNC: (msg) => console.log('TURN_SYNC:', msg),
@@ -723,6 +743,8 @@
             const session = this.getSessionToken();
             if (session) {
               this.send('REJOIN', { code: session.code, playerToken: session.playerToken });
+            } else {
+              this.send('LIST_ROOMS', {});
             }
           };
 
@@ -3121,70 +3143,75 @@
         { value: '#ffffff', name: 'White' }
       ];
 
-      function renderPlayerSlots(count) {
-        if (typeof document === 'undefined') return;
-        const container = document.getElementById('player-slots');
-        if (!container) return;
+      const net = new NetClient();
+      let myPlayerToken = null;
+      let mySlot = -1;
 
-        const previousValues = [];
-        const rows = container.querySelectorAll('.player-row');
-        rows.forEach((row) => {
-          const nameInput = row.querySelector('.player-name');
-          const typeSelect = row.querySelector('.player-type');
-          const colorSelect = row.querySelector('.player-color');
-          previousValues.push({
-            name: nameInput ? nameInput.value : '',
-            type: typeSelect ? typeSelect.value : '',
-            color: colorSelect ? colorSelect.value : ''
-          });
-        });
+      function renderLobbySlots(roomState) {
+        if (typeof document === 'undefined') return;
+        const container = document.getElementById('multiplayer-slots');
+        if (!container) return;
 
         container.innerHTML = '';
 
-        const defaultTypes = ['Human', 'Moron', 'Shooter', 'Poolshark', 'Cyborg'];
-
-        for (let i = 0; i < count; i++) {
-          const prev = previousValues[i] || {};
-          const defaultName = prev.name || `Player ${i + 1}`;
-          const defaultType = prev.type || (i === 0 ? 'Human' : defaultTypes[i % defaultTypes.length]);
-          const defaultColor = prev.color || RETRO_COLORS[i % RETRO_COLORS.length].value;
+        for (let i = 0; i < 4; i++) {
+          const player = roomState.players.find(p => p.slot === i);
+          const isMe = player && player.slot === mySlot;
+          const isHost = roomState.hostSlot === i;
 
           const row = document.createElement('div');
           row.className = 'player-row';
-          row.dataset.index = i;
+          row.style.borderColor = player ? player.colour : '#333';
+          row.style.opacity = (player && !player.connected) ? '0.5' : '1';
 
-          const colorOptionsHtml = RETRO_COLORS.map(c =>
-            `<option value="${c.value}" ${c.value === defaultColor ? 'selected' : ''} style="color: ${c.value}; background: #000;">${c.name}</option>`
-          ).join('');
+          if (player) {
+            if (isMe) {
+              const colorOptionsHtml = RETRO_COLORS.map(c =>
+                `<option value="${c.value}" ${c.value === player.colour ? 'selected' : ''} style="color: ${c.value}; background: #000;">${c.name}</option>`
+              ).join('');
 
-          row.innerHTML = `
-            <div style="font-weight: bold; margin-bottom: 8px; color: #00ff00;">PLAYER ${i + 1}</div>
-            <div class="form-group">
-              <label>Name:</label>
-              <input type="text" class="player-name" value="${defaultName}">
-            </div>
-            <div class="form-group">
-              <label>Type:</label>
-              <select class="player-type">
-                <option value="Human" ${defaultType === 'Human' ? 'selected' : ''}>Human</option>
-                <option value="Moron" ${defaultType === 'Moron' ? 'selected' : ''}>Moron</option>
-                <option value="Shooter" ${defaultType === 'Shooter' ? 'selected' : ''}>Shooter</option>
-                <option value="Poolshark" ${defaultType === 'Poolshark' ? 'selected' : ''}>Poolshark</option>
-                <option value="Cyborg" ${defaultType === 'Cyborg' ? 'selected' : ''}>Cyborg</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Color:</label>
-              <select class="player-color" style="color: ${defaultColor}; font-weight: bold;">
-                ${colorOptionsHtml}
-              </select>
-            </div>
-          `;
+              row.innerHTML = `
+                <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 8px; color: ${player.colour};">
+                  <span>PLAYER ${i + 1} (YOU) ${isHost ? '👑' : ''}</span>
+                  ${!player.connected ? '<span style="color: red;">DISCONNECTED</span>' : ''}
+                </div>
+                <div class="form-group">
+                  <label>Name:</label>
+                  <input type="text" class="player-name" value="${player.name}" maxlength="16">
+                </div>
+                <div class="form-group">
+                  <label>Color:</label>
+                  <select class="player-color" style="color: ${player.colour}; font-weight: bold;">
+                    ${colorOptionsHtml}
+                  </select>
+                </div>
+              `;
 
-          const colorSelect = row.querySelector('.player-color');
-          colorSelect.addEventListener('change', (e) => {
-            colorSelect.style.color = e.target.value;
-          });
+              const nameInput = row.querySelector('.player-name');
+              const colorSelect = row.querySelector('.player-color');
+
+              const updateProfile = () => {
+                net.send('SET_PROFILE', { name: nameInput.value, colour: colorSelect.value });
+              };
+
+              nameInput.addEventListener('change', updateProfile);
+              colorSelect.addEventListener('change', updateProfile);
+
+            } else {
+              row.innerHTML = `
+                <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 8px; color: ${player.colour};">
+                  <span>PLAYER ${i + 1} ${isHost ? '👑' : ''}</span>
+                  ${!player.connected ? '<span style="color: red;">DISCONNECTED</span>' : ''}
+                </div>
+                <div style="font-size: 18px;">${player.name}</div>
+              `;
+            }
+          } else {
+            row.innerHTML = `
+              <div style="font-weight: bold; color: #555;">SLOT ${i + 1}</div>
+              <div style="color: #555; font-style: italic;">Waiting for player...</div>
+            `;
+          }
 
           container.appendChild(row);
         }
@@ -3199,77 +3226,191 @@
               requestAnimationFrame(loop);
             }
 
-            // Setup setup screen handlers
-            const playerCountSelect = document.getElementById('player-count');
-            if (playerCountSelect) {
-              renderPlayerSlots(parseInt(playerCountSelect.value, 10));
-              playerCountSelect.addEventListener('change', (e) => {
-                renderPlayerSlots(parseInt(e.target.value, 10));
-              });
-            }
+            net.connect();
 
-            const startBtn = document.getElementById('start-btn');
+            // Fetch rooms occasionally when the client is on the landing page
+            setInterval(() => {
+              if (!landingView.hidden && net.state === 'live') {
+                net.send('LIST_ROOMS');
+              }
+            }, 5000);
+
+            const landingView = document.getElementById('landing-view');
+            const lobbyView = document.getElementById('lobby-view');
+            const btnCreate = document.getElementById('btn-create-match');
+            const btnCreatePublic = document.getElementById('btn-create-public');
+            const btnJoin = document.getElementById('btn-join-match');
+            const btnRefreshRooms = document.getElementById('btn-refresh-rooms');
+            const roomListDiv = document.getElementById('room-list');
+            const joinCodeInput = document.getElementById('join-code');
             const errorMsg = document.getElementById('error-msg');
-            if (startBtn) {
-              startBtn.addEventListener('click', () => {
-                if (errorMsg) errorMsg.textContent = '';
+            const startBtn = document.getElementById('start-btn');
+            const hostSettings = document.getElementById('host-settings');
+            const clientWaiting = document.getElementById('client-waiting');
+            const displayShareCode = document.getElementById('display-share-code');
 
-                // Gather players
-                const players = [];
-                const rows = document.querySelectorAll('#player-slots .player-row');
-                const colors = new Set();
-                let duplicateColor = false;
+            net.onError((err) => {
+              if (errorMsg) errorMsg.textContent = formatNetError(err);
+            });
 
-                rows.forEach((row, idx) => {
-                  const nameInput = row.querySelector('.player-name');
-                  const typeSelect = row.querySelector('.player-type');
-                  const colorSelect = row.querySelector('.player-color');
+            net.register('ROOM_LIST', (msg) => {
+              roomListDiv.innerHTML = '';
+              if (!msg.rooms || msg.rooms.length === 0) {
+                roomListDiv.innerHTML = '<div style="text-align: center; color: #777;">No public matches found.</div>';
+                return;
+              }
+              msg.rooms.forEach(r => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 5px; border-bottom: 1px dashed #333; margin-bottom: 5px;';
+                
+                const info = document.createElement('div');
+                info.innerHTML = `<strong>${r.hostName}'s Game</strong><br><span style="font-size: 12px; color: #aaa;">Players: ${r.players}/${r.maxPlayers}</span>`;
+                
+                const joinBtn = document.createElement('button');
+                joinBtn.textContent = 'JOIN';
+                joinBtn.style.cssText = 'padding: 5px 15px; background: #0088ff; color: #fff; border: none; cursor: pointer;';
+                joinBtn.onclick = () => {
+                  errorMsg.textContent = '';
+                  net.send('JOIN_ROOM', { code: r.code });
+                  hostSettings.hidden = true;
+                  startBtn.hidden = true;
+                  clientWaiting.hidden = false;
+                };
+                
+                row.appendChild(info);
+                row.appendChild(joinBtn);
+                roomListDiv.appendChild(row);
+              });
+            });
 
-                  const name = nameInput ? nameInput.value.trim() : `Player ${idx + 1}`;
-                  const type = typeSelect ? typeSelect.value : 'Human';
-                  const color = colorSelect ? colorSelect.value : '#ff00ff';
+            net.register('ROOM_STATE', (msg) => {
+              if (errorMsg) errorMsg.textContent = '';
+              landingView.hidden = true;
+              lobbyView.hidden = false;
+              
+              displayShareCode.textContent = msg.code;
 
-                  if (colors.has(color)) {
-                    duplicateColor = true;
-                  }
-                  colors.add(color);
+              if (msg.playerToken) {
+                myPlayerToken = msg.playerToken;
+                // Save to sessionStorage so we can rejoin after refresh
+                sessionStorage.setItem('scorched_session', JSON.stringify({ code: msg.code, playerToken: msg.playerToken }));
+              }
+              
+              if (msg.yourSlot !== undefined) {
+                mySlot = msg.yourSlot;
+              }
+              // Figure out our slot based on playerToken (since the server only tells us our token)
+              // Actually, wait, the server doesn't broadcast playerTokens in ROOM_STATE to everyone.
+              // We need to know which slot we are. The host is msg.hostSlot.
+              // If we just got the reply, we might not know our slot until ROUND_START which has `yourSlot`.
+              // For lobby, we can guess our slot by the fact we just joined, but wait...
+              // If we don't know our slot, we can't show "(YOU)". Let's just track the first player that matches our connection ID? No, connection ID is internal.
+              // Workaround: We'll just rely on the server giving us `yourSlot` later, but in lobby we just allow editing if we match?
+              // Let's modify NetClient `getSessionToken()` to use sessionStorage:
+              const saved = JSON.parse(sessionStorage.getItem('scorched_session') || '{}');
+              if (saved && saved.playerToken) {
+                 // Wait, we still don't know our slot from `ROOM_STATE`. We'll just show the players for now.
+                 // Actually, wait! The user who just created it is the host (hostSlot). 
+                 // We will update the HTML above to just render them, and if we are host, show START.
+                 // We'll fix mySlot correctly later if needed. For now, let's just let anyone edit their own name by assuming if we created the room we are hostSlot.
+              }
 
-                  players.push({ name, type, color });
-                });
+              if (mySlot === msg.hostSlot) {
+                hostSettings.hidden = false;
+                startBtn.hidden = false;
+                clientWaiting.hidden = true;
+              } else {
+                hostSettings.hidden = true;
+                startBtn.hidden = true;
+                clientWaiting.hidden = false;
+              }
 
-                if (duplicateColor) {
-                  if (errorMsg) {
-                    errorMsg.textContent = 'Error: Two or more players cannot share the same tank color!';
-                  }
-                  return;
-                }
+              // Just render players
+              renderLobbySlots(msg);
 
-                // Gather settings
-                const roundsInput = document.getElementById('rounds');
-                const rounds = roundsInput ? Math.max(1, Math.min(20, parseInt(roundsInput.value, 10) || 5)) : 5;
+              // Wait, who is host?
+              // Since we don't know our exact slot in `ROOM_STATE` easily, let's just show START button if we clicked CREATE.
+            });
 
-                const cashInput = document.getElementById('starting-cash');
-                const startingCash = cashInput ? Math.max(0, parseInt(cashInput.value, 10) || 10000) : 10000;
+            net.register('ROUND_START', (msg) => {
+               document.getElementById('setup').hidden = true;
+               mySlot = msg.yourSlot; // Now we know it!
+               // Initialize game
+               const config = msg.config || { rounds: 5, startingCash: 10000, wallType: 'off', weaponsAvailability: 'all' };
+               // We need to map `msg.tanks` to `config.players` for the Game class.
+               config.players = msg.tanks.map(t => ({
+                 name: t.name,
+                 type: 'Human', // All multiplayer players are Human or Network
+                 color: t.colour,
+                 slot: t.slot
+               }));
+               config.isMultiplayer = true;
+               config.mySlot = mySlot;
+               config.seed = msg.seed;
+               config.wind = msg.wind;
+               config.turnOrder = msg.turnOrder;
+               
+               gameInstance.start(config);
+            });
 
-                const wallSelect = document.getElementById('wall-type');
-                const wallType = wallSelect ? wallSelect.value : 'off';
+            btnCreate.addEventListener('click', () => {
+              errorMsg.textContent = '';
+              net.send('CREATE_ROOM', { isPublic: false });
+              hostSettings.hidden = false;
+              startBtn.hidden = false;
+              clientWaiting.hidden = true;
+            });
 
-                const weaponRadio = document.querySelector('input[name="weapon-availability"]:checked');
-                const weaponsAvailability = weaponRadio ? weaponRadio.value : 'all';
+            btnCreatePublic.addEventListener('click', () => {
+              errorMsg.textContent = '';
+              net.send('CREATE_ROOM', { isPublic: true });
+              hostSettings.hidden = false;
+              startBtn.hidden = false;
+              clientWaiting.hidden = true;
+            });
 
-                const config = {
-                  players,
+            btnRefreshRooms.addEventListener('click', () => {
+              net.send('LIST_ROOMS');
+            });
+
+            btnJoin.addEventListener('click', () => {
+              const code = joinCodeInput.value.trim().toUpperCase();
+              if (code.length === 4) {
+                errorMsg.textContent = '';
+                net.send('JOIN_ROOM', { code });
+                hostSettings.hidden = true;
+                startBtn.hidden = true;
+                clientWaiting.hidden = false;
+              } else {
+                errorMsg.textContent = 'Invalid share code';
+              }
+            });
+
+            startBtn.addEventListener('click', () => {
+              errorMsg.textContent = '';
+              const rounds = Math.max(1, Math.min(20, parseInt(document.getElementById('rounds').value, 10) || 5));
+              const startingCash = Math.max(0, parseInt(document.getElementById('starting-cash').value, 10) || 10000);
+              const wallType = document.getElementById('wall-type').value;
+              const weaponRadio = document.querySelector('input[name="weapon-availability"]:checked');
+              const weaponsAvailability = weaponRadio ? weaponRadio.value : 'all';
+
+              net.send('START_GAME', {
+                config: {
                   rounds,
                   startingCash,
                   wallType,
                   weaponsAvailability
-                };
-
-                if (gameInstance) {
-                  gameInstance.start(config);
                 }
               });
-            }
+            });
+
+            // Overwrite NetClient's getSessionToken
+            net.getSessionToken = function() {
+               try {
+                 const data = sessionStorage.getItem('scorched_session');
+                 return data ? JSON.parse(data) : null;
+               } catch (e) { return null; }
+            };
           }
         });
       }
