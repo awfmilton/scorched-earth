@@ -1,7 +1,14 @@
 import WebSocket from 'ws';
 
 const DEFAULT_URL = 'https://scorched-earth.kodex.tbay.tk';
-const TIMEOUT_MS = 15000;
+
+// A suspended app-host serves zero bytes for ~100s while it wakes (see
+// docs/deploy/provisioning-record.md). The default 15s budget is right for a warm
+// probe but reports a false failure on a cold one, so allow it to be raised:
+//   SMOKE_TIMEOUT_MS=150000 node scripts/smoke-remote.mjs <url>
+const TIMEOUT_MS = Number(process.env.SMOKE_TIMEOUT_MS) > 0
+  ? Number(process.env.SMOKE_TIMEOUT_MS)
+  : 15000;
 
 async function run() {
   const rawUrl = process.argv[2] || DEFAULT_URL;
