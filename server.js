@@ -228,7 +228,10 @@ function createRoomManagerHandlers(roomManager) {
         let result;
         switch (msg.type) {
           case C2S.CREATE_ROOM:
-            result = roomManager.createRoom(connectionId);
+            result = roomManager.createRoom(connectionId, msg.isPublic);
+            break;
+          case C2S.LIST_ROOMS:
+            result = roomManager.listRooms(connectionId);
             break;
           case C2S.JOIN_ROOM:
             result = roomManager.join(connectionId, msg.code);
@@ -237,7 +240,7 @@ function createRoomManagerHandlers(roomManager) {
             result = roomManager.setProfile(connectionId, { name: msg.name, colour: msg.colour });
             break;
           case C2S.START_GAME:
-            result = roomManager.start(connectionId);
+            result = roomManager.start(connectionId, msg.config);
             break;
           case C2S.FIRE:
             result = roomManager.fire(connectionId, msg);
