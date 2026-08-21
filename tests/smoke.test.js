@@ -156,8 +156,20 @@ class MockElement {
 function createDomMock() {
   const elements = {};
 
-  // Pre-populate expected elements in index.html
   elements['game'] = new MockElement('canvas', 'game');
+  elements['landing-view'] = new MockElement('div', 'landing-view');
+  elements['lobby-view'] = new MockElement('div', 'lobby-view');
+  elements['btn-create-match'] = new MockElement('button', 'btn-create-match');
+  elements['btn-create-public'] = new MockElement('button', 'btn-create-public');
+  elements['btn-join-match'] = new MockElement('button', 'btn-join-match');
+  elements['btn-refresh-rooms'] = new MockElement('button', 'btn-refresh-rooms');
+  elements['room-list'] = new MockElement('div', 'room-list');
+  elements['join-code'] = new MockElement('input', 'join-code');
+  elements['error-msg'] = new MockElement('div', 'error-msg');
+  elements['start-btn'] = new MockElement('button', 'start-btn');
+  elements['host-settings'] = new MockElement('div', 'host-settings');
+  elements['client-waiting'] = new MockElement('div', 'client-waiting');
+  elements['display-share-code'] = new MockElement('span', 'display-share-code');
   elements['player-count'] = new MockElement('select', 'player-count');
   elements['player-count'].value = '4';
   elements['player-slots'] = new MockElement('div', 'player-slots');
@@ -226,6 +238,9 @@ function evaluateScript(customGlobals = {}) {
     console,
     setTimeout,
     clearTimeout,
+    setInterval: () => 1, // dummy id
+    clearInterval: () => {},
+    sessionStorage: { getItem: () => null, setItem: () => {} },
     requestAnimationFrame: () => {}, // no-op requestAnimationFrame
     performance: { now: () => Date.now() },
     Terrain: terrainLib,
