@@ -312,6 +312,8 @@
         { id: 'Baby Roller', name: 'Baby Roller', cost: 1000, packSize: 5, blast: 20, damage: 40, kind: 'pattern' },
         { id: 'Roller', name: 'Roller', cost: 2000, packSize: 3, blast: 30, damage: 60, kind: 'pattern' },
         { id: 'Heavy Roller', name: 'Heavy Roller', cost: 4000, packSize: 2, blast: 45, damage: 90, kind: 'pattern' },
+        { id: 'Digger', name: 'Digger', cost: 1500, packSize: 3, blast: 25, damage: 50, kind: 'explosive' },
+        { id: 'Heavy Digger', name: 'Heavy Digger', cost: 3000, packSize: 2, blast: 40, damage: 80, kind: 'explosive' },
         { id: 'Napalm', name: 'Napalm', cost: 1500, packSize: 3, blast: 15, damage: 5, kind: 'liquid' },
         { id: 'Hot Napalm', name: 'Hot Napalm', cost: 3000, packSize: 2, blast: 20, damage: 10, kind: 'liquid' },
         { id: 'Liquid Dirt', name: 'Liquid Dirt', cost: 1000, packSize: 4, blast: 15, damage: 0, kind: 'liquid' },
@@ -2380,6 +2382,24 @@
 
               let step_vx = proj.vx;
               let step_vy = proj.vy;
+
+              if (proj.digging) {
+                step_vx = 0;
+                step_vy = 30; // constant burrow speed
+                proj.digDepth += step_vy * dt;
+                
+                // Check if it reached max depth
+                const maxDepth = proj.weapon === 'Heavy Digger' ? 80 : 40;
+                if (proj.digDepth > maxDepth) {
+                  this.projectiles = this.projectiles.filter(p => p !== proj);
+                  this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx);
+                  if (this.projectiles.length === 0) {
+                    this.nextTurn();
+                  }
+                  continue; // skip the rest of physics steps
+                }
+              }
+
               const speed = Math.sqrt(step_vx * step_vx + step_vy * step_vy);
               const numSteps = Math.max(10, Math.ceil(speed * dt));
               const sdt = dt / numSteps;
@@ -2499,6 +2519,14 @@
                       proj.vx *= 0.8;
                       proj.y = groundY - 2;
                       if (!this.headless) sfx('bounce');
+                      impacted = true;
+                      break;
+                    }
+
+                    // Check Digger trigger
+                    if (proj.weapon.includes('Digger') && !proj.digging) {
+                      proj.digging = true;
+                      proj.digDepth = 0;
                       impacted = true;
                       break;
                     }
