@@ -454,6 +454,15 @@
       // Proximity fuses trip this far from an enemy hull.
       const PROXIMITY_FUSE_RADIUS = 34;
 
+      // A shot carries at most one trigger. The order is FIXED rather than
+      // player-chosen, and that is the whole reason FIRE_SYNC does not need a
+      // new field: every client runs armTrigger() against the same replicated
+      // inventory and therefore arms the same trigger for the same shot.
+      const TRIGGER_PRIORITY = [
+        { item: 'Proximity Fuse', trigger: 'proximity' },
+        { item: 'Contact Trigger', trigger: 'contact' }
+      ];
+
       const SHIELD_ITEMS = Object.keys(SHIELD_TYPES).map(id => ({
         id: id,
         name: id,
@@ -1365,6 +1374,7 @@
           if (ammo !== undefined && ammo !== Infinity) {
             activeTank.inventory[weapon]--;
           }
+          const trigger = this.armTrigger(activeTank);
 
           const angleRad = (activeTank.angle * Math.PI) / 180;
           const barrelLen = 12;
@@ -1380,7 +1390,8 @@
             vx: vx,
             vy: vy,
             weapon: weapon,
-            shooterIdx: this.activePlayerIdx
+            shooterIdx: this.activePlayerIdx,
+            trigger: trigger
           };
 
           if (!this.headless && typeof sfx === 'function') {
@@ -1409,6 +1420,9 @@
           if (ammo !== undefined && ammo !== Infinity) {
             shooter.inventory[weapon]--;
           }
+          // Armed locally, from the inventory every client already replicates —
+          // the same reason the ammo decrement above is safe to do client-side.
+          const trigger = this.armTrigger(shooter);
           shooter.selectedWeapon = weapon;
 
           // angle is used ONLY to place the barrel tip, and goes through the
@@ -1428,7 +1442,8 @@
             vy: msg.vy,
             weapon: weapon,
             shooterIdx: shooterIdx,
-            shotId: msg.shotId
+            shotId: msg.shotId,
+            trigger: trigger
           };
 
           if (!this.headless && typeof sfx === 'function') {
@@ -1919,7 +1934,12 @@
           hpSpan.textContent = `HP: ${activeTank.hp}`;
           angleSpan.textContent = `ANG: ${activeTank.angle}°`;
           powerSpan.textContent = `PWR: ${activeTank.power}`;
-          weaponSpan.textContent = `WEAP: ${weapon} (${ammoStr})`;
+          // Read off TRIGGER_PRIORITY rather than a second list, so the HUD can
+          // never advertise a trigger different from the one armTrigger() will
+          // actually spend.
+          const armed = TRIGGER_PRIORITY.find(t => (activeTank.inventory[t.item] || 0) > 0);
+          weaponSpan.textContent = `WEAP: ${weapon} (${ammoStr})`
+            + (armed ? ` [${armed.trigger === 'proximity' ? 'PROX' : 'CONTACT'}]` : '');
           cashSpan.textContent = `CASH: $${activeTank.cash}`;
           if (fuelSpan) {
             const fuel = activeTank.inventory['Fuel'] || 0;
@@ -2296,6 +2316,21 @@
         raiseAutoDefenseShield(tank) {
           if (!tank.inventory || !(tank.inventory['Auto Defense'] > 0)) return;
           this.raiseBestShield(tank);
+        }
+
+        // Spends and returns the trigger arming this shot, or null. A trigger
+        // governs WHEN the shell first detonates, not what the explosion then
+        // does: a Contact-triggered LeapFrog still hops afterwards, it just
+        // does not roll, dig or tunnel before the first blast.
+        armTrigger(tank) {
+          if (!tank || !tank.inventory) return null;
+          for (const t of TRIGGER_PRIORITY) {
+            if (tank.inventory[t.item] > 0) {
+              tank.inventory[t.item]--;
+              return t.trigger;
+            }
+          }
+          return null;
         }
 
         // Single entry point for damaging a tank. Every damage source must route
@@ -3021,6 +3056,38 @@
                   }
                 }
 
+                // Proximity Fuse: an air burst as the shell passes an enemy
+                // hull, instead of sailing over it for a near miss. The SHOOTER
+                // is excluded or the shell would trip on its own tank 12px off
+                // the barrel; tracers are excluded because detonating an aiming
+                // aid early just loses the trace you fired it for.
+                //
+                // Determinism: roster index order, and only + - * and a
+                // comparison, so every client trips on the same substep.
+                if (proj.trigger === 'proximity' && !isTracer(proj.weapon) && this.roster) {
+                  let tripped = false;
+                  for (let i = 0; i < this.roster.length; i++) {
+                    if (i === proj.shooterIdx) continue;
+                    const near = this.roster[i];
+                    if (!near || near.hp <= 0) continue;
+                    const pdx = proj.x - near.x;
+                    const pdy = proj.y - (near.y - 3);
+                    if (pdx * pdx + pdy * pdy <= PROXIMITY_FUSE_RADIUS * PROXIMITY_FUSE_RADIUS) {
+                      tripped = true;
+                      break;
+                    }
+                  }
+                  if (tripped) {
+                    this.projectiles = this.projectiles.filter(p => p !== proj);
+                    this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx, proj);
+                    if (this.projectiles.length === 0) {
+                      this.nextTurn();
+                    }
+                    impacted = true;
+                    break;
+                  }
+                }
+
                 // Below screen bottom
                 if (proj.y > CONST.WORLD_H) {
                   if (isTracer(proj.weapon) && proj.path) {
@@ -3040,8 +3107,14 @@
                 if (terrainX >= 0 && terrainX < CONST.WORLD_W) {
                   const groundY = CONST.WORLD_H - this.terrain.heightAt(proj.x);
                   if (proj.y >= groundY) {
+                    // A Contact Trigger detonates the shell where it lands.
+                    // Every check below this line is a family that would
+                    // otherwise DELAY the first detonation — roll downhill,
+                    // bounce, dig, tunnel — so contact skips all of them.
+                    const contactArmed = proj.trigger === 'contact';
+
                     // Check roller trigger
-                    if (proj.weapon.includes('Roller') && !proj.rolling) {
+                    if (!contactArmed && proj.weapon.includes('Roller') && !proj.rolling) {
                       proj.rolling = true;
                       proj.vy = 0;
                       proj.y = groundY;
@@ -3053,7 +3126,7 @@
                     }
 
                     // Check Funky Bomblet bounce trigger
-                    if (proj.weapon === 'Funky Bomblet') {
+                    if (!contactArmed && proj.weapon === 'Funky Bomblet') {
                       proj.vy = -Math.abs(proj.vy) * 0.6;
                       proj.vx *= 0.8;
                       proj.y = groundY - 2;
@@ -3063,7 +3136,7 @@
                     }
 
                     // Check Digger trigger
-                    if (proj.weapon.includes('Digger') && !proj.digging) {
+                    if (!contactArmed && proj.weapon.includes('Digger') && !proj.digging) {
                       proj.digging = true;
                       proj.digDepth = 0;
                       impacted = true;
@@ -3073,7 +3146,7 @@
                     // Check Sandhog trigger: tunnels down through the dirt,
                     // carving as it goes, and detonates at the bottom.
                     const hitConf = WEAPONS_BY_ID.get(proj.weapon);
-                    if (hitConf && hitConf.kind === 'sandhog' && !proj.digging) {
+                    if (!contactArmed && hitConf && hitConf.kind === 'sandhog' && !proj.digging) {
                       proj.digging = true;
                       proj.tunnelling = true;
                       proj.digDepth = 0;
