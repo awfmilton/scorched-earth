@@ -1370,8 +1370,131 @@
             this.handleRoundEnd();
           }
           this.roundOver = true;
-          if (!this.headless) {
+
+          // Rounds won is the server's number, not ours — it is the only
+          // match-level score neither client computes locally.
+          if (msg && Array.isArray(msg.scores)) {
+            this.standings = msg.scores;
+            this.standings.forEach(s => {
+              const tank = this.roster && this.roster.find(t => t.slot === s.slot);
+              if (tank) tank.roundsWon = s.roundsWon || 0;
+            });
+          }
+          if (msg && Number.isFinite(msg.totalRounds)) this.rounds = msg.totalRounds;
+          if (msg && Number.isFinite(msg.round)) this.currentRound = msg.round;
+
+          // A server that never sends matchOver only knows the old
+          // single-round flow, so treat a missing field as "match is over"
+          // rather than parking the player in a shop nothing will close.
+          const matchOver = !msg || msg.matchOver === undefined ? true : msg.matchOver;
+          this.matchOver = matchOver;
+
+          if (this.headless) return;
+          if (matchOver) {
             this.showMatchSummary();
+          } else {
+            this.showOnlineIntermission();
+          }
+        }
+
+        // Online intermission: standings, then this client's own shop. Unlike
+        // the local hot-seat shop this is NOT sequential — every client shops
+        // for its own player at the same time, and the server starts the next
+        // round once each of them has sent SHOP_DONE.
+        showOnlineIntermission() {
+          if (this.headless) return;
+          const myIdx = this.roster ? this.roster.findIndex(t => t.slot === this.mySlot) : -1;
+          if (myIdx === -1) {
+            // A spectator, or a slot we never learned. Nothing to buy, but the
+            // server still counts us, so report in immediately.
+            this.sendShopDone();
+            this.showWaitingForPlayers();
+            return;
+          }
+          this.showShopForPlayer(myIdx, {
+            standings: this.standings,
+            onDone: () => {
+              this.sendShopDone();
+              this.showWaitingForPlayers();
+            }
+          });
+        }
+
+        sendShopDone() {
+          if (this.shopDoneSentForRound === this.currentRound) return;
+          this.shopDoneSentForRound = this.currentRound;
+          if (this.net) this.net.send('SHOP_DONE', {});
+        }
+
+        showWaitingForPlayers() {
+          if (this.headless || typeof document === 'undefined') return;
+          const shopEl = document.getElementById('shop');
+          if (!shopEl) return;
+          shopEl.hidden = false;
+          shopEl.innerHTML = '';
+
+          const box = document.createElement('div');
+          box.style.background = '#181818';
+          box.style.border = '3px double #00ff00';
+          box.style.padding = '30px';
+          box.style.maxWidth = '500px';
+          box.style.margin = '80px auto';
+          box.style.textAlign = 'center';
+          box.style.color = '#00ff00';
+          box.style.letterSpacing = '2px';
+          box.textContent = 'WAITING FOR OTHER PLAYERS…';
+          shopEl.appendChild(box);
+        }
+
+        // Round 2+ of an online match. Deliberately NOT start(): start()
+        // rebuilds the roster from the server's tank list, which would reset
+        // cash and inventory to the starting values every round and wipe the
+        // progression the shop just bought.
+        applyServerRoundStart(msg) {
+          this.currentRound = Number.isFinite(msg.round) ? msg.round : (this.currentRound || 1) + 1;
+          if (Number.isFinite(msg.totalRounds)) this.rounds = msg.totalRounds;
+          if (Array.isArray(msg.turnOrder)) this.turnOrder = msg.turnOrder.slice();
+          this.matchOver = false;
+
+          // Same call order as start(): newRound() seeds gameplayRNG from the
+          // server's seed, then every tank position is drawn from that stream
+          // in roster order. Any client that reorders or skips a draw here
+          // builds a different world and desyncs silently.
+          this.newRound(msg.seed);
+          if (Number.isFinite(msg.wind)) this.wind = msg.wind;
+
+          const N = this.roster.length;
+          const zoneW = CONST.WORLD_W / N;
+          const margin = 40;
+          this.roster.forEach((tank, i) => {
+            tank.hp = 100;
+            tank.shield = null;
+            tank.alive = true;
+            tank.reportedDead = false;
+            tank.damageDealt = 0;
+            tank.kills = 0;
+            const minX = zoneW * i + margin;
+            const maxX = zoneW * (i + 1) - margin;
+            tank.x = gameplayRNG.range(minX, maxX);
+          });
+          this.snapTanksToTerrain();
+
+          this.activeShotId = null;
+          this.reportedShotId = null;
+          this.projectile = null;
+          this.roundOver = false;
+          // The server sends a TURN_SYNC right behind this to place the real
+          // cursor; turnOrder[0] is only the placeholder until it lands.
+          this.activePlayerIdx = 0;
+          if (this.turnOrder && this.turnOrder.length) {
+            this.setActiveSlot(this.turnOrder[0]);
+          }
+          this.raiseShieldForActivePlayer();
+
+          if (!this.headless && typeof document !== 'undefined') {
+            const shopEl = document.getElementById('shop');
+            if (shopEl) shopEl.hidden = true;
+            this.updateHUD();
           }
         }
 
@@ -2857,6 +2980,11 @@
             });
           }
 
+          // Online, payouts are all this function does. The server owns round
+          // structure — whether a shop intermission follows, and when the next
+          // round starts — and drives it through applyRoundEnd(). Falling into
+          // the local branch below would have each client advancing its own
+          // rounds independently of the server and of each other.
           if (this.mode === 'online') {
             return;
           }
@@ -2968,7 +3096,12 @@
           this.showShopForPlayer(this.shoppingPlayerIdx);
         }
 
-        showShopForPlayer(playerIdx) {
+        // opts.onDone replaces the hot-seat "next player, then start the round"
+        // behaviour — online, DONE means "tell the server I am ready" and the
+        // server starts the round when everyone has. opts.standings renders the
+        // between-round table above the grid.
+        showShopForPlayer(playerIdx, opts) {
+          opts = opts || {};
           if (this.headless) return;
           const shopEl = document.getElementById('shop');
           if (!shopEl) return;
@@ -2978,7 +3111,7 @@
             this.handleAIPurchases(player);
             this.shoppingPlayerIdx++;
             if (this.shoppingPlayerIdx < this.roster.length) {
-              this.showShopForPlayer(this.shoppingPlayerIdx);
+              this.showShopForPlayer(this.shoppingPlayerIdx, opts);
             } else {
               this.startNextRound();
             }
@@ -3030,6 +3163,48 @@
           header.appendChild(title);
           header.appendChild(info);
           container.appendChild(header);
+
+          // Between-round standings. Only rendered when a caller supplies them
+          // (the online intermission does; the local hot-seat shop does not,
+          // because every player is looking at the same screen anyway).
+          if (Array.isArray(opts.standings) && opts.standings.length) {
+            const standingsBox = document.createElement('div');
+            standingsBox.style.marginBottom = '15px';
+            standingsBox.style.border = '1px solid #333';
+            standingsBox.style.padding = '10px';
+            standingsBox.style.background = '#111';
+
+            const sTitle = document.createElement('div');
+            sTitle.textContent = 'STANDINGS';
+            sTitle.style.color = '#888';
+            sTitle.style.fontSize = '12px';
+            sTitle.style.letterSpacing = '2px';
+            sTitle.style.marginBottom = '6px';
+            standingsBox.appendChild(sTitle);
+
+            opts.standings.forEach((s, i) => {
+              const row = document.createElement('div');
+              row.style.display = 'flex';
+              row.style.justifyContent = 'space-between';
+              row.style.fontSize = '14px';
+              row.style.padding = '2px 0';
+              row.style.color = s.colour || '#fff';
+
+              const left = document.createElement('span');
+              left.textContent = `#${i + 1} ${String(s.name || ('SLOT ' + s.slot)).toUpperCase()}`
+                + (s.slot === this.mySlot ? ' (YOU)' : '')
+                + (s.connected === false ? ' [DISCONNECTED]' : '');
+
+              const right = document.createElement('span');
+              right.textContent = `ROUNDS WON: ${s.roundsWon || 0}`;
+              right.style.color = '#fff';
+
+              row.appendChild(left);
+              row.appendChild(right);
+              standingsBox.appendChild(row);
+            });
+            container.appendChild(standingsBox);
+          }
 
           // Grid container (scrollable)
           const gridWrapper = document.createElement('div');
@@ -3111,7 +3286,7 @@
               buyBtn.addEventListener('click', () => {
                 if (this.buy(player, itemConf.id)) {
                   // Refresh shop
-                  this.showShopForPlayer(playerIdx);
+                  this.showShopForPlayer(playerIdx, opts);
                 }
               });
             }
@@ -3147,9 +3322,13 @@
           doneBtn.style.cursor = 'pointer';
 
           doneBtn.addEventListener('click', () => {
+            if (opts.onDone) {
+              opts.onDone();
+              return;
+            }
             this.shoppingPlayerIdx++;
             if (this.shoppingPlayerIdx < this.roster.length) {
-              this.showShopForPlayer(this.shoppingPlayerIdx);
+              this.showShopForPlayer(this.shoppingPlayerIdx, opts);
             } else {
               this.startNextRound();
             }
@@ -3818,6 +3997,15 @@
             net.register('ROUND_START', (msg) => {
                document.getElementById('setup').hidden = true;
                mySlot = msg.yourSlot; // Now we know it!
+
+               // Round 2+ is a new round of the SAME match. Re-running start()
+               // would rebuild the roster and reset every player's cash and
+               // inventory to the starting values, silently undoing the shop.
+               if (Number.isFinite(msg.round) && msg.round > 1 && gameInstance.roster) {
+                 gameInstance.applyServerRoundStart(msg);
+                 return;
+               }
+
                // Initialize game
                const config = msg.config || { rounds: 5, startingCash: 10000, wallType: 'off', weaponsAvailability: 'all' };
                // We need to map `msg.tanks` to `config.players` for the Game class.
@@ -3832,6 +4020,9 @@
                config.seed = msg.seed;
                config.wind = msg.wind;
                config.turnOrder = msg.turnOrder;
+               // The server clamps the round count; its value wins over
+               // whatever the lobby form happened to post.
+               if (Number.isFinite(msg.totalRounds)) config.rounds = msg.totalRounds;
                // Hand the Game the lobby's live socket so it can send FIRE and
                // RESOLVE_SHOT. Without this `this.net` is null and the client
                // simulates in silence.
