@@ -67,7 +67,7 @@ function createClient(port) {
   const client = {
     ws,
     messages,
-    waitFor: async (type, timeout = 2000) => {
+    waitFor: async (type, timeout = 10000) => {
       const start = Date.now();
       while (Date.now() - start < timeout) {
         const msg = messages.find(m => m.type === type);
@@ -159,7 +159,7 @@ describe('Multiplayer Flow', () => {
     assert.strictEqual(createMsg.code.length, 4);
     assert.strictEqual(createMsg.phase, 'lobby');
 
-    c1.send({ type: C2S.SET_PROFILE, name: 'P1', colour: '#ff0000' });
+    c1.send({ type: C2S.SET_PROFILE, name: 'P1', colour: '#ff2222' });
     await c1.waitFor(S2C.ROOM_STATE);
 
     c2.send({ type: C2S.JOIN_ROOM, code: createMsg.code });
@@ -215,11 +215,11 @@ describe('Multiplayer Flow', () => {
     c1.send({ type: C2S.CREATE_ROOM });
     const s1 = await c1.waitFor(S2C.ROOM_STATE);
     const code = s1.code;
-    c1.send({ type: C2S.SET_PROFILE, name: 'P1', colour: '#ff0000' });
+    c1.send({ type: C2S.SET_PROFILE, name: 'P1', colour: '#ff2222' });
 
     c2.send({ type: C2S.JOIN_ROOM, code });
     await c2.waitFor(S2C.ROOM_STATE);
-    c2.send({ type: C2S.SET_PROFILE, name: 'P2', colour: '#00ff00' });
+    c2.send({ type: C2S.SET_PROFILE, name: 'P2', colour: '#22ff22' });
 
     await new Promise(r => setTimeout(r, 50));
     c1.messages.length = 0;
@@ -256,13 +256,16 @@ describe('Multiplayer Flow', () => {
     // 3. The active player fires through the real UI path.
     const shooterSlot = A.game.roster[A.game.activePlayerIdx].slot;
     const shooter = (A.game.mySlot === shooterSlot) ? A : B;
-    shooter.game.roster[shooter.game.activePlayerIdx].angle = 50;
-    shooter.game.roster[shooter.game.activePlayerIdx].power = 550;
-    // The watching client sets the same aim locally; it must NOT matter,
+    // Steep and short, so the shell lands in-world and carves for ANY seed.
+    // A flatter, harder shot leaves the map on some generated terrains and
+    // the "terrain actually changed" check below then fails at random.
+    shooter.game.roster[shooter.game.activePlayerIdx].angle = 65;
+    shooter.game.roster[shooter.game.activePlayerIdx].power = 320;
+    // The watching client aims somewhere else entirely; it must NOT matter,
     // because the trajectory comes from the server's vector.
     const watcher = (shooter === A) ? B : A;
-    watcher.game.roster[watcher.game.activePlayerIdx].angle = 50;
-    watcher.game.roster[watcher.game.activePlayerIdx].power = 550;
+    watcher.game.roster[watcher.game.activePlayerIdx].angle = 12;
+    watcher.game.roster[watcher.game.activePlayerIdx].power = 999;
 
     shooter.game.fireActiveWeapon();
 

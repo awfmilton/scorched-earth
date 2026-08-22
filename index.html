@@ -634,6 +634,8 @@
           this.maxBackoffDelay = 30000;
           this.reconnectTimer = null;
           this.shouldReconnect = true;
+          // Clicks made before the socket finished opening, flushed on open.
+          this.pendingSends = [];
 
           // Latest lobby snapshot received via ROOM_STATE frames
           // ({ code, phase, hostSlot, players:[{slot,name,colour,connected,alive}] }).
@@ -761,6 +763,11 @@
             } else {
               this.send('LIST_ROOMS', {});
             }
+
+            // Anything the player clicked before the socket finished opening.
+            const queued = this.pendingSends;
+            this.pendingSends = [];
+            queued.forEach(({ type, fields }) => this.send(type, fields));
           };
 
           this.socket.onmessage = (event) => {
@@ -835,6 +842,18 @@
             } catch (err) {
               this.handleError({ type: 'SEND_ERROR', error: err });
             }
+            return;
+          }
+
+          // The socket opens a moment after the page does, so a player who
+          // clicks CREATE straight away used to have the click silently
+          // dropped and no feedback at all. Queue intent instead and flush it
+          // on open. Gameplay frames are deliberately NOT queued: replaying a
+          // stale shot after a reconnect would desync everyone.
+          if (type === 'FIRE' || type === 'RESOLVE_SHOT') return;
+          this.pendingSends = this.pendingSends || [];
+          if (this.pendingSends.length < 8) {
+            this.pendingSends.push({ type, fields });
           }
         }
 
