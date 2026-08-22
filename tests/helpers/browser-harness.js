@@ -149,6 +149,58 @@ function hashTerrain(game) {
 
 const tanksOf = (game) => game.roster.map(t => `${t.slot}:${t.x}:${t.y}:${t.hp}`).join('|');
 
+const gameOf = (b) => b.ctx.globalThis.SCORCHED.gameInstance;
+
+// A real server on an ephemeral port, torn down by close().
+async function startTestServer() {
+  const { createServer, attachWebSocketServer, createRoomManagerHandlers } = require('../../server.js');
+  const RoomManager = require('../../lib/room-manager.js');
+
+  const handlers = createRoomManagerHandlers(new RoomManager());
+  const server = createServer();
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const wss = attachWebSocketServer(server, {
+    onMessage: handlers.onMessage,
+    onDisconnect: handlers.onDisconnect
+  });
+  return {
+    server,
+    wss,
+    port: server.address().port,
+    close() { wss.close(); server.close(); }
+  };
+}
+
+// Two browsers through the real lobby into a live match.
+async function setupMatch(port, rounds) {
+  const host = bootBrowser(port);
+  const guest = bootBrowser(port);
+
+  await until(() => gameOf(host), 10000, 'host game instance');
+  await until(() => gameOf(guest), 10000, 'guest game instance');
+
+  host.el('btn-create-match').click();
+  await until(
+    () => (host.el('display-share-code').textContent || '').trim().length === 4,
+    10000,
+    'share code'
+  );
+
+  guest.el('join-code').value = host.el('display-share-code').textContent.trim();
+  guest.el('btn-join-match').click();
+  await until(() => host.el('multiplayer-slots').children.length >= 2, 10000, 'two players in the lobby');
+
+  host.el('rounds').value = String(rounds);
+  host.el('starting-cash').value = '10000';
+  host.el('wall-type').value = 'off';
+  host.el('start-btn').click();
+
+  await until(() => gameOf(host).roster && gameOf(host).roster.length === 2, 10000, 'host round start');
+  await until(() => gameOf(guest).roster && gameOf(guest).roster.length === 2, 10000, 'guest round start');
+
+  return { host, guest };
+}
+
 module.exports = {
   code,
   createBrowserDom,
@@ -156,5 +208,8 @@ module.exports = {
   wait,
   until,
   hashTerrain,
-  tanksOf
+  tanksOf,
+  gameOf,
+  startTestServer,
+  setupMatch
 };

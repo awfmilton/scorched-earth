@@ -254,6 +254,12 @@ function createRoomManagerHandlers(roomManager) {
           case C2S.SHOP_DONE:
             result = roomManager.shopDone(connectionId);
             break;
+          case C2S.MOVE:
+            result = roomManager.move(connectionId, msg);
+            break;
+          case C2S.TELEPORT:
+            result = roomManager.teleport(connectionId);
+            break;
           default:
             send(connectionId, {
               type: 'ERROR',

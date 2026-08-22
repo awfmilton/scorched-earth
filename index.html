@@ -352,7 +352,18 @@
         WORLD_H: 700,
         GRAVITY: 260,
         TICK: 1/60,
-        MAX_FLIGHT_TICKS: 1800
+        MAX_FLIGHT_TICKS: 1800,
+        // Tanks never sit flush against the edge. Mirrors WORLD_MARGIN in
+        // lib/constants.js, which the server uses to mint teleport columns.
+        TANK_MARGIN: 40,
+        // Driving. One fuel unit buys one DRIVE_STEP of horizontal travel;
+        // MAX_CLIMB is the steepest rise a tank will haul itself up in a
+        // single step, which is what stops a tank driving up a sheer wall.
+        DRIVE_STEP: 4,
+        MAX_CLIMB: 10,
+        // Topped up to this at the start of every round, so a player who never
+        // visits the shop can still reposition. Purchased fuel stacks on top.
+        FUEL_PER_ROUND: 100
       };
 
       const WEAPONS = [
@@ -386,7 +397,9 @@
         { id: 'Battery', name: 'Battery', cost: 500, packSize: 2, kind: 'battery' },
         { id: 'Parachute', name: 'Parachute', cost: 500, packSize: 3, kind: 'parachute' },
         { id: 'Guidance Computer', name: 'Guidance Computer', cost: 2000, packSize: 1, kind: 'utility' },
-        { id: 'Auto Defense', name: 'Auto Defense', cost: 3000, packSize: 1, kind: 'utility' }
+        { id: 'Auto Defense', name: 'Auto Defense', cost: 3000, packSize: 1, kind: 'utility' },
+        { id: 'Fuel', name: 'Fuel', cost: 400, packSize: 100, kind: 'fuel' },
+        { id: 'Teleport', name: 'Teleport', cost: 2000, packSize: 1, kind: 'teleport' }
       ];
 
       // Helper function to create deterministic mulberry32 generator stream
@@ -714,6 +727,8 @@
             TURN_SYNC: (msg) => this.toGame('applyTurnSync', msg),
             PLAYER_LEFT: (msg) => this.toGame('applyPlayerLeft', msg),
             ROUND_END: (msg) => this.toGame('applyRoundEnd', msg),
+            MOVE_SYNC: (msg) => this.toGame('applyMoveSync', msg),
+            TELEPORT_SYNC: (msg) => this.toGame('applyTeleportSync', msg),
             ERROR: (msg) => {
               console.warn('Server ERROR:', msg.code, msg.message);
             }
@@ -1229,6 +1244,15 @@
             } else if (e.key === '[' || e.key === ']' || e.key === 'Tab') {
               this.cycleWeapon(e.key === '[' ? -1 : 1);
               e.preventDefault();
+            } else if (e.key === 'a' || e.key === 'A') {
+              this.requestDrive(-1);
+              e.preventDefault();
+            } else if (e.key === 'd' || e.key === 'D') {
+              this.requestDrive(1);
+              e.preventDefault();
+            } else if (e.key === 't' || e.key === 'T') {
+              this.requestTeleport();
+              e.preventDefault();
             }
 
             if (changed) {
@@ -1473,6 +1497,7 @@
             tank.reportedDead = false;
             tank.damageDealt = 0;
             tank.kills = 0;
+            this.grantRoundFuel(tank);
             const minX = zoneW * i + margin;
             const maxX = zoneW * (i + 1) - margin;
             tank.x = gameplayRNG.range(minX, maxX);
@@ -1569,6 +1594,126 @@
           });
         }
 
+        // Every round starts with at least a tank of fuel so repositioning is
+        // never gated behind a shop visit; anything bought on top carries.
+        grantRoundFuel(tank) {
+          const held = tank.inventory['Fuel'] || 0;
+          tank.inventory['Fuel'] = Math.max(held, CONST.FUEL_PER_ROUND);
+        }
+
+        /**
+         * Drive a tank horizontally. Deterministic by construction: terrain
+         * heights and arithmetic only, no RNG, so every client that applies the
+         * same MOVE_SYNC lands on the same pixel.
+         *
+         * Fuel is deliberately NOT a precondition here. Online, a client only
+         * knows its own inventory — every remote tank's Fuel entry is undefined
+         * on this machine — so gating the movement on fuel would stop remote
+         * tanks moving on every screen but their owner's, which is a desync.
+         * The fuel check belongs at the input site, before the MOVE is sent;
+         * this function only spends what it can see.
+         */
+        driveTank(tank, dir, steps) {
+          if (!tank || tank.hp <= 0) return 0;
+          const minX = CONST.TANK_MARGIN;
+          const maxX = CONST.WORLD_W - CONST.TANK_MARGIN;
+
+          let taken = 0;
+          for (let i = 0; i < steps; i++) {
+            const nextX = tank.x + dir * CONST.DRIVE_STEP;
+            if (nextX < minX || nextX > maxX) break;
+
+            const currentHeight = this.terrain.heightAt(tank.x);
+            const nextHeight = this.terrain.heightAt(nextX);
+            // Uphill only to a point. Downhill of any depth is fine — the tank
+            // settles onto the new column rather than toppling, which keeps
+            // this independent of the falling/parachute physics.
+            if (nextHeight - currentHeight > CONST.MAX_CLIMB) break;
+
+            tank.x = nextX;
+            tank.y = CONST.WORLD_H - nextHeight;
+            taken++;
+          }
+
+          if (taken > 0 && typeof tank.inventory['Fuel'] === 'number') {
+            tank.inventory['Fuel'] = Math.max(0, tank.inventory['Fuel'] - taken);
+          }
+          return taken;
+        }
+
+        teleportTank(tank, x) {
+          if (!tank || tank.hp <= 0) return false;
+          const clamped = Math.min(
+            CONST.WORLD_W - CONST.TANK_MARGIN,
+            Math.max(CONST.TANK_MARGIN, x)
+          );
+          tank.x = clamped;
+          tank.y = CONST.WORLD_H - this.terrain.heightAt(clamped);
+          return true;
+        }
+
+        // Driving and teleporting are INPUTS, handled exactly like FIRE:
+        // online they are sent and nothing is applied locally, so the move
+        // lands on every client at the same point in the message order.
+        requestDrive(dir) {
+          if (!this.roster || this.activePlayerIdx === undefined) return;
+          const tank = this.roster[this.activePlayerIdx];
+          if (!tank || tank.hp <= 0 || this.projectile) return;
+          if ((tank.inventory['Fuel'] || 0) <= 0) return;
+
+          if (this.mode === 'online') {
+            if (tank.slot !== this.mySlot) return;
+            if (this.activeShotId) return;
+            if (this.net) this.net.send('MOVE', { dir, steps: 1 });
+            return;
+          }
+
+          this.driveTank(tank, dir, 1);
+          if (!this.headless) this.updateHUD();
+        }
+
+        requestTeleport() {
+          if (!this.roster || this.activePlayerIdx === undefined) return;
+          const tank = this.roster[this.activePlayerIdx];
+          if (!tank || tank.hp <= 0 || this.projectile) return;
+          if ((tank.inventory['Teleport'] || 0) <= 0) return;
+
+          if (this.mode === 'online') {
+            if (tank.slot !== this.mySlot) return;
+            if (this.activeShotId) return;
+            if (this.net) this.net.send('TELEPORT', {});
+            return;
+          }
+
+          // Local play is the only simulation there is, so the shared gameplay
+          // stream is a safe source for the destination.
+          const x = gameplayRNG.range(CONST.TANK_MARGIN, CONST.WORLD_W - CONST.TANK_MARGIN);
+          this.teleportTank(tank, x);
+          tank.inventory['Teleport'] = Math.max(0, (tank.inventory['Teleport'] || 0) - 1);
+          if (!this.headless) this.updateHUD();
+        }
+
+        applyMoveSync(msg) {
+          if (!this.roster || !msg) return;
+          const tank = this.roster.find(t => t.slot === msg.slot);
+          if (!tank) return;
+          this.driveTank(tank, msg.dir, msg.steps);
+          if (!this.headless) this.updateHUD();
+        }
+
+        applyTeleportSync(msg) {
+          if (!this.roster || !msg) return;
+          const tank = this.roster.find(t => t.slot === msg.slot);
+          if (!tank) return;
+          this.teleportTank(tank, msg.x);
+          // Only the owning client tracks a Teleport count; on every other
+          // client the entry is undefined and there is nothing to spend.
+          if (typeof tank.inventory['Teleport'] === 'number') {
+            tank.inventory['Teleport'] = Math.max(0, tank.inventory['Teleport'] - 1);
+          }
+          if (!this.headless) this.updateHUD();
+        }
+
         updateHUD() {
           if (this.headless) return;
           const hud = document.getElementById('hud');
@@ -1605,6 +1750,7 @@
           let powerSpan = hud.querySelector('.hud-power');
           let weaponSpan = hud.querySelector('.hud-weapon');
           let cashSpan = hud.querySelector('.hud-cash');
+          let fuelSpan = hud.querySelector('.hud-fuel');
           let windSpan = hud.querySelector('.hud-wind');
           let netSpan = hud.querySelector('.hud-net');
           let legendSpan = hud.querySelector('.hud-legend');
@@ -1637,6 +1783,10 @@
             cashSpan.className = 'hud-cash';
             cashSpan.style.marginRight = '15px';
 
+            fuelSpan = document.createElement('span');
+            fuelSpan.className = 'hud-fuel';
+            fuelSpan.style.marginRight = '15px';
+
             windSpan = document.createElement('span');
             windSpan.className = 'hud-wind';
             windSpan.style.marginRight = '15px';
@@ -1658,18 +1808,32 @@
             hud.appendChild(powerSpan);
             hud.appendChild(weaponSpan);
             hud.appendChild(cashSpan);
+            hud.appendChild(fuelSpan);
             hud.appendChild(windSpan);
             hud.appendChild(netSpan);
             hud.appendChild(legendSpan);
-          } else if (!netSpan && legendSpan) {
-            netSpan = document.createElement('span');
-            netSpan.className = 'hud-net';
-            netSpan.style.marginRight = '15px';
-            netSpan.style.fontWeight = 'bold';
-            if (typeof hud.insertBefore === 'function') {
-              hud.insertBefore(netSpan, legendSpan);
-            } else {
-              hud.appendChild(netSpan);
+          } else if (legendSpan && (!netSpan || !fuelSpan)) {
+            // Upgrade a HUD built by an earlier version rather than rebuilding
+            // it, which would drop the spans this frame is about to write.
+            const addBeforeLegend = (span) => {
+              if (typeof hud.insertBefore === 'function') {
+                hud.insertBefore(span, legendSpan);
+              } else {
+                hud.appendChild(span);
+              }
+            };
+            if (!netSpan) {
+              netSpan = document.createElement('span');
+              netSpan.className = 'hud-net';
+              netSpan.style.marginRight = '15px';
+              netSpan.style.fontWeight = 'bold';
+              addBeforeLegend(netSpan);
+            }
+            if (!fuelSpan) {
+              fuelSpan = document.createElement('span');
+              fuelSpan.className = 'hud-fuel';
+              fuelSpan.style.marginRight = '15px';
+              addBeforeLegend(fuelSpan);
             }
           }
 
@@ -1681,6 +1845,12 @@
           powerSpan.textContent = `PWR: ${activeTank.power}`;
           weaponSpan.textContent = `WEAP: ${weapon} (${ammoStr})`;
           cashSpan.textContent = `CASH: $${activeTank.cash}`;
+          if (fuelSpan) {
+            const fuel = activeTank.inventory['Fuel'] || 0;
+            const teleports = activeTank.inventory['Teleport'] || 0;
+            fuelSpan.textContent = `FUEL: ${fuel}` + (teleports > 0 ? ` TP: ${teleports}` : '');
+            fuelSpan.style.color = fuel > 0 ? '#ffaa00' : '#555';
+          }
           windSpan.textContent = `WIND: ${windDir} ${windSpeed}`;
 
           if (this.mode === 'online') {
@@ -1699,7 +1869,7 @@
             }
           }
 
-          legendSpan.textContent = 'L/R: Angle | U/D: Power | Space: Fire | [/]: Weapon | Shift: Coarse';
+          legendSpan.textContent = 'L/R: Angle | U/D: Power | A/D: Drive | T: Teleport | Space: Fire | [/]: Weapon | Shift: Coarse';
         }
 
         // Put a net error somewhere the player can actually read it. #error-msg
@@ -1773,7 +1943,7 @@
               angle: 45,
               power: 500,
               cash: this.startingCash,
-              inventory: { 'Baby Missile': Infinity },
+              inventory: { 'Baby Missile': Infinity, 'Fuel': CONST.FUEL_PER_ROUND },
               selectedWeapon: 'Baby Missile',
               shield: null,
               x: x,
@@ -3025,6 +3195,7 @@
             this.roster.forEach((tank, i) => {
               tank.hp = 100;
               tank.shield = null;
+              this.grantRoundFuel(tank);
 
               // Fresh random position within player zone
               const minX = zoneW * i + margin;
