@@ -93,4 +93,49 @@ describe('Game Simulation Determinism', () => {
     assert.ok(run1.heights.equals(run2.heights), 'Terrain heights buffer must be byte-identical');
     assert.deepStrictEqual(run1.tanks, run2.tanks, 'Tank positions and HP must be identical');
   });
+
+  // The families added from AUDIT.md are all places where an implementation
+  // would naturally reach for Math.random: where a tunnel stops, how far a hop
+  // carries, how a shaft is shaped. Replay them and require bit-identity.
+  it('replays the tunnelling, hopping and terrain-shaping weapons identically', () => {
+    const actions = [
+      { tick: 10, type: 'FIRE', angle: 50, power: 520, weapon: 'Heavy Sandhog' },
+      { tick: 700, type: 'FIRE', angle: 130, power: 600, weapon: 'LeapFrog' },
+      { tick: 1400, type: 'FIRE', angle: 60, power: 700, weapon: 'Earth Disrupter' },
+      { tick: 2100, type: 'FIRE', angle: 120, power: 450, weapon: 'Ton of Dirt' },
+      { tick: 2800, type: 'FIRE', angle: 45, power: 800, weapon: 'Riot Bomb' },
+      { tick: 3500, type: 'FIRE', angle: 135, power: 900, weapon: 'Laser' },
+      { tick: 4200, type: 'FIRE', angle: 70, power: 600, weapon: 'Plasma Blast' }
+    ];
+
+    const run1 = runSimulation(actions);
+    const run2 = runSimulation(actions);
+
+    assert.ok(run1.heights.equals(run2.heights), 'Terrain heights buffer must be byte-identical');
+    assert.deepStrictEqual(run1.tanks, run2.tanks, 'Tank positions and HP must be identical');
+  });
+
+  // Guards the specific failure the lockstep design is exposed to: a weapon
+  // that consumes a different NUMBER of values from the shared stream on two
+  // clients leaves every later shot in the round misaligned. Interleaving the
+  // scatter weapons with the new families and replaying proves the draws stay
+  // in step across the whole round, not just within one shot.
+  it('keeps the shared RNG stream aligned across mixed weapon rounds', () => {
+    const actions = [
+      { tick: 10, type: 'FIRE', angle: 45, power: 600, weapon: 'Cluster Bomb' },
+      { tick: 600, type: 'FIRE', angle: 50, power: 520, weapon: 'Baby Sandhog' },
+      { tick: 1200, type: 'FIRE', angle: 135, power: 700, weapon: 'Funky Bomb' },
+      { tick: 1800, type: 'FIRE', angle: 60, power: 600, weapon: 'LeapFrog' },
+      { tick: 2400, type: 'FIRE', angle: 110, power: 500, weapon: 'Napalm' },
+      { tick: 3000, type: 'FIRE', angle: 55, power: 650, weapon: 'Dirt Ball' },
+      { tick: 3600, type: 'FIRE', angle: 80, power: 800, weapon: 'MIRV' },
+      { tick: 4200, type: 'FIRE', angle: 125, power: 400, weapon: 'Smoke Tracer' }
+    ];
+
+    const run1 = runSimulation(actions);
+    const run2 = runSimulation(actions);
+
+    assert.ok(run1.heights.equals(run2.heights), 'Terrain heights buffer must be byte-identical');
+    assert.deepStrictEqual(run1.tanks, run2.tanks, 'Tank positions and HP must be identical');
+  });
 });

@@ -363,7 +363,9 @@
         MAX_CLIMB: 10,
         // Topped up to this at the start of every round, so a player who never
         // visits the shop can still reposition. Purchased fuel stacks on top.
-        FUEL_PER_ROUND: 100
+        FUEL_PER_ROUND: 100,
+        // Half-width of the shaft a Sandhog bores on its way down.
+        SANDHOG_SHAFT_RADIUS: 9
       };
 
       const WEAPONS = [
@@ -381,14 +383,45 @@
         { id: 'Heavy Roller', name: 'Heavy Roller', cost: 4000, packSize: 2, blast: 45, damage: 90, kind: 'pattern' },
         { id: 'Digger', name: 'Digger', cost: 1500, packSize: 3, blast: 25, damage: 50, kind: 'explosive' },
         { id: 'Heavy Digger', name: 'Heavy Digger', cost: 3000, packSize: 2, blast: 40, damage: 80, kind: 'explosive' },
+        // Sandhogs bore straight down through the dirt, carving the shaft as
+        // they go, and detonate at the bottom of it. `tunnel` is how deep.
+        { id: 'Baby Sandhog', name: 'Baby Sandhog', cost: 1000, packSize: 5, blast: 25, damage: 50, kind: 'sandhog', tunnel: 70 },
+        { id: 'Sandhog', name: 'Sandhog', cost: 2500, packSize: 3, blast: 40, damage: 80, kind: 'sandhog', tunnel: 140 },
+        { id: 'Heavy Sandhog', name: 'Heavy Sandhog', cost: 5000, packSize: 2, blast: 60, damage: 120, kind: 'sandhog', tunnel: 240 },
+        // Riot weapons are digging tools, not killers: they clear dirt and do
+        // no damage at all, which is how you excavate yourself out of a hole.
+        { id: 'Riot Charge', name: 'Riot Charge', cost: 500, packSize: 5, blast: 30, damage: 0, kind: 'riot' },
+        { id: 'Riot Blast', name: 'Riot Blast', cost: 1000, packSize: 5, blast: 45, damage: 0, kind: 'riot' },
+        { id: 'Riot Bomb', name: 'Riot Bomb', cost: 2000, packSize: 3, blast: 65, damage: 0, kind: 'riot' },
+        { id: 'Heavy Riot Bomb', name: 'Heavy Riot Bomb', cost: 4000, packSize: 2, blast: 95, damage: 0, kind: 'riot' },
+        // Explodes, then hops onward and explodes again — `hops` extra times.
+        { id: 'LeapFrog', name: 'LeapFrog', cost: 2500, packSize: 3, blast: 30, damage: 60, kind: 'leapfrog', hops: 2 },
         { id: 'Napalm', name: 'Napalm', cost: 1500, packSize: 3, blast: 15, damage: 5, kind: 'liquid' },
         { id: 'Hot Napalm', name: 'Hot Napalm', cost: 3000, packSize: 2, blast: 20, damage: 10, kind: 'liquid' },
         { id: 'Liquid Dirt', name: 'Liquid Dirt', cost: 1000, packSize: 4, blast: 15, damage: 0, kind: 'liquid' },
-        { id: 'Dirt Bomb', name: 'Dirt Bomb', cost: 1500, packSize: 3, blast: 30, damage: 0, kind: 'utility' },
+        // The dirt-delivery tier ADDS terrain instead of removing it: bury a
+        // tank, or rebuild the ridge someone just blew out from under you.
+        { id: 'Dirt Clod', name: 'Dirt Clod', cost: 500, packSize: 5, blast: 18, damage: 0, kind: 'dirt' },
+        { id: 'Dirt Ball', name: 'Dirt Ball', cost: 1000, packSize: 4, blast: 24, damage: 0, kind: 'dirt' },
+        { id: 'Dirt Bomb', name: 'Dirt Bomb', cost: 1500, packSize: 3, blast: 30, damage: 0, kind: 'dirt' },
+        { id: 'Ton of Dirt', name: 'Ton of Dirt', cost: 3000, packSize: 2, blast: 55, damage: 0, kind: 'dirt' },
         { id: 'Dirt Detonator', name: 'Dirt Detonator', cost: 1000, packSize: 5, blast: 0, damage: 50, kind: 'utility' },
+        // Late-tier exotics.
+        { id: 'Earth Disrupter', name: 'Earth Disrupter', cost: 4000, packSize: 2, blast: 45, damage: 90, kind: 'disrupter' },
+        { id: 'Plasma Blast', name: 'Plasma Blast', cost: 7000, packSize: 1, blast: 120, damage: 220, kind: 'plasma' },
+        { id: 'Laser', name: 'Laser', cost: 5000, packSize: 3, blast: 20, damage: 110, kind: 'laser' },
         { id: 'Sandstorm', name: 'Sandstorm', cost: 2000, packSize: 3, blast: 0, damage: 0, kind: 'utility' },
-        { id: 'Tracer', name: 'Tracer', cost: 100, packSize: 10, blast: 0, damage: 0, kind: 'utility' }
+        { id: 'Tracer', name: 'Tracer', cost: 100, packSize: 10, blast: 0, damage: 0, kind: 'utility' },
+        { id: 'Smoke Tracer', name: 'Smoke Tracer', cost: 200, packSize: 10, blast: 0, damage: 0, kind: 'utility' }
       ];
+
+      const WEAPONS_BY_ID = new Map(WEAPONS.map(w => [w.id, w]));
+
+      // Tracers mark a trajectory and never damage anything. Smoke Tracer is
+      // the same shot with a trail that stays on screen after it lands.
+      function isTracer(weaponId) {
+        return weaponId === 'Tracer' || weaponId === 'Smoke Tracer';
+      }
 
       const ITEMS = [
         { id: 'Shield', name: 'Shield', cost: 1000, packSize: 1, kind: 'shield', strength: 100 },
@@ -2267,9 +2300,15 @@
           return false;
         }
 
-        explosion(x, y, radius, damage, shooterIdx) {
+        // opts.carve === false leaves the terrain untouched (Plasma Blast is
+        // pure energy — it cooks tanks without moving a grain of dirt).
+        explosion(x, y, radius, damage, shooterIdx, opts) {
+          opts = opts || {};
+
           // 1. Carve terrain
-          this.terrain.carve(x, y, radius);
+          if (opts.carve !== false) {
+            this.terrain.carve(x, y, radius);
+          }
 
           // Track newly killed tanks to trigger chain reaction explosions
           const deadTanksToExplode = [];
@@ -2343,7 +2382,57 @@
           });
         }
 
-        onImpact(x, y, weapon, shooterIdx) {
+        // A LeapFrog detonation throws the round forward for another hop. Every
+        // number here is fixed, not drawn from a stream: the hop distance is the
+        // same on every client, so an unlucky RNG-ordering difference can never
+        // land the second explosion in a different crater on two screens.
+        spawnLeapFrogHop(x, y, weaponId, shooterIdx, proj) {
+          const wConf = WEAPONS_BY_ID.get(weaponId);
+          const maxHops = (wConf && wConf.hops) || 0;
+          const hopsLeft = (proj && proj.hopsLeft !== undefined) ? proj.hopsLeft : maxHops;
+          if (hopsLeft <= 0) return;
+
+          // Direction is fixed at the first detonation and carried through every
+          // hop after it. Re-deriving it from vx each time would let a strong
+          // headwind flip a hop backwards mid-sequence, which reads as a bug.
+          const dir = (proj && proj.hopDir !== undefined)
+            ? proj.hopDir
+            : ((proj && proj.vx < 0) ? -1 : 1);
+
+          this.projectiles.push({
+            x: x,
+            y: y - 10,
+            vx: dir * 110,
+            vy: -170,
+            weapon: weaponId,
+            hopsLeft: hopsLeft - 1,
+            hopDir: dir,
+            shooterIdx: shooterIdx
+          });
+        }
+
+        // Visual only — a Smoke Tracer's landing marker. Runs off visualRNG,
+        // which no simulation state ever reads, so it cannot affect a replay.
+        spawnSmokePuff(x, y) {
+          for (let i = 0; i < 12; i++) {
+            this.spawnParticle(
+              'smoke',
+              x + visualRNG.range(-6, 6),
+              y + visualRNG.range(-6, 6),
+              visualRNG.range(-12, 12),
+              visualRNG.range(-26, -6),
+              '#cccccc',
+              visualRNG.range(1.4, 2.6),
+              visualRNG.range(2, 4)
+            );
+          }
+        }
+
+        // `proj` is the projectile that just died, when there was one. Only the
+        // hop-and-re-explode weapons need it (they carry their travel direction
+        // and remaining hop count into the next detonation); every other weapon
+        // is fully described by x/y/weapon, so the argument stays optional.
+        onImpact(x, y, weapon, shooterIdx, proj) {
           if (shooterIdx !== undefined && this.roster) {
             const shooter = this.roster[shooterIdx];
             if (shooter && shooter.type === 'Cyborg' && shooter.lastTargetName) {
@@ -2369,13 +2458,54 @@
 
           this.lastShooterIdx = shooterIdx;
 
+          const kind = wConf.kind;
+
           // Perform specific actions based on weapon type
-          if (wp === 'Dirt Bomb') {
+          if (kind === 'dirt') {
+            // The dirt-delivery tier ADDS terrain. No damage at all: being
+            // buried is the punishment, and a buried tank digs itself out with
+            // fuel or a Riot charge.
             this.terrain.deposit(x, y, radius);
             if (!this.headless) {
               sfx('explode', { radius });
               this.spawnCraterEffects(x, y, radius);
             }
+          } else if (kind === 'riot') {
+            // Clears dirt, harms nobody — deliberately routed around
+            // explosion() so there is no code path that can damage a tank.
+            this.terrain.carve(x, y, radius);
+            if (!this.headless) {
+              sfx('explode', { radius });
+              this.spawnCraterEffects(x, y, radius);
+            }
+          } else if (kind === 'plasma') {
+            // Energy blast: huge damage radius, terrain left intact.
+            this.explosion(x, y, radius, damage, shooterIdx, { carve: false });
+          } else if (kind === 'disrupter') {
+            // Ordinary blast, plus a narrow shaft punched all the way down to
+            // bedrock — the classic way to drop a hilltop tank into a pit.
+            this.explosion(x, y, radius, damage, shooterIdx);
+            // The shaft is cut to bedrock across a solid core and tapered at the
+            // edges, wide enough that settle() cannot simply pour it shut again.
+            const coreHalfWidth = 22;
+            const shaftHalfWidth = 40;
+            const floor = CONST.WORLD_H * 0.15;
+            const startCol = Math.max(0, Math.floor(x - shaftHalfWidth));
+            const endCol = Math.min(CONST.WORLD_W - 1, Math.ceil(x + shaftHalfWidth));
+            for (let col = startCol; col <= endCol; col++) {
+              const d = Math.abs(col - x);
+              const cut = d <= coreHalfWidth
+                ? 1
+                : 1 - (d - coreHalfWidth) / (shaftHalfWidth - coreHalfWidth);
+              if (cut <= 0) continue;
+              const target = floor + (this.terrain.heights[col] - floor) * (1 - cut);
+              if (target < this.terrain.heights[col]) {
+                this.terrain.heights[col] = target;
+              }
+            }
+          } else if (kind === 'leapfrog') {
+            this.explosion(x, y, radius, damage, shooterIdx);
+            this.spawnLeapFrogHop(x, y, wp, shooterIdx, proj);
           } else if (wp === 'Dirt Detonator') {
             // collapse deposited dirt: flatten heights within radius 40
             const collapseRadius = 40;
@@ -2402,8 +2532,11 @@
             if (!this.headless) {
               sfx('explode', { radius: 50 });
             }
-          } else if (wp === 'Tracer') {
-            // Tracer deals exactly zero damage and zero blast
+          } else if (isTracer(wp)) {
+            // Tracers deal exactly zero damage and zero blast
+            if (wp === 'Smoke Tracer' && !this.headless) {
+              this.spawnSmokePuff(x, y);
+            }
           } else {
             // standard explosion
             this.explosion(x, y, radius, damage, shooterIdx);
@@ -2568,12 +2701,12 @@
 
               proj.flightTicks = (proj.flightTicks || 0) + 1;
               if (proj.flightTicks > CONST.MAX_FLIGHT_TICKS) {
-                if (proj.weapon === 'Tracer' && proj.path) {
+                if (isTracer(proj.weapon) && proj.path) {
                   this.persistentTracers = this.persistentTracers || [];
                   this.persistentTracers.push(proj.path);
                 }
                 this.projectiles = this.projectiles.filter(p => p !== proj);
-                this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx);
+                this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx, proj);
                 if (this.projectiles.length === 0) {
                   this.nextTurn();
                 }
@@ -2613,7 +2746,7 @@
 
                 if (detonate) {
                   this.projectiles = this.projectiles.filter(p => p !== proj);
-                  this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx);
+                  this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx, proj);
                   if (this.projectiles.length === 0) {
                     this.nextTurn();
                   }
@@ -2696,15 +2829,20 @@
               }
 
               // 4. Trace line path recording
-              if (proj.weapon === 'Tracer') {
+              if (isTracer(proj.weapon)) {
                 proj.path = proj.path || [];
                 proj.path.push({ x: proj.x, y: proj.y });
               }
 
-              // 5. Standard projectile gravity & wind integration
+              // 5. Standard projectile gravity & wind integration.
+              // A Laser is a beam, not a shell: it ignores both, so it flies
+              // the straight line the barrel was pointing along.
+              const isLaser = proj.weapon === 'Laser';
               const prevVy = proj.vy;
-              proj.vy += CONST.GRAVITY * dt;
-              proj.vx += (this.wind || 0) * dt;
+              if (!isLaser) {
+                proj.vy += CONST.GRAVITY * dt;
+                proj.vx += (this.wind || 0) * dt;
+              }
 
               // Trajectory apex split trigger for MIRV and Death's Head
               if ((proj.weapon === 'MIRV' || proj.weapon === "Death's Head") && !proj.split && prevVy < 0 && proj.vy >= 0) {
@@ -2732,16 +2870,32 @@
               let step_vx = proj.vx;
               let step_vy = proj.vy;
 
+              // The beam covers ground fast enough to read as a beam. This is a
+              // fixed multiple of the server-minted launch vector, so every
+              // client scales the identical doubles by the identical constant.
+              if (isLaser) {
+                step_vx *= 2.5;
+                step_vy *= 2.5;
+              }
+
               if (proj.digging) {
                 step_vx = 0;
                 step_vy = 30; // constant burrow speed
                 proj.digDepth += step_vy * dt;
-                
+
+                // A Sandhog carves the shaft it is descending; a Digger just
+                // burrows through and leaves the dirt where it was.
+                if (proj.tunnelling) {
+                  this.terrain.carve(proj.x, proj.y, CONST.SANDHOG_SHAFT_RADIUS);
+                }
+
                 // Check if it reached max depth
-                const maxDepth = proj.weapon === 'Heavy Digger' ? 80 : 40;
+                const maxDepth = proj.maxDigDepth !== undefined
+                  ? proj.maxDigDepth
+                  : (proj.weapon === 'Heavy Digger' ? 80 : 40);
                 if (proj.digDepth > maxDepth) {
                   this.projectiles = this.projectiles.filter(p => p !== proj);
-                  this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx);
+                  this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx, proj);
                   if (this.projectiles.length === 0) {
                     this.nextTurn();
                   }
@@ -2781,7 +2935,7 @@
                 // Walls boundaries
                 if (this.wallType === 'off') {
                   if (proj.x < 0 || proj.x > CONST.WORLD_W) {
-                    if (proj.weapon === 'Tracer' && proj.path) {
+                    if (isTracer(proj.weapon) && proj.path) {
                       this.persistentTracers = this.persistentTracers || [];
                       this.persistentTracers.push(proj.path);
                     }
@@ -2833,7 +2987,7 @@
 
                 // Below screen bottom
                 if (proj.y > CONST.WORLD_H) {
-                  if (proj.weapon === 'Tracer' && proj.path) {
+                  if (isTracer(proj.weapon) && proj.path) {
                     this.persistentTracers = this.persistentTracers || [];
                     this.persistentTracers.push(proj.path);
                   }
@@ -2880,13 +3034,25 @@
                       break;
                     }
 
+                    // Check Sandhog trigger: tunnels down through the dirt,
+                    // carving as it goes, and detonates at the bottom.
+                    const hitConf = WEAPONS_BY_ID.get(proj.weapon);
+                    if (hitConf && hitConf.kind === 'sandhog' && !proj.digging) {
+                      proj.digging = true;
+                      proj.tunnelling = true;
+                      proj.digDepth = 0;
+                      proj.maxDigDepth = hitConf.tunnel;
+                      impacted = true;
+                      break;
+                    }
+
                     // Normal impact
-                    if (proj.weapon === 'Tracer' && proj.path) {
+                    if (isTracer(proj.weapon) && proj.path) {
                       this.persistentTracers = this.persistentTracers || [];
                       this.persistentTracers.push(proj.path);
                     }
                     this.projectiles = this.projectiles.filter(p => p !== proj);
-                    this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx);
+                    this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx, proj);
                     if (this.projectiles.length === 0) {
                       this.nextTurn();
                     }
@@ -2927,12 +3093,12 @@
                           break;
                         } else {
                           // Normal impact on tank
-                          if (proj.weapon === 'Tracer' && proj.path) {
+                          if (isTracer(proj.weapon) && proj.path) {
                             this.persistentTracers = this.persistentTracers || [];
                             this.persistentTracers.push(proj.path);
                           }
                           this.projectiles = this.projectiles.filter(p => p !== proj);
-                          this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx);
+                          this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx, proj);
                           if (this.projectiles.length === 0) {
                             this.nextTurn();
                           }
