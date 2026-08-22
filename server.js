@@ -251,6 +251,9 @@ function createRoomManagerHandlers(roomManager) {
           case C2S.REJOIN:
             result = roomManager.rejoin(connectionId, msg);
             break;
+          case C2S.SHOP_DONE:
+            result = roomManager.shopDone(connectionId);
+            break;
           default:
             send(connectionId, {
               type: 'ERROR',

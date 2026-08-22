@@ -100,15 +100,24 @@ describe('RoomManager Turn Authority Tests', () => {
     room.players.get(1).alive = false;
     room.players.get(2).alive = false;
 
-    // Progress the turn to see ROUND_END broadcast
+    // Progress the turn to see ROUND_END broadcast. The room was started
+    // without an explicit round count, so it is a 5-round match and round 1
+    // ending drops it into the shop intermission rather than ending it.
     const endRes = rm.nextTurn(room);
-    assert.strictEqual(room.phase, 'ended');
+    assert.strictEqual(room.phase, 'shopping');
     assert.strictEqual(endRes.broadcasts.length, 1);
 
     const endMsg = endRes.broadcasts[0].msg;
     assert.strictEqual(endMsg.type, 'ROUND_END');
     assert.strictEqual(endMsg.winnerSlot, 0); // Player 1 (slot 0) survived
-    assert.deepStrictEqual(endMsg.scores, []);
+    assert.strictEqual(endMsg.matchOver, false);
+    assert.strictEqual(endMsg.round, 1);
+    assert.strictEqual(endMsg.totalRounds, 5);
+
+    // Standings ship with every round end, sorted by rounds won.
+    assert.strictEqual(endMsg.scores.length, 3);
+    assert.strictEqual(endMsg.scores[0].slot, 0);
+    assert.strictEqual(endMsg.scores[0].roundsWon, 1);
   });
 
   it('applies a shooter-reported elimination and the turn skips the dead slot', () => {
@@ -141,14 +150,15 @@ describe('RoomManager Turn Authority Tests', () => {
     assert.strictEqual(room.activeSlot, 0);
   });
 
-  it('ends the round when eliminations leave one survivor, naming the winner', () => {
+  it('ends the match when eliminations leave one survivor in the final round', () => {
     const rm = new RoomManager();
 
     rm.createRoom('conn_1');
     const room = rm.getRoomByConnection('conn_1');
     rm.join('conn_2', room.code);
     rm.join('conn_3', room.code);
-    rm.start('conn_1');
+    // A one-round match: this round ending IS the match ending.
+    rm.start('conn_1', { rounds: 1 });
 
     const fireRes = rm.fire('conn_1', { angle: 45, power: 500 });
     const shotId = fireRes.broadcasts[0].msg.shotId;
@@ -162,6 +172,7 @@ describe('RoomManager Turn Authority Tests', () => {
     const endMsg = resolveRes.broadcasts[0].msg;
     assert.strictEqual(endMsg.type, 'ROUND_END');
     assert.strictEqual(endMsg.winnerSlot, 0); // Player 1 (slot 0) is the survivor
+    assert.strictEqual(endMsg.matchOver, true);
   });
 
   it('silently skips unknown and already-dead slots without throwing', () => {
