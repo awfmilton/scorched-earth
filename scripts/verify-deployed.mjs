@@ -142,6 +142,42 @@ try {
   bad.send({ type: 'JOIN_ROOM', code: 'ZZZZ' });
   const err = await bad.await((f) => f.type === 'ERROR', 'ERROR (bad code)');
   check('a nonexistent code is rejected cleanly', err.code === 'UNKNOWN_ROOM', `got ${err.code}`);
+
+  // ---- 7: the match starts and a real turn is played -----------------------
+  // Under lockstep every client re-simulates the same inputs, so the deployed
+  // server must hand both clients the SAME seed/wind and the SAME shot vector.
+  // A mismatch here is the silent desync, observed over the real network.
+  a.send({ type: 'START_GAME', config: {} });
+  const startA = await a.await((f) => f.type === 'ROUND_START', 'ROUND_START (A)');
+  const startB = await b.await((f) => f.type === 'ROUND_START', 'ROUND_START (B)');
+
+  check('the match starts for both players', !!startA && !!startB,
+    `A slot ${startA.yourSlot}, B slot ${startB.yourSlot}`);
+  check('both clients receive an IDENTICAL world seed', startA.seed === startB.seed && startA.seed !== undefined,
+    `seed=${startA.seed}`);
+  check('both clients receive identical wind and turn order',
+    startA.wind === startB.wind && JSON.stringify(startA.turnOrder) === JSON.stringify(startB.turnOrder),
+    `wind=${startA.wind}, turnOrder=[${startA.turnOrder}]`);
+
+  // turnOrder[0] fires. Whichever client owns that slot is the shooter.
+  const firstSlot = startA.turnOrder[0];
+  const shooter = startA.yourSlot === firstSlot ? a : b;
+  shooter.send({ type: 'FIRE', angle: 45, power: 500, weapon: 'Baby Missile' });
+
+  const syncA = await a.await((f) => f.type === 'FIRE_SYNC', 'FIRE_SYNC (A)');
+  const syncB = await b.await((f) => f.type === 'FIRE_SYNC', 'FIRE_SYNC (B)');
+  check('a shot fired by one player reaches BOTH clients', !!syncA && !!syncB, `shooterSlot=${syncA.shooterSlot}`);
+  check('both clients get a byte-identical shot vector (no desync)',
+    syncA.vx === syncB.vx && syncA.vy === syncB.vy && syncA.wind === syncB.wind && syncA.shotId === syncB.shotId,
+    `vx=${syncA.vx}, vy=${syncA.vy}, wind=${syncA.wind}`);
+
+  // The shooter reports resolution; the server advances the turn for everyone.
+  shooter.send({ type: 'RESOLVE_SHOT', shotId: syncA.shotId, eliminated: [] });
+  const turnA = await a.await((f) => f.type === 'TURN_SYNC', 'TURN_SYNC (A)');
+  const turnB = await b.await((f) => f.type === 'TURN_SYNC', 'TURN_SYNC (B)');
+  check('the turn advances to the next player on both clients',
+    turnA.activeSlot === turnB.activeSlot && turnA.activeSlot !== firstSlot,
+    `activeSlot ${firstSlot} -> ${turnA.activeSlot}, turn ${turnA.turnNumber}`);
 } catch (e) {
   check(`verification aborted`, false, e.message);
 } finally {

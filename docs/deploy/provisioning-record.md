@@ -131,3 +131,85 @@ first-hand build output that the three unavailable fields above require, but it 
 money and mutates a live resource. The evidence in this record suggests the more
 proportionate fix for the observed hang is Chunk 9/11's idle-TTL change, not a
 re-provision.
+
+---
+
+# Current live deployment — `res-60a7d98e5b7f` (2026-08-21)
+
+The resource above (`res-49636e283fb5`) was created 2026-08-08 and its build **predates
+the multiplayer gameplay work**. Waking it serves a stale bundle in which the lockstep
+frames are still `console.log` stubs. It has been left untouched rather than torn down.
+
+Today's build was deployed to a **new** resource. `provision_infra` with
+`name: "scorched-earth"` returned `name_taken` — the old resource still holds that
+subdomain — so an adjacent hostname was taken instead:
+
+```json
+{
+  "resourceId": "res-60a7d98e5b7f",
+  "subdomain": "scorched-earth-live",
+  "kind": "app-host",
+  "tier": "standard-xs",
+  "status": "ready",
+  "endpoint": "https://scorched-earth-live.kodex.tbay.tk",
+  "idleTtlMs": null,
+  "createdAt": "2026-08-21 19:23:00",
+  "detail": "App-host ready — https://github.com/awfmilton/scorched-earth.git deployed."
+}
+```
+
+**Play at <https://scorched-earth-live.kodex.tbay.tk>.**
+
+> The old `scorched-earth.kodex.tbay.tk` URL still resolves and still serves the stale
+> August-8 build. Do not use it to test current work.
+
+## Acceptance verification (deployed, not local)
+
+Exit code alone is not evidence. `scripts/verify-deployed.mjs` was first run against a
+local server to prove the checker itself is sound (17/17), then against the deployed
+host. Both runs are green and behave identically; the deployed bundle is byte-identical
+in size to the local one (144,517 bytes).
+
+```
+$ SMOKE_TIMEOUT_MS=150000 node scripts/verify-deployed.mjs https://scorched-earth-live.kodex.tbay.tk
+PASS  page renders — HTTP 200, 144517 bytes, 449ms
+PASS  share-code UI is present in the served page
+PASS  deployed bundle is the CURRENT build (lockstep bound, not stubbed)
+PASS  a match can be created and returns a share code — code=555X
+PASS  creator is seated in the new lobby — 1 player, phase=lobby
+PASS  second client joins with the share code — joined room 555X
+PASS  both clients are in the SAME lobby
+PASS  both clients see BOTH players — A sees 2, B sees 2
+PASS  players occupy distinct slots — slots 0,1 of 4 — 2 remaining
+PASS  no player token leaks to the other client
+PASS  a nonexistent code is rejected cleanly — got UNKNOWN_ROOM
+PASS  the match starts for both players — A slot 0, B slot 1
+PASS  both clients receive an IDENTICAL world seed — seed=3543718148
+PASS  both clients receive identical wind and turn order — wind=-10, turnOrder=[0,1]
+PASS  a shot fired by one player reaches BOTH clients — shooterSlot=0
+PASS  both clients get a byte-identical shot vector (no desync)
+PASS  the turn advances to the next player on both clients — activeSlot 0 -> 1, turn 2
+ALL CHECKS PASSED
+EXIT=0
+```
+
+The last four lines are the ones that matter under lockstep: both clients are handed the
+same seed, same wind and the same server-minted shot vector over the real network, and
+the turn advances on both. That is the assumption the whole architecture rests on,
+confirmed in the deployed environment rather than in-process.
+
+## Cold start still applies
+
+`idleTtlMs` is `null` on the new resource too, so it inherits the ~100 s cold-wake
+behaviour documented above. The first visitor after an idle period waits; subsequent
+loads are sub-second (449 ms measured warm). This is a platform-tier property, not a
+regression in the app, and the Chunk 9/11 idle-TTL work still applies.
+
+## Not verified here
+
+Chrome DevTools MCP was not connected in this session, so no scripted **browser** click
+path (real DOM, real rendering) was exercised against the deployed host. Coverage of the
+browser wiring comes from `tests/browser-lockstep.test.js` running locally against the
+same bundle, plus an independent external fetch of the deployed page which returned the
+expected landing UI ("CREATE PRIVATE MATCH", "CREATE PUBLIC MATCH", "JOIN",
+"REFRESH LIST", "SHARE CODE").
