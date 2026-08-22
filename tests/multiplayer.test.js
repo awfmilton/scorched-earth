@@ -15,6 +15,9 @@ const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
 const code = scriptMatch[1];
 
+// Each call builds a SEPARATE V8 context running the client script, so two
+// "clients" in this file are as isolated as two browsers: no shared module
+// cache, no shared RNG state, no shared Game object.
 function evaluateScript() {
   const context = {
     globalThis: {},
@@ -25,7 +28,7 @@ function evaluateScript() {
     clearTimeout,
     setInterval: () => 1,
     clearInterval: () => {},
-    sessionStorage: { getItem: () => null, setItem: () => {} },
+    sessionStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
     requestAnimationFrame: () => {},
     performance: { now: () => Date.now() },
     Terrain: terrainLib
@@ -36,26 +39,83 @@ function evaluateScript() {
   return context;
 }
 
+// FNV-1a over the raw terrain bytes. Two clients agreeing here means they
+// agree on every carved pixel, not just "roughly the same crater".
+function hashTerrain(game) {
+  const heights = game.terrain.heights;
+  const bytes = new Uint8Array(heights.buffer, heights.byteOffset, heights.byteLength);
+  let h = 0x811c9dc5;
+  for (let i = 0; i < bytes.length; i++) {
+    h ^= bytes[i];
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, '0');
+}
+
+// Positions and health, quantised to nothing — exact doubles as strings.
+function snapshotTanks(game) {
+  return game.roster.map(t => `${t.slot}:${t.x}:${t.y}:${t.hp}`).join('|');
+}
+
+const openClients = new Set();
+
 function createClient(port) {
   const ws = new WebSocket(`ws://localhost:${port}`);
   const messages = [];
   ws.on('message', (data) => messages.push(JSON.parse(data.toString())));
-  
-  return {
+
+  const client = {
     ws,
     messages,
-    waitFor: async (type, timeout = 1000) => {
+    waitFor: async (type, timeout = 2000) => {
       const start = Date.now();
       while (Date.now() - start < timeout) {
         const msg = messages.find(m => m.type === type);
         if (msg) return msg;
-        await new Promise(r => setTimeout(r, 10));
+        await new Promise(r => setTimeout(r, 5));
       }
-      throw new Error(`Timeout waiting for ${type}`);
+      throw new Error(`Timeout waiting for ${type}. Got: ${messages.map(m => m.type).join(',')}`);
     },
     send: (msg) => ws.send(JSON.stringify(msg)),
-    close: () => ws.close()
+    close: () => {
+      openClients.delete(client);
+      try { ws.close(); } catch { /* already closing */ }
+    }
   };
+  openClients.add(client);
+  return client;
+}
+
+// Mirror of what the browser's ROUND_START handler builds, so the test
+// exercises the real config shape rather than a hand-rolled one.
+function configFromRoundStart(msg, netStub) {
+  const config = msg.config || { rounds: 1, startingCash: 10000, wallType: 'off' };
+  config.players = msg.tanks.map(t => ({
+    name: t.name,
+    type: 'Human',
+    color: t.colour,
+    slot: t.slot
+  }));
+  config.isMultiplayer = true;
+  config.mySlot = msg.yourSlot;
+  config.seed = msg.seed;
+  config.wind = msg.wind;
+  config.turnOrder = msg.turnOrder;
+  config.net = netStub;
+  return config;
+}
+
+// Boots a headless Game inside its own context, wired to a real websocket.
+function bootClientGame(roundStart, wsClient) {
+  const ctx = evaluateScript();
+  const netStub = {
+    state: 'live',
+    send: (type, fields) => wsClient.send({ type, ...(fields || {}) })
+  };
+  const game = ctx.globalThis.SCORCHED.createHeadlessGame({ seed: roundStart.seed });
+  ctx.globalThis.SCORCHED.gameInstance = game;
+  game.start(configFromRoundStart(roundStart, netStub));
+  return { ctx, game, TICK: ctx.globalThis.SCORCHED.CONST.TICK };
 }
 
 describe('Multiplayer Flow', () => {
@@ -65,7 +125,7 @@ describe('Multiplayer Flow', () => {
     roomManager = new RoomManager();
     const handlers = createRoomManagerHandlers(roomManager);
     server = createServer();
-    
+
     await new Promise((resolve) => {
       server.listen(0, '127.0.0.1', () => {
         port = server.address().port;
@@ -73,14 +133,16 @@ describe('Multiplayer Flow', () => {
       });
     });
 
-    const wsStuff = attachWebSocketServer(server, {
+    wss = attachWebSocketServer(server, {
       onMessage: handlers.onMessage,
       onDisconnect: handlers.onDisconnect
     });
-    wss = wsStuff;
   });
 
   after(() => {
+    // Leaked client sockets keep the event loop alive and make this file look
+    // like it is "still running" forever. Close every one we opened.
+    for (const c of Array.from(openClients)) c.close();
     wss.close();
     server.close();
   });
@@ -95,7 +157,7 @@ describe('Multiplayer Flow', () => {
     c1.send({ type: C2S.CREATE_ROOM });
     const createMsg = await c1.waitFor(S2C.ROOM_STATE);
     assert.strictEqual(createMsg.code.length, 4);
-    assert.strictEqual(createMsg.phase, 'LOBBY');
+    assert.strictEqual(createMsg.phase, 'lobby');
 
     c1.send({ type: C2S.SET_PROFILE, name: 'P1', colour: '#ff0000' });
     await c1.waitFor(S2C.ROOM_STATE);
@@ -112,12 +174,11 @@ describe('Multiplayer Flow', () => {
   it('handles bad code and full match', async () => {
     const c1 = createClient(port);
     await new Promise(r => c1.ws.on('open', r));
-    
+
     c1.send({ type: C2S.JOIN_ROOM, code: 'XXXX' });
     const errMsg = await c1.waitFor(S2C.ERROR);
     assert.strictEqual(errMsg.code, ERRORS.UNKNOWN_ROOM);
 
-    // Create a room, fill it
     c1.messages.length = 0;
     c1.send({ type: C2S.CREATE_ROOM });
     const roomState = await c1.waitFor(S2C.ROOM_STATE);
@@ -143,7 +204,9 @@ describe('Multiplayer Flow', () => {
     fullC.close();
   });
 
-  it('syncs correctly under deterministic lockstep', async () => {
+  // THE acceptance test: two independent client simulations, one real server,
+  // a real shot. If lockstep is broken this is what catches it.
+  it('two clients stay byte-identical across a real shot', async () => {
     const c1 = createClient(port);
     const c2 = createClient(port);
     await new Promise(r => c1.ws.on('open', r));
@@ -152,71 +215,130 @@ describe('Multiplayer Flow', () => {
     c1.send({ type: C2S.CREATE_ROOM });
     const s1 = await c1.waitFor(S2C.ROOM_STATE);
     const code = s1.code;
-    const token1 = s1.playerToken;
     c1.send({ type: C2S.SET_PROFILE, name: 'P1', colour: '#ff0000' });
 
     c2.send({ type: C2S.JOIN_ROOM, code });
-    const s2 = await c2.waitFor(S2C.ROOM_STATE);
-    const token2 = s2.playerToken;
+    await c2.waitFor(S2C.ROOM_STATE);
     c2.send({ type: C2S.SET_PROFILE, name: 'P2', colour: '#00ff00' });
 
-    // Ensure state settles
     await new Promise(r => setTimeout(r, 50));
     c1.messages.length = 0;
     c2.messages.length = 0;
 
     c1.send({
       type: C2S.START_GAME,
-      config: {
-        rounds: 1,
-        startingCash: 10000,
-        wallType: 'off',
-        weaponsAvailability: 'all'
-      }
+      config: { rounds: 1, startingCash: 10000, wallType: 'off', weaponsAvailability: 'all' }
     });
 
     const start1 = await c1.waitFor(S2C.ROUND_START);
     const start2 = await c2.waitFor(S2C.ROUND_START);
-    assert.strictEqual(start1.seed, start2.seed);
+    assert.strictEqual(start1.seed, start2.seed, 'both clients must be given the same seed');
+    assert.strictEqual(start1.wind, start2.wind, 'both clients must be given the same wind');
 
-    const ctx1 = evaluateScript();
-    const ctx2 = evaluateScript();
+    const A = bootClientGame(start1, c1);
+    const B = bootClientGame(start2, c2);
 
-    const game1 = ctx1.globalThis.SCORCHED.createHeadlessGame({ seed: start1.seed });
-    const game2 = ctx2.globalThis.SCORCHED.createHeadlessGame({ seed: start2.seed });
+    // 1. Same world BEFORE anyone shoots. This is the check that caught
+    //    Game.start() ignoring the server seed and building from seed 42.
+    const initialHash = hashTerrain(A.game);
+    assert.strictEqual(hashTerrain(A.game), hashTerrain(B.game), 'initial terrain must match');
+    assert.strictEqual(snapshotTanks(A.game), snapshotTanks(B.game), 'initial tanks must match');
+    assert.notStrictEqual(A.game.seed, 42, 'client must adopt the server seed, not the page default');
+    assert.strictEqual(A.game.wind, B.game.wind);
 
-    // Set wind
-    game1.wind = start1.wind;
-    game2.wind = start2.wind;
+    // 2. Both clients agree on whose turn it is, and it is a real slot.
+    assert.strictEqual(
+      A.game.roster[A.game.activePlayerIdx].slot,
+      B.game.roster[B.game.activePlayerIdx].slot,
+      'both clients must agree on the active slot'
+    );
 
-    // Load roster
-    game1.start(start1.config, start1.tanks);
-    game2.start(start2.config, start2.tanks);
-    game1.activePlayerIdx = 0;
-    game2.activePlayerIdx = 0;
+    // 3. The active player fires through the real UI path.
+    const shooterSlot = A.game.roster[A.game.activePlayerIdx].slot;
+    const shooter = (A.game.mySlot === shooterSlot) ? A : B;
+    shooter.game.roster[shooter.game.activePlayerIdx].angle = 50;
+    shooter.game.roster[shooter.game.activePlayerIdx].power = 550;
+    // The watching client sets the same aim locally; it must NOT matter,
+    // because the trajectory comes from the server's vector.
+    const watcher = (shooter === A) ? B : A;
+    watcher.game.roster[watcher.game.activePlayerIdx].angle = 50;
+    watcher.game.roster[watcher.game.activePlayerIdx].power = 550;
 
-    // Fire!
-    c1.send({ type: C2S.FIRE, angle: 45, power: 500, weapon: 'Baby Missile' });
+    shooter.game.fireActiveWeapon();
+
     const sync1 = await c1.waitFor(S2C.FIRE_SYNC);
     const sync2 = await c2.waitFor(S2C.FIRE_SYNC);
+    assert.strictEqual(sync1.vx, sync2.vx, 'server must mint one launch vector');
+    assert.strictEqual(sync1.vy, sync2.vy);
+    assert.strictEqual(typeof sync1.angle, 'number', 'FIRE_SYNC must echo the angle for barrel placement');
 
-    assert.strictEqual(sync1.vx, sync2.vx);
+    A.game.applyFireSync(sync1);
+    B.game.applyFireSync(sync2);
+    assert.ok(A.game.projectile, 'shot must exist on client A');
+    assert.ok(B.game.projectile, 'shot must exist on client B (the watcher)');
 
-    game1.applyFireSync(sync1);
-    game2.applyFireSync(sync2);
-
-    // Tick both games
-    for (let i = 0; i < 500; i++) {
-      if (game1.projectile) game1.stepPhysics(ctx1.globalThis.SCORCHED.CONST.TICK);
-      if (game2.projectile) game2.stepPhysics(ctx2.globalThis.SCORCHED.CONST.TICK);
+    // 4. Step both simulations the same number of fixed ticks and compare
+    //    every tick, so a divergence is caught the moment it appears.
+    for (let i = 0; i < 900; i++) {
+      A.game.stepPhysics(A.TICK);
+      B.game.stepPhysics(B.TICK);
+      if (i % 25 === 0) {
+        assert.strictEqual(hashTerrain(A.game), hashTerrain(B.game), `terrain diverged at tick ${i}`);
+        assert.strictEqual(snapshotTanks(A.game), snapshotTanks(B.game), `tanks diverged at tick ${i}`);
+      }
+      if (!A.game.projectile && !B.game.projectile) break;
     }
 
-    assert.strictEqual(game1.projectile, null);
-    assert.strictEqual(game2.projectile, null);
-    
-    assert.deepStrictEqual(new Float32Array(game1.terrain.heights), new Float32Array(game2.terrain.heights));
-    assert.strictEqual(game1.roster[0].hp, game2.roster[0].hp);
-    assert.strictEqual(game1.roster[1].hp, game2.roster[1].hp);
+    // 5. Final state agreement: terrain damage AND health.
+    assert.strictEqual(A.game.projectile, null, 'shot should have resolved on A');
+    assert.strictEqual(B.game.projectile, null, 'shot should have resolved on B');
+    assert.strictEqual(hashTerrain(A.game), hashTerrain(B.game), 'final terrain must be byte-identical');
+    assert.strictEqual(snapshotTanks(A.game), snapshotTanks(B.game), 'final tank state must be identical');
+
+    // 6. The shot actually changed the world. Without this, steps 1-5 would
+    //    pass just as well on a shot that never left the barrel.
+    assert.notStrictEqual(hashTerrain(A.game), initialHash, 'the shot must have carved the terrain');
+
+    // 7. The turn advanced, server-driven, and both clients landed on it.
+    const turn1 = await c1.waitFor(S2C.TURN_SYNC);
+    const turn2 = await c2.waitFor(S2C.TURN_SYNC);
+    assert.strictEqual(turn1.activeSlot, turn2.activeSlot, 'both clients get the same next turn');
+    A.game.applyTurnSync(turn1);
+    B.game.applyTurnSync(turn2);
+    assert.strictEqual(
+      A.game.roster[A.game.activePlayerIdx].slot,
+      B.game.roster[B.game.activePlayerIdx].slot,
+      'both clients must advance to the same active slot'
+    );
+    assert.notStrictEqual(turn1.activeSlot, shooterSlot, 'turn must move off the shooter');
+
+    c1.close();
+    c2.close();
+  });
+
+  it('rejects an out-of-turn shot rather than desyncing', async () => {
+    const c1 = createClient(port);
+    const c2 = createClient(port);
+    await new Promise(r => c1.ws.on('open', r));
+    await new Promise(r => c2.ws.on('open', r));
+
+    c1.send({ type: C2S.CREATE_ROOM });
+    const s1 = await c1.waitFor(S2C.ROOM_STATE);
+    c2.send({ type: C2S.JOIN_ROOM, code: s1.code });
+    await c2.waitFor(S2C.ROOM_STATE);
+    await new Promise(r => setTimeout(r, 50));
+
+    c1.send({ type: C2S.START_GAME, config: { rounds: 1 } });
+    const rs1 = await c1.waitFor(S2C.ROUND_START);
+    const rs2 = await c2.waitFor(S2C.ROUND_START);
+
+    // Whichever client is NOT the active slot fires: must be refused.
+    const idle = (rs1.turnOrder[0] === rs1.yourSlot) ? c2 : c1;
+    idle.messages.length = 0;
+    idle.send({ type: C2S.FIRE, angle: 45, power: 500, weapon: 'Baby Missile' });
+    const err = await idle.waitFor(S2C.ERROR);
+    assert.strictEqual(err.code, ERRORS.NOT_YOUR_TURN);
+    assert.ok(rs2.turnOrder.length >= 2);
 
     c1.close();
     c2.close();
@@ -231,32 +353,58 @@ describe('Multiplayer Flow', () => {
     c1.send({ type: C2S.CREATE_ROOM });
     const s1 = await c1.waitFor(S2C.ROOM_STATE);
     const code = s1.code;
-    const p1Token = s1.playerToken;
 
     c2.send({ type: C2S.JOIN_ROOM, code });
     const s2 = await c2.waitFor(S2C.ROOM_STATE);
-    const p2Token = s2.playerToken;
+    const token2 = s2.playerToken;
+    assert.ok(token2, 'join reply must carry a rejoin token');
 
-    c1.send({ type: C2S.START_GAME, config: { rounds: 1, startingCash: 10000, wallType: 'off', weaponsAvailability: 'all' } });
+    await new Promise(r => setTimeout(r, 50));
+    c1.send({ type: C2S.START_GAME, config: { rounds: 1 } });
     await c1.waitFor(S2C.ROUND_START);
     await c2.waitFor(S2C.ROUND_START);
 
-    // disconnect c2
+    // Player 2 drops mid-game.
+    c1.messages.length = 0;
     c2.close();
-    const leftMsg = await c1.waitFor(S2C.PLAYER_LEFT);
-    assert.strictEqual(leftMsg.slot, s2.yourSlot);
+    const left = await c1.waitFor(S2C.PLAYER_LEFT);
+    assert.strictEqual(left.slot, s2.yourSlot);
 
-    // reconnect c2
+    // The room must NOT be wedged: the survivor still sees it playing.
+    const state = c1.messages.filter(m => m.type === S2C.ROOM_STATE).pop();
+    assert.strictEqual(state.phase, 'playing');
+
+    // Player 2 comes back with the token and is restored to the same slot.
     const c3 = createClient(port);
     await new Promise(r => c3.ws.on('open', r));
-    c3.send({ type: C2S.REJOIN, code, playerToken: p2Token });
-    const rejoinState = await c3.waitFor(S2C.ROOM_STATE);
-    assert.strictEqual(rejoinState.phase, 'PLAYING');
-    
-    const reconnectedPlayer = rejoinState.players.find(p => p.slot === s2.yourSlot);
-    assert.strictEqual(reconnectedPlayer.connected, true);
+    c3.send({ type: C2S.REJOIN, code, playerToken: token2 });
+    const rejoined = await c3.waitFor(S2C.ROOM_STATE);
+    assert.strictEqual(rejoined.phase, 'playing');
+    const me = rejoined.players.find(p => p.slot === s2.yourSlot);
+    assert.ok(me, 'rejoining player must be back in their original slot');
+    assert.strictEqual(me.connected, true);
+
+    // And is handed the round back so they can resume.
+    const resume = await c3.waitFor(S2C.ROUND_START);
+    assert.strictEqual(typeof resume.seed, 'number');
 
     c1.close();
     c3.close();
+  });
+
+  it('refuses a rejoin with a bad token', async () => {
+    const c1 = createClient(port);
+    await new Promise(r => c1.ws.on('open', r));
+    c1.send({ type: C2S.CREATE_ROOM });
+    const s1 = await c1.waitFor(S2C.ROOM_STATE);
+
+    const c2 = createClient(port);
+    await new Promise(r => c2.ws.on('open', r));
+    c2.send({ type: C2S.REJOIN, code: s1.code, playerToken: 'not-a-real-token' });
+    const err = await c2.waitFor(S2C.ERROR);
+    assert.ok(err.code, 'a bad token must produce an error, not a silent seat');
+
+    c1.close();
+    c2.close();
   });
 });

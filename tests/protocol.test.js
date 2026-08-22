@@ -83,6 +83,10 @@ test('S2C happy path validation', () => {
     type: S2C.FIRE_SYNC,
     shotId: 'shot-123',
     shooterSlot: 0,
+    // angle/power are the clamped inputs echoed back so every client places
+    // the barrel tip identically; the trajectory still uses vx/vy.
+    angle: 45,
+    power: 500,
     vx: 10,
     vy: -15,
     wind: 2,
