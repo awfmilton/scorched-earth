@@ -3371,6 +3371,26 @@
       let myPlayerToken = null;
       let mySlot = -1;
 
+      // Names and colours arrive over the wire from other players. The server
+      // validates them, but this is the sink that actually executes, so it
+      // escapes too: one hardened layer is a single point of failure.
+      function escapeHtml(value) {
+        return String(value === undefined || value === null ? '' : value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      // A colour is interpolated into a style="..." attribute, where escaping
+      // alone is not enough — CSS has its own injection surface. Only palette
+      // values are allowed through; anything else falls back to white.
+      const PALETTE_VALUES = new Set(RETRO_COLORS.map(c => c.value));
+      function safeColour(value) {
+        return PALETTE_VALUES.has(value) ? value : '#ffffff';
+      }
+
       function renderLobbySlots(roomState) {
         if (typeof document === 'undefined') return;
         const container = document.getElementById('multiplayer-slots');
@@ -3391,21 +3411,21 @@
           if (player) {
             if (isMe) {
               const colorOptionsHtml = RETRO_COLORS.map(c =>
-                `<option value="${c.value}" ${c.value === player.colour ? 'selected' : ''} style="color: ${c.value}; background: #000;">${c.name}</option>`
+                `<option value="${c.value}" ${c.value === player.colour ? 'selected' : ''} style="color: ${safeColour(c.value)}; background: #000;">${escapeHtml(c.name)}</option>`
               ).join('');
 
               row.innerHTML = `
-                <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 8px; color: ${player.colour};">
+                <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 8px; color: ${safeColour(player.colour)};">
                   <span>PLAYER ${i + 1} (YOU) ${isHost ? '👑' : ''}</span>
                   ${!player.connected ? '<span style="color: red;">DISCONNECTED</span>' : ''}
                 </div>
                 <div class="form-group">
                   <label>Name:</label>
-                  <input type="text" class="player-name" value="${player.name}" maxlength="16">
+                  <input type="text" class="player-name" value="${escapeHtml(player.name)}" maxlength="16">
                 </div>
                 <div class="form-group">
                   <label>Color:</label>
-                  <select class="player-color" style="color: ${player.colour}; font-weight: bold;">
+                  <select class="player-color" style="color: ${safeColour(player.colour)}; font-weight: bold;">
                     ${colorOptionsHtml}
                   </select>
                 </div>
@@ -3423,11 +3443,11 @@
 
             } else {
               row.innerHTML = `
-                <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 8px; color: ${player.colour};">
+                <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 8px; color: ${safeColour(player.colour)};">
                   <span>PLAYER ${i + 1} ${isHost ? '👑' : ''}</span>
                   ${!player.connected ? '<span style="color: red;">DISCONNECTED</span>' : ''}
                 </div>
-                <div style="font-size: 18px;">${player.name}</div>
+                <div style="font-size: 18px;">${escapeHtml(player.name)}</div>
               `;
             }
           } else {
@@ -3488,7 +3508,7 @@
                 row.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 5px; border-bottom: 1px dashed #333; margin-bottom: 5px;';
                 
                 const info = document.createElement('div');
-                info.innerHTML = `<strong>${r.hostName}'s Game</strong><br><span style="font-size: 12px; color: #aaa;">Players: ${r.players}/${r.maxPlayers}</span>`;
+                info.innerHTML = `<strong>${escapeHtml(r.hostName)}'s Game</strong><br><span style="font-size: 12px; color: #aaa;">Players: ${escapeHtml(r.players)}/${escapeHtml(r.maxPlayers)}</span>`;
                 
                 const joinBtn = document.createElement('button');
                 joinBtn.textContent = 'JOIN';
