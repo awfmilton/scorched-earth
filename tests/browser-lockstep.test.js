@@ -109,10 +109,12 @@ describe('Browser wiring: two clients play a real match', () => {
 
     // Aim steeply enough that the shell lands in-world and carves, otherwise
     // the "terrain actually changed" check below is testing nothing.
+    // We also zero the wind so a random heavy gust doesn't blow the shell
+    // completely off the map when wallType is 'off'.
     const shooterGame = shooter.ctx.globalThis.SCORCHED.gameInstance;
     const aim = shooterGame.roster[shooterGame.activePlayerIdx];
-    aim.angle = 85;
-    aim.power = 150;
+    aim.angle = 90;
+    aim.power = 10;
 
     shooter.dom.window.dispatch('keydown', { key: ' ', code: 'Space' });
 
