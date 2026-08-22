@@ -423,16 +423,59 @@
         return weaponId === 'Tracer' || weaponId === 'Smoke Tracer';
       }
 
+      // One table instead of the strength constant being repeated at every site
+      // that raises, recharges or draws a shield — they had already drifted into
+      // three separate copies of the same ternary. The shop entries below are
+      // generated from this, so a shield can never cost one thing and absorb
+      // another.
+      const SHIELD_TYPES = {
+        'Shield':              { cost: 1000,  strength: 100, deflects: false, colour: 'rgba(0, 255, 0, 0.5)' },
+        'Heavy Shield':        { cost: 2500,  strength: 200, deflects: false, colour: 'rgba(0, 0, 255, 0.5)' },
+        'Mag Deflector':       { cost: 4000,  strength: 150, deflects: true,  colour: 'rgba(0, 255, 255, 0.5)' },
+        'Heavy Mag Deflector': { cost: 6000,  strength: 250, deflects: true,  colour: 'rgba(0, 200, 255, 0.5)' },
+        'Super Magno Shield':  { cost: 8000,  strength: 400, deflects: true,  colour: 'rgba(180, 0, 255, 0.5)' },
+        'Force Shield':        { cost: 10000, strength: 500, deflects: false, colour: 'rgba(255, 255, 255, 0.6)' }
+      };
+
+      // Strongest first: the order a tank raises what it owns.
+      const SHIELD_PRIORITY = Object.keys(SHIELD_TYPES)
+        .sort((a, b) => SHIELD_TYPES[b].strength - SHIELD_TYPES[a].strength);
+
+      function shieldStrength(type) {
+        const conf = SHIELD_TYPES[type];
+        return conf ? conf.strength : 100;
+      }
+
+      function shieldDeflects(type) {
+        const conf = SHIELD_TYPES[type];
+        return !!(conf && conf.deflects);
+      }
+
+      // Proximity fuses trip this far from an enemy hull.
+      const PROXIMITY_FUSE_RADIUS = 34;
+
+      const SHIELD_ITEMS = Object.keys(SHIELD_TYPES).map(id => ({
+        id: id,
+        name: id,
+        cost: SHIELD_TYPES[id].cost,
+        packSize: 1,
+        kind: 'shield',
+        strength: SHIELD_TYPES[id].strength
+      }));
+
       const ITEMS = [
-        { id: 'Shield', name: 'Shield', cost: 1000, packSize: 1, kind: 'shield', strength: 100 },
-        { id: 'Heavy Shield', name: 'Heavy Shield', cost: 2500, packSize: 1, kind: 'shield', strength: 200 },
-        { id: 'Magnetic Shield', name: 'Magnetic Shield', cost: 4000, packSize: 1, kind: 'shield', strength: 150 },
+        ...SHIELD_ITEMS,
         { id: 'Battery', name: 'Battery', cost: 500, packSize: 2, kind: 'battery' },
         { id: 'Parachute', name: 'Parachute', cost: 500, packSize: 3, kind: 'parachute' },
         { id: 'Guidance Computer', name: 'Guidance Computer', cost: 2000, packSize: 1, kind: 'utility' },
         { id: 'Auto Defense', name: 'Auto Defense', cost: 3000, packSize: 1, kind: 'utility' },
         { id: 'Fuel', name: 'Fuel', cost: 400, packSize: 100, kind: 'fuel' },
-        { id: 'Teleport', name: 'Teleport', cost: 2000, packSize: 1, kind: 'teleport' }
+        { id: 'Teleport', name: 'Teleport', cost: 2000, packSize: 1, kind: 'teleport' },
+        // Triggers change how YOUR next shot detonates. Both arm automatically
+        // while you hold stock, the way Parachute and Battery already do, so
+        // there is no extra mode to remember mid-turn.
+        { id: 'Contact Trigger', name: 'Contact Trigger', cost: 800, packSize: 5, kind: 'trigger' },
+        { id: 'Proximity Fuse', name: 'Proximity Fuse', cost: 1500, packSize: 3, kind: 'trigger' }
       ];
 
       // Helper function to create deterministic mulberry32 generator stream
@@ -2016,11 +2059,9 @@
 
           // Battery logic: "Battery restoring hp or recharging a raised shield."
           if (activeTank.inventory && activeTank.inventory['Battery'] > 0) {
-            if (activeTank.shield && activeTank.shield.hp < (activeTank.shield.type === 'Heavy Shield' ? 200 : (activeTank.shield.type === 'Magnetic Shield' ? 150 : 100))) {
-              activeTank.shield.hp = Math.min(
-                activeTank.shield.type === 'Heavy Shield' ? 200 : (activeTank.shield.type === 'Magnetic Shield' ? 150 : 100),
-                activeTank.shield.hp + 50
-              );
+            const cap = activeTank.shield ? shieldStrength(activeTank.shield.type) : 0;
+            if (activeTank.shield && activeTank.shield.hp < cap) {
+              activeTank.shield.hp = Math.min(cap, activeTank.shield.hp + 50);
               activeTank.inventory['Battery']--;
             } else if (activeTank.hp < 100) {
               activeTank.hp = Math.min(100, activeTank.hp + 30);
@@ -2031,19 +2072,23 @@
           // Raise shield from inventory if none is active
           if (!activeTank.shield || activeTank.shield.hp <= 0) {
             activeTank.shield = null;
-            if (activeTank.inventory) {
-              if (activeTank.inventory['Heavy Shield'] > 0) {
-                activeTank.shield = { type: 'Heavy Shield', hp: 200 };
-                activeTank.inventory['Heavy Shield']--;
-              } else if (activeTank.inventory['Magnetic Shield'] > 0) {
-                activeTank.shield = { type: 'Magnetic Shield', hp: 150 };
-                activeTank.inventory['Magnetic Shield']--;
-              } else if (activeTank.inventory['Shield'] > 0) {
-                activeTank.shield = { type: 'Shield', hp: 100 };
-                activeTank.inventory['Shield']--;
-              }
+            this.raiseBestShield(activeTank);
+          }
+        }
+
+        // Raises the strongest shield the tank owns and spends it. Shared by the
+        // start-of-turn raise and Auto Defense, so the two can never disagree
+        // about which shield is best.
+        raiseBestShield(tank) {
+          if (!tank || !tank.inventory) return null;
+          for (const type of SHIELD_PRIORITY) {
+            if (tank.inventory[type] > 0) {
+              tank.shield = { type: type, hp: shieldStrength(type) };
+              tank.inventory[type]--;
+              return tank.shield;
             }
           }
+          return null;
         }
 
         nextTurn() {
@@ -2250,16 +2295,7 @@
         // shield to zero (blast damage, napalm burn, magnetic deflection).
         raiseAutoDefenseShield(tank) {
           if (!tank.inventory || !(tank.inventory['Auto Defense'] > 0)) return;
-          if (tank.inventory['Heavy Shield'] > 0) {
-            tank.shield = { type: 'Heavy Shield', hp: 200 };
-            tank.inventory['Heavy Shield']--;
-          } else if (tank.inventory['Magnetic Shield'] > 0) {
-            tank.shield = { type: 'Magnetic Shield', hp: 150 };
-            tank.inventory['Magnetic Shield']--;
-          } else if (tank.inventory['Shield'] > 0) {
-            tank.shield = { type: 'Shield', hp: 100 };
-            tank.inventory['Shield']--;
-          }
+          this.raiseBestShield(tank);
         }
 
         // Single entry point for damaging a tank. Every damage source must route
@@ -3070,8 +3106,10 @@
                       if (proj.x >= tank.x - 8 && proj.x <= tank.x + 8 &&
                           proj.y >= tank.y - 6 && proj.y <= tank.y) {
 
-                        // Magnetic Shield Reflection check!
-                        if (tank.shield && tank.shield.type === 'Magnetic Shield' && tank.shield.hp > 0) {
+                        // Deflector shields bounce the shell instead of eating
+                        // it. Which types deflect is SHIELD_TYPES' business, not
+                        // a name comparison here.
+                        if (tank.shield && tank.shield.hp > 0 && shieldDeflects(tank.shield.type)) {
                           const dx = proj.x - tank.x;
                           const dy = proj.y - (tank.y - 3);
                           let dist = Math.sqrt(dx * dx + dy * dy);
@@ -3957,8 +3995,11 @@
             this.roster.forEach(tank => {
               if (tank.hp > 0 && tank.shield && tank.shield.hp > 0) {
                 ctx.save();
-                ctx.strokeStyle = tank.shield.type === 'Heavy Shield' ? 'rgba(0, 0, 255, 0.5)' : (tank.shield.type === 'Magnetic Shield' ? 'rgba(0, 255, 255, 0.5)' : 'rgba(0, 255, 0, 0.5)');
-                ctx.lineWidth = 3;
+                const shieldConf = SHIELD_TYPES[tank.shield.type];
+                ctx.strokeStyle = shieldConf ? shieldConf.colour : 'rgba(0, 255, 0, 0.5)';
+                // A deflector reads as a thicker arc, so you can tell at a
+                // glance whether the next shell will bounce or be absorbed.
+                ctx.lineWidth = shieldDeflects(tank.shield.type) ? 4 : 3;
                 ctx.beginPath();
                 ctx.arc(tank.x, tank.y - 6, 12, Math.PI, 0);
                 ctx.stroke();
@@ -4524,6 +4565,9 @@
         Terrain,
         WEAPONS,
         ITEMS,
+        SHIELD_TYPES,
+        SHIELD_PRIORITY,
+        PROXIMITY_FUSE_RADIUS,
         NetClient,
         detSin,
         detCos,

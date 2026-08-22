@@ -87,11 +87,21 @@ Players can purchase weapons and defensive equipment in the intermission shop be
 | --- | --- | --- | --- | --- | --- |
 | **Shield** | 1,000 | 1 | 100 | Shield | Standard forcefield protecting against initial damage. |
 | **Heavy Shield** | 2,500 | 1 | 200 | Shield | Heavy duty forcefield offering robust protection. |
-| **Magnetic Shield** | 4,000 | 1 | 150 | Shield | High-tech field deflecting falling materials and absorbing blasts. |
+| **Mag Deflector** | 4,000 | 1 | 150 | Shield | Magnetic field that *deflects* an incoming shell instead of absorbing it (costs the shield 50 strength per bounce). |
+| **Heavy Mag Deflector** | 6,000 | 1 | 250 | Shield | Heavy-duty deflector field. |
+| **Super Magno Shield** | 8,000 | 1 | 400 | Shield | Top-tier deflector field. |
+| **Force Shield** | 10,000 | 1 | 500 | Shield | The strongest absorbing shield in the game; does not deflect. |
 | **Battery** | 500 | 2 | - | Battery | Recharges a raised shield by +50 (up to that shield's strength) if one is up and below its cap; otherwise restores +30 HP, capped at 100. |
 | **Parachute** | 500 | 3 | - | Parachute | Prevents fall/drop damage when terrain collapses underneath your tank. |
 | **Guidance Computer** | 2,000 | 1 | - | Utility | Assists in highlighting predicted projectile paths. |
 | **Auto Defense** | 3,000 | 1 | - | Utility | Automatically deploys a replacement shield if a current shield collapses during a turn. |
+| **Fuel** | 400 | 100 | - | Utility | Drive the tank left/right; 1 unit per pixel travelled. |
+| **Teleport** | 2,000 | 1 | - | Utility | Jump to a random safe spot on the map (server-minted destination online, so every client agrees). |
+| **Contact Trigger** | 800 | 5 | - | Trigger | Your next shot detonates on first contact, overriding roll / dig / tunnel / hop behaviour. |
+| **Proximity Fuse** | 1,500 | 3 | - | Trigger | Your next shot detonates within 34px of an enemy hull — an air burst that ignores near-misses. |
+
+A tank raises the strongest shield it owns at the start of its turn. Shields are shown as an arc
+over the hull; deflectors draw thicker than absorbers.
 
 ## Economy
 The game features a fully simulated round-by-round financial economy to encourage tactical shop purchases:
