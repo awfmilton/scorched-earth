@@ -641,20 +641,35 @@
 
           // Dispatch table keyed on S2C message names from lib/protocol.js,
           // mirrored inline as byte-identical string literals.
-          // Handlers receive the flat parsed frame; gameplay frames stay
-          // log-only until they are bound to the Game object in later chunks.
+          // The gameplay frames are forwarded to whichever Game is live. This
+          // is the lockstep channel: FIRE_SYNC spawns the shot, TURN_SYNC moves
+          // the turn, ROUND_END finishes the round. They are bound here rather
+          // than in the DOMContentLoaded block so a Game constructed after the
+          // socket opens still receives them.
           this.dispatchTable = {
             ROOM_STATE: (msg) => this.handleRoomState(msg),
             ROOM_LIST: (msg) => console.log('ROOM_LIST', msg), // Will be overridden
             ROUND_START: (msg) => console.log('ROUND_START:', msg),
-            FIRE_SYNC: (msg) => console.log('FIRE_SYNC:', msg),
-            TURN_SYNC: (msg) => console.log('TURN_SYNC:', msg),
-            PLAYER_LEFT: (msg) => console.log('PLAYER_LEFT:', msg),
-            ROUND_END: (msg) => console.log('ROUND_END:', msg),
+            FIRE_SYNC: (msg) => this.toGame('applyFireSync', msg),
+            TURN_SYNC: (msg) => this.toGame('applyTurnSync', msg),
+            PLAYER_LEFT: (msg) => this.toGame('applyPlayerLeft', msg),
+            ROUND_END: (msg) => this.toGame('applyRoundEnd', msg),
             ERROR: (msg) => {
               console.warn('Server ERROR:', msg.code, msg.message);
             }
           };
+        }
+
+        // Route a gameplay frame to the live Game. Frames that arrive before
+        // the game exists (or after it is torn down) are dropped rather than
+        // throwing inside the socket handler.
+        toGame(method, msg) {
+          const game = (typeof globalThis !== 'undefined' && globalThis.SCORCHED)
+            ? globalThis.SCORCHED.gameInstance
+            : null;
+          if (game && typeof game[method] === 'function') {
+            game[method](msg);
+          }
         }
 
         handleRoomState(msg) {
@@ -1108,6 +1123,9 @@
             if (!this.roster || this.activePlayerIdx === undefined) return;
             const activeTank = this.roster[this.activePlayerIdx];
             if (!activeTank || activeTank.hp <= 0 || activeTank.type !== 'Human') return;
+            // Online you may only touch your OWN tank. Without this every
+            // client aims and fires the whole field on its local copy.
+            if (this.mode === 'online' && activeTank.slot !== this.mySlot) return;
             if (this.roundOver) return; // Ignore input during shop intermission / match summary
             if (this.projectile || this.anyTankFalling()) return; // Ignore while projectile is live or tanks are falling
 
@@ -1147,10 +1165,25 @@
           const activeTank = this.roster[this.activePlayerIdx];
           if (!activeTank || activeTank.hp <= 0 || this.projectile) return;
 
-          // Check ammo if any (here infinite for Baby Missile)
           const weapon = activeTank.selectedWeapon || 'Baby Missile';
           const ammo = activeTank.inventory[weapon];
           if (ammo !== undefined && ammo <= 0) return;
+
+          // Online we send the INPUT and spawn nothing. The projectile appears
+          // on every client — this one included — when FIRE_SYNC comes back
+          // carrying the server's authoritative launch vector.
+          if (this.mode === 'online') {
+            if (activeTank.slot !== this.mySlot) return;
+            if (this.activeShotId) return; // a shot is already in flight
+            if (this.net) {
+              this.net.send('FIRE', {
+                angle: activeTank.angle,
+                power: activeTank.power,
+                weapon
+              });
+            }
+            return;
+          }
 
           if (ammo !== undefined && ammo !== Infinity) {
             activeTank.inventory[weapon]--;
@@ -1161,7 +1194,6 @@
           const startX = activeTank.x + barrelLen * detCos(angleRad);
           const startY = activeTank.y - 6 - barrelLen * detSin(angleRad);
 
-          // Velocity is proportional to power
           const vx = activeTank.power * detCos(angleRad);
           const vy = -activeTank.power * detSin(angleRad);
 
@@ -1174,8 +1206,126 @@
             shooterIdx: this.activePlayerIdx
           };
 
-          if (!this.headless) {
+          if (!this.headless && typeof sfx === 'function') {
             sfx('launch');
+          }
+        }
+
+        // Every client — including the one that pressed Space — spawns its
+        // projectile from this frame, never from local input. The server mints
+        // vx/vy once (lib/room-manager.js) and we integrate those exact doubles;
+        // recomputing the vector from angle/power would let the shooter and the
+        // watchers integrate trajectories that differ in the last few bits, and
+        // one flipped `Math.floor(x)` terrain column is a permanent desync.
+        applyFireSync(msg) {
+          if (!this.roster) return;
+          const shooterIdx = this.roster.findIndex(t => t.slot === msg.shooterSlot);
+          if (shooterIdx === -1) return;
+          const shooter = this.roster[shooterIdx];
+
+          // Wind is server-authoritative for the shot, so a client that joined
+          // late cannot fly the projectile through a different breeze.
+          if (msg.wind !== undefined) this.wind = msg.wind;
+
+          const weapon = msg.weapon || 'Baby Missile';
+          const ammo = shooter.inventory[weapon];
+          if (ammo !== undefined && ammo !== Infinity) {
+            shooter.inventory[weapon]--;
+          }
+          shooter.selectedWeapon = weapon;
+
+          // angle is used ONLY to place the barrel tip, and goes through the
+          // deterministic trig pair so all clients agree on the spawn pixel.
+          const angleRad = ((msg.angle !== undefined ? msg.angle : 45) * Math.PI) / 180;
+          const barrelLen = 12;
+          const startX = shooter.x + barrelLen * detCos(angleRad);
+          const startY = shooter.y - 6 - barrelLen * detSin(angleRad);
+
+          this.activeShotId = msg.shotId;
+          this.reportedShotId = null;
+
+          this.projectile = {
+            x: startX,
+            y: startY,
+            vx: msg.vx,
+            vy: msg.vy,
+            weapon: weapon,
+            shooterIdx: shooterIdx,
+            shotId: msg.shotId
+          };
+
+          if (!this.headless && typeof sfx === 'function') {
+            sfx('launch');
+          }
+        }
+
+        // Server says the turn moved on. This is the ONLY thing that advances
+        // the active player online — local nextTurn() never picks the next
+        // shooter, or four clients would each pick their own.
+        applyTurnSync(msg) {
+          if (!this.roster) return;
+          this.turnNumber = msg.turnNumber;
+          this.activeShotId = null;
+          this.reportedShotId = null;
+          this.setActiveSlot(msg.activeSlot);
+          this.raiseShieldForActivePlayer();
+          this.updateHUD();
+        }
+
+        // A player dropped. Their tank stays on the field as a hulk (the server
+        // keeps the slot so they can rejoin); we only refresh the HUD.
+        applyPlayerLeft(msg) {
+          if (!this.roster) return;
+          const tank = this.roster.find(t => t.slot === msg.slot);
+          if (tank) tank.connected = false;
+          this.updateHUD();
+        }
+
+        // Server-declared end of round. Payouts are computed locally from the
+        // locally-simulated damage numbers, which agree because the simulation
+        // agrees.
+        applyRoundEnd(msg) {
+          this.serverWinnerSlot = msg ? msg.winnerSlot : undefined;
+          // The local sim usually reaches "one tank left" a tick before the
+          // server frame lands, which already ran the payouts and set
+          // roundOver. Only run them if it has not.
+          if (!this.roundOver) {
+            this.handleRoundEnd();
+          }
+          this.roundOver = true;
+          if (!this.headless) {
+            this.showMatchSummary();
+          }
+        }
+
+        setActiveSlot(slot) {
+          if (!this.roster) return;
+          const idx = this.roster.findIndex(t => t.slot === slot);
+          if (idx === -1) return;
+          this.activePlayerIdx = idx;
+        }
+
+        // Online, a resolved shot is reported to the server rather than
+        // advancing the turn locally. Fires at most once per shotId: the
+        // physics loop reaches "no projectiles left" from several branches.
+        reportShotResolved() {
+          const shotId = this.activeShotId;
+          if (shotId === undefined || shotId === null) return;
+          if (this.reportedShotId === shotId) return;
+          this.reportedShotId = shotId;
+
+          const eliminated = [];
+          if (this.roster) {
+            this.roster.forEach((t) => {
+              if (t.hp <= 0 && !t.reportedDead && Number.isInteger(t.slot)) {
+                t.reportedDead = true;
+                eliminated.push(t.slot);
+              }
+            });
+          }
+
+          if (this.net) {
+            this.net.send('RESOLVE_SHOT', { shotId, eliminated });
           }
         }
 
@@ -1374,8 +1524,31 @@
           this.wallType = config.wallType || 'off';
           this.startingCash = config.startingCash !== undefined ? config.startingCash : 10000;
 
+          // Online setup must land BEFORE newRound(), because the seed decides
+          // the terrain, the biome and every tank spawn position.
+          if (config.isMultiplayer) {
+            this.mode = 'online';
+            this.mySlot = config.mySlot;
+            this.turnOrder = Array.isArray(config.turnOrder) ? config.turnOrder.slice() : null;
+            if (config.net) this.net = config.net;
+          }
+
+          // The server mints the seed and broadcasts it in ROUND_START. Using
+          // the page-local default here instead is what made two clients build
+          // two different worlds before a shot was even fired.
+          if (config.seed !== undefined && Number.isFinite(config.seed)) {
+            this.seed = config.seed;
+          }
+
           // Begin round 1 (generates terrain and seeds RNG)
           this.newRound(this.seed);
+
+          // newRound() draws wind from the shared stream; with a shared seed
+          // that already agrees, but the server's value is the one echoed in
+          // every FIRE_SYNC, so take it as authoritative when offered.
+          if (config.wind !== undefined && Number.isFinite(config.wind)) {
+            this.wind = config.wind;
+          }
 
           // Build roster using the newly-seeded generator
           const players = config.players || [];
@@ -1391,6 +1564,11 @@
               name: p.name,
               color: p.color,
               type: p.type,
+              // Server slot identity. Turn order, FIRE_SYNC routing and
+              // elimination reports are all keyed on this, never on the
+              // roster array index, which can differ from slot order.
+              slot: Number.isInteger(p.slot) ? p.slot : i,
+              connected: true,
               hp: 100,
               angle: 45,
               power: 500,
@@ -1406,7 +1584,16 @@
           });
 
           this.snapTanksToTerrain();
+          // Online, the first shooter is turnOrder[0] (a slot), not roster
+          // index 0 — those differ whenever lobby churn leaves the roster in a
+          // different order from the slot numbering, and every client keying
+          // off index 0 means every client drives the same tank.
           this.activePlayerIdx = 0;
+          if (this.mode === 'online' && this.turnOrder && this.turnOrder.length) {
+            this.setActiveSlot(this.turnOrder[0]);
+          }
+          this.activeShotId = null;
+          this.reportedShotId = null;
           this.projectile = null; // Will store active projectile { x, y, vx, vy, ... }
           this.raiseShieldForActivePlayer();
 
@@ -1458,6 +1645,15 @@
 
         nextTurn() {
           if (!this.roster || this.roster.length === 0) return;
+
+          // Online the turn cursor belongs to the server. Every call site that
+          // means "this shot is over" reports the resolution and stops; the
+          // active player then changes when TURN_SYNC comes back.
+          if (this.mode === 'online') {
+            this.reportShotResolved();
+            return;
+          }
+
           let nextIdx = this.activePlayerIdx;
           for (let i = 0; i < this.roster.length; i++) {
             nextIdx = (nextIdx + 1) % this.roster.length;
@@ -3377,7 +3573,11 @@
                config.seed = msg.seed;
                config.wind = msg.wind;
                config.turnOrder = msg.turnOrder;
-               
+               // Hand the Game the lobby's live socket so it can send FIRE and
+               // RESOLVE_SHOT. Without this `this.net` is null and the client
+               // simulates in silence.
+               config.net = net;
+
                gameInstance.start(config);
             });
 
