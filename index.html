@@ -463,6 +463,12 @@
         { item: 'Contact Trigger', trigger: 'contact' }
       ];
 
+      // What a room set to "Basic" may buy and fire. The server holds the same
+      // list in lib/constants.js and enforces it per room, so this is the shop
+      // filter rather than the security boundary; tests/weapon-registry.test.js
+      // fails if the two ever drift apart.
+      const BASIC_WEAPON_IDS = ['Baby Missile', 'Missile', 'Tracer'];
+
       const SHIELD_ITEMS = Object.keys(SHIELD_TYPES).map(id => ({
         id: id,
         name: id,
@@ -3540,16 +3546,18 @@
           return true;
         }
 
+        // The weapons this room's tier allows. One definition for the shop and
+        // the AI buyer, which used to hold a copy of the basic list each.
+        availableWeapons() {
+          if (this.config && this.config.weaponsAvailability === 'basic') {
+            return WEAPONS.filter(w => BASIC_WEAPON_IDS.includes(w.id));
+          }
+          return WEAPONS.slice();
+        }
+
         handleAIPurchases(player) {
           if (player.type === 'Cyborg') {
-            const isBasicOnly = this.config && this.config.weaponsAvailability === 'basic';
-            const BASIC_WEAPONS = ['Baby Missile', 'Missile', 'Tracer'];
-            const availableWeapons = WEAPONS.filter(w => {
-              if (isBasicOnly) {
-                return BASIC_WEAPONS.includes(w.id);
-              }
-              return true;
-            });
+            const availableWeapons = this.availableWeapons();
             // Sort by damage descending
             const sortedWeapons = [...availableWeapons].sort((a, b) => b.damage - a.damage);
             const bestWeapon = sortedWeapons.find(w => player.cash >= w.cost);
@@ -3733,17 +3741,7 @@
             grid.appendChild(h);
           });
 
-          // Filter weapons if basicOnly is checked
-          const isBasicOnly = this.config && this.config.weaponsAvailability === 'basic';
-          const BASIC_WEAPONS = ['Baby Missile', 'Missile', 'Tracer'];
-
-          const availableWeapons = WEAPONS.filter(w => {
-            if (isBasicOnly) {
-              return BASIC_WEAPONS.includes(w.id);
-            }
-            return true;
-          });
-
+          const availableWeapons = this.availableWeapons();
           const availableItems = ITEMS;
 
           // Helper to add rows
@@ -4641,6 +4639,7 @@
         SHIELD_TYPES,
         SHIELD_PRIORITY,
         PROXIMITY_FUSE_RADIUS,
+        BASIC_WEAPON_IDS,
         NetClient,
         detSin,
         detCos,
