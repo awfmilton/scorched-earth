@@ -232,6 +232,62 @@
         <div id="room-list" style="max-height: 150px; overflow-y: auto; background: #111; padding: 10px; border: 1px solid #333; margin-bottom: 20px;">
           <div style="text-align: center; color: #777;">Click REFRESH LIST to see public matches...</div>
         </div>
+
+        <div style="text-align: center; margin-bottom: 10px; color: #888; border-top: 1px solid #333; padding-top: 15px;">NO ONE AROUND?</div>
+        <button id="btn-play-solo" style="width: 100%; padding: 15px; font-weight: bold; font-size: 18px; background: #ff8800; color: #000; border: none; cursor: pointer;">PLAY SOLO vs AI</button>
+      </div>
+
+      <div id="solo-view" hidden>
+        <div class="settings-grid">
+          <div class="form-group">
+            <label for="solo-name">Your Name:</label>
+            <input type="text" id="solo-name" maxlength="12" value="PLAYER">
+          </div>
+          <div class="form-group">
+            <label for="solo-ai-count">AI Opponents:</label>
+            <select id="solo-ai-count">
+              <option value="1">1</option>
+              <option value="2" selected>2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="color: #00ff00; border-bottom: 1px solid #333; padding-bottom: 5px; margin: 15px 0 10px;">OPPONENTS</div>
+        <div id="solo-ai-list" style="margin-bottom: 15px;"></div>
+
+        <div style="color: #00ff00; border-bottom: 1px solid #333; padding-bottom: 5px; margin: 15px 0 10px;">MATCH SETTINGS</div>
+        <div class="settings-grid">
+          <div class="form-group">
+            <label for="solo-rounds">Rounds (1-20):</label>
+            <input type="number" id="solo-rounds" min="1" max="20" value="5">
+          </div>
+          <div class="form-group">
+            <label for="solo-cash">Starting Cash:</label>
+            <input type="number" id="solo-cash" min="0" value="10000">
+          </div>
+          <div class="form-group">
+            <label for="solo-wall-type">Wall Type:</label>
+            <select id="solo-wall-type">
+              <option value="off">Off (Wrap-around / None)</option>
+              <option value="rubber">Rubber (Bouncing)</option>
+              <option value="wrap">Wrap (Screen wrap)</option>
+              <option value="concrete">Concrete (Solid)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="solo-weapons">Weapons:</label>
+            <select id="solo-weapons">
+              <option value="all">All</option>
+              <option value="basic">Basic</option>
+            </select>
+          </div>
+        </div>
+
+        <button id="btn-start-solo" style="width: 100%; padding: 15px; margin-top: 15px; font-weight: bold; font-size: 18px; background: #00ff00; color: #000; border: none; cursor: pointer;">START SOLO GAME</button>
+        <button id="btn-solo-back" style="width: 100%; padding: 10px; margin-top: 10px; background: #333; color: #aaa; border: 1px solid #555; cursor: pointer;">BACK</button>
       </div>
 
       <div id="lobby-view" hidden>
@@ -3403,6 +3459,16 @@
         requestAnimationFrame(loop);
       }
 
+      // The four AI profiles implemented in Game.checkAIShot(). `type` is what
+      // the roster carries and what checkAIShot() branches on, so these strings
+      // must match those branches exactly.
+      const AI_PROFILES = [
+        { type: 'Moron', label: 'MORON — random spray' },
+        { type: 'Shooter', label: 'SHOOTER — solves ballistics, ignores wind' },
+        { type: 'Poolshark', label: 'POOLSHARK — banks shots off walls' },
+        { type: 'Cyborg', label: 'CYBORG — wind-corrected, learns from misses' }
+      ];
+
       const RETRO_COLORS = [
         { value: '#ff00ff', name: 'Magenta' },
         { value: '#00ffff', name: 'Cyan' },
@@ -3539,6 +3605,132 @@
             const hostSettings = document.getElementById('host-settings');
             const clientWaiting = document.getElementById('client-waiting');
             const displayShareCode = document.getElementById('display-share-code');
+
+            // --- Solo play vs AI -------------------------------------------------
+            // Local mode: no socket, no lockstep, no server round-trip. This is the
+            // only entry point that reaches Game.checkAIShot(), the local shop
+            // intermission and the multi-round loop, all of which were previously
+            // unreachable code.
+            const soloView = document.getElementById('solo-view');
+            const btnPlaySolo = document.getElementById('btn-play-solo');
+            const btnStartSolo = document.getElementById('btn-start-solo');
+            const btnSoloBack = document.getElementById('btn-solo-back');
+            const soloAiCount = document.getElementById('solo-ai-count');
+            const soloAiList = document.getElementById('solo-ai-list');
+
+            function renderSoloAiList() {
+              if (!soloAiList) return;
+              const count = soloAiCount ? (parseInt(soloAiCount.value, 10) || 2) : 2;
+              soloAiList.innerHTML = '';
+              for (let i = 0; i < count; i++) {
+                const row = document.createElement('div');
+                row.className = 'form-group';
+                row.style.display = 'flex';
+                row.style.alignItems = 'center';
+                row.style.gap = '10px';
+                row.style.marginBottom = '6px';
+
+                const swatch = document.createElement('span');
+                // Slot 0 is the human, so AI i takes colour i+1.
+                swatch.textContent = '■';
+                swatch.style.color = RETRO_COLORS[(i + 1) % RETRO_COLORS.length].value;
+
+                const label = document.createElement('label');
+                label.textContent = 'CPU ' + (i + 1);
+                label.style.minWidth = '60px';
+                label.setAttribute('for', 'solo-ai-' + i);
+
+                const select = document.createElement('select');
+                select.id = 'solo-ai-' + i;
+                select.style.flex = '1';
+                AI_PROFILES.forEach((profile) => {
+                  const opt = document.createElement('option');
+                  opt.value = profile.type;
+                  opt.textContent = profile.label;
+                  select.appendChild(opt);
+                });
+                // Spread the default difficulty so a fresh solo game is not four
+                // identical opponents: Shooter, Poolshark, Cyborg, Moron, Shooter...
+                const defaults = ['Shooter', 'Poolshark', 'Cyborg', 'Moron'];
+                select.value = defaults[i % defaults.length];
+
+                row.appendChild(swatch);
+                row.appendChild(label);
+                row.appendChild(select);
+                soloAiList.appendChild(row);
+              }
+            }
+
+            if (btnPlaySolo) {
+              btnPlaySolo.addEventListener('click', () => {
+                if (errorMsg) errorMsg.textContent = '';
+                if (landingView) landingView.hidden = true;
+                if (lobbyView) lobbyView.hidden = true;
+                if (soloView) soloView.hidden = false;
+                renderSoloAiList();
+              });
+            }
+
+            if (btnSoloBack) {
+              btnSoloBack.addEventListener('click', () => {
+                if (soloView) soloView.hidden = true;
+                if (landingView) landingView.hidden = false;
+              });
+            }
+
+            if (soloAiCount) {
+              soloAiCount.addEventListener('change', renderSoloAiList);
+            }
+
+            if (btnStartSolo) {
+              btnStartSolo.addEventListener('click', () => {
+                if (errorMsg) errorMsg.textContent = '';
+                const nameEl = document.getElementById('solo-name');
+                const humanName = (nameEl && nameEl.value.trim()) || 'PLAYER';
+                const count = soloAiCount ? (parseInt(soloAiCount.value, 10) || 2) : 2;
+
+                const players = [{
+                  name: humanName.toUpperCase().slice(0, 12),
+                  type: 'Human',
+                  color: RETRO_COLORS[0].value,
+                  slot: 0
+                }];
+                for (let i = 0; i < count; i++) {
+                  const sel = document.getElementById('solo-ai-' + i);
+                  const type = (sel && sel.value) || 'Shooter';
+                  players.push({
+                    name: 'CPU ' + (i + 1) + ' (' + type.toUpperCase() + ')',
+                    type,
+                    color: RETRO_COLORS[(i + 1) % RETRO_COLORS.length].value,
+                    slot: i + 1
+                  });
+                }
+
+                const readInt = (id, fallback, lo, hi) => {
+                  const el = document.getElementById(id);
+                  const raw = el ? parseInt(el.value, 10) : NaN;
+                  const val = Number.isFinite(raw) ? raw : fallback;
+                  return Math.max(lo, Math.min(hi, val));
+                };
+                const wallEl = document.getElementById('solo-wall-type');
+                const weaponsEl = document.getElementById('solo-weapons');
+
+                if (soloView) soloView.hidden = true;
+
+                // Local play needs a fresh world per match but has no peer to
+                // agree with, so the wall-clock seed is safe here. Networked
+                // play still takes its seed from the server's ROUND_START.
+                gameInstance.start({
+                  players,
+                  rounds: readInt('solo-rounds', 5, 1, 20),
+                  startingCash: readInt('solo-cash', 10000, 0, 1000000),
+                  wallType: (wallEl && wallEl.value) || 'off',
+                  weaponsAvailability: (weaponsEl && weaponsEl.value) || 'all',
+                  seed: (Date.now() >>> 0)
+                });
+              });
+            }
+            // --- end solo play ---------------------------------------------------
 
             net.onError((err) => {
               if (errorMsg) errorMsg.textContent = formatNetError(err);

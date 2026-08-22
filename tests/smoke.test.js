@@ -106,6 +106,16 @@ class MockElement {
     return child;
   }
 
+  setAttribute(name, value) {
+    this.attributes = this.attributes || {};
+    this.attributes[name] = value;
+    if (name === 'id') this.id = value;
+  }
+
+  getAttribute(name) {
+    return (this.attributes && this.attributes[name]) || null;
+  }
+
   get innerHTML() {
     return '';
   }
@@ -184,6 +194,38 @@ function createDomMock() {
   elements['setup'] = new MockElement('div', 'setup');
   elements['hud'] = new MockElement('div', 'hud');
 
+  // Solo-vs-AI setup surface
+  elements['solo-view'] = new MockElement('div', 'solo-view');
+  elements['btn-play-solo'] = new MockElement('button', 'btn-play-solo');
+  elements['btn-start-solo'] = new MockElement('button', 'btn-start-solo');
+  elements['btn-solo-back'] = new MockElement('button', 'btn-solo-back');
+  elements['solo-ai-list'] = new MockElement('div', 'solo-ai-list');
+  elements['solo-ai-count'] = new MockElement('select', 'solo-ai-count');
+  elements['solo-ai-count'].value = '2';
+  elements['solo-name'] = new MockElement('input', 'solo-name');
+  elements['solo-name'].value = 'TESTER';
+  elements['solo-rounds'] = new MockElement('input', 'solo-rounds');
+  elements['solo-rounds'].value = '3';
+  elements['solo-cash'] = new MockElement('input', 'solo-cash');
+  elements['solo-cash'].value = '10000';
+  elements['solo-wall-type'] = new MockElement('select', 'solo-wall-type');
+  elements['solo-wall-type'].value = 'off';
+  elements['solo-weapons'] = new MockElement('select', 'solo-weapons');
+  elements['solo-weapons'].value = 'all';
+
+  // The per-opponent difficulty selects are built at runtime by
+  // renderSoloAiList() and then looked up by id, so the mock has to resolve
+  // ids on dynamically created nodes too, not just the pre-registered ones.
+  const findById = (node, id) => {
+    if (!node || !node.children) return null;
+    for (const child of node.children) {
+      if (child.id === id) return child;
+      const nested = findById(child, id);
+      if (nested) return nested;
+    }
+    return null;
+  };
+
   const documentMock = {
     addEventListener: (event, fn) => {
       if (event === 'DOMContentLoaded') {
@@ -191,7 +233,12 @@ function createDomMock() {
       }
     },
     getElementById: (id) => {
-      return elements[id] || null;
+      if (elements[id]) return elements[id];
+      for (const key of Object.keys(elements)) {
+        const found = findById(elements[key], id);
+        if (found) return found;
+      }
+      return null;
     },
     createElement: (tagName) => {
       return new MockElement(tagName);
@@ -474,6 +521,84 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
 
           const setupEl = elements['setup'];
           assert.strictEqual(setupEl.hidden, true, "Setup modal should be hidden on successful start");
+          done();
+        } catch (err) {
+          done(err);
+        }
+      }, 50);
+    });
+
+    it('Solo vs AI: landing button opens the panel and starts a local AI match', (t, done) => {
+      const { documentMock, windowMock, elements } = createDomMock();
+      const browserCtx = evaluateScript({
+        document: documentMock,
+        window: windowMock
+      });
+
+      setTimeout(() => {
+        try {
+          elements['btn-play-solo'].dispatchEvent('click');
+
+          assert.strictEqual(elements['solo-view'].hidden, false, 'Solo panel should open');
+          assert.strictEqual(elements['landing-view'].hidden, true, 'Landing view should close');
+          assert.strictEqual(
+            elements['solo-ai-list'].children.length, 2,
+            'Should render one difficulty row per AI opponent'
+          );
+
+          // Choose a distinct profile per opponent so the roster proves the
+          // selects are actually read rather than defaulted.
+          documentMock.getElementById('solo-ai-0').value = 'Cyborg';
+          documentMock.getElementById('solo-ai-1').value = 'Moron';
+
+          elements['btn-start-solo'].dispatchEvent('click');
+
+          const game = browserCtx.globalThis.SCORCHED.gameInstance;
+          assert.ok(game, 'gameInstance must exist');
+          assert.strictEqual(elements['setup'].hidden, true, 'Setup modal hides on start');
+          assert.strictEqual(game.mode, 'local', 'Solo play must not open a network session');
+          assert.strictEqual(game.rounds, 3, 'Rounds must come from the solo settings');
+
+          assert.strictEqual(game.roster.length, 3, 'Human plus two AI opponents');
+          assert.strictEqual(game.roster[0].type, 'Human');
+          assert.strictEqual(game.roster[0].name, 'TESTER');
+          assert.strictEqual(game.roster[1].type, 'Cyborg');
+          assert.strictEqual(game.roster[2].type, 'Moron');
+
+          done();
+        } catch (err) {
+          done(err);
+        }
+      }, 50);
+    });
+
+    it('Solo vs AI: opponent count change re-renders the difficulty rows', (t, done) => {
+      const { documentMock, windowMock, elements } = createDomMock();
+      evaluateScript({ document: documentMock, window: windowMock });
+
+      setTimeout(() => {
+        try {
+          elements['btn-play-solo'].dispatchEvent('click');
+          assert.strictEqual(elements['solo-ai-list'].children.length, 2);
+
+          elements['solo-ai-count'].value = '5';
+          elements['solo-ai-count'].dispatchEvent('change');
+          assert.strictEqual(
+            elements['solo-ai-list'].children.length, 5,
+            'Raising the opponent count should add difficulty rows'
+          );
+
+          elements['solo-ai-count'].value = '1';
+          elements['solo-ai-count'].dispatchEvent('change');
+          assert.strictEqual(
+            elements['solo-ai-list'].children.length, 1,
+            'Lowering the opponent count should remove them again'
+          );
+
+          elements['btn-solo-back'].dispatchEvent('click');
+          assert.strictEqual(elements['solo-view'].hidden, true, 'BACK closes the solo panel');
+          assert.strictEqual(elements['landing-view'].hidden, false, 'BACK restores the landing view');
+
           done();
         } catch (err) {
           done(err);
