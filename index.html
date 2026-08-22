@@ -781,6 +781,7 @@
           case 'CONNECTION_ERROR': return 'Could not reach the game server.';
           case 'SOCKET_ERROR': return 'Connection error — retrying...';
           case 'PARSE_ERROR': return 'Received a malformed message from the server.';
+          case 'HANDLER_ERROR': return 'This client hit an internal error handling a server update.';
           case 'SEND_ERROR': return 'Could not send to the server.';
           default: return 'Network error.';
         }
@@ -935,28 +936,46 @@
           };
 
           this.socket.onmessage = (event) => {
+            // Parsing and dispatching are caught SEPARATELY on purpose. These
+            // used to share one try, so a bug thrown by any handler was
+            // reported as PARSE_ERROR — as if the server had sent garbage —
+            // and then swallowed. That is exactly how a ReferenceError in the
+            // shop renderer shipped: the online shop silently never opened and
+            // nothing anywhere said why.
+            let msg;
             try {
-              const msg = JSON.parse(event.data);
+              msg = JSON.parse(event.data);
               if (!msg || typeof msg !== 'object') {
                 throw new Error('Invalid message format');
               }
-
-              const type = msg.type;
-
-              console.debug("Received S2C message:", type, msg);
-
-              const handler = type ? this.dispatchTable[type] : null;
-              if (handler) {
-                handler(msg);
-                if (type === 'ERROR') {
-                  // Surface the server error once, via the onError callback.
-                  this.handleError(msg);
-                }
-              } else {
-                console.warn('Unrecognised S2C message type:', type, msg);
-              }
             } catch (err) {
               this.handleError({ type: 'PARSE_ERROR', error: err, data: event.data });
+              return;
+            }
+
+            const type = msg.type;
+
+            console.debug("Received S2C message:", type, msg);
+
+            const handler = type ? this.dispatchTable[type] : null;
+            if (!handler) {
+              console.warn('Unrecognised S2C message type:', type, msg);
+              return;
+            }
+
+            try {
+              handler(msg);
+            } catch (err) {
+              // A handler bug is OUR defect, not a malformed frame. Say so
+              // loudly and keep the socket alive so the match is not dropped.
+              console.error('Handler for S2C message', type, 'threw:', err);
+              this.handleError({ type: 'HANDLER_ERROR', messageType: type, error: err });
+              return;
+            }
+
+            if (type === 'ERROR') {
+              // Surface the server error once, via the onError callback.
+              this.handleError(msg);
             }
           };
 
@@ -1078,9 +1097,9 @@
           this.biome = 'plains';
         }
 
-        generate(seed) {
+        generate(seed, config = {}) {
           terrainRNG.seed(seed);
-          const h = TerrainLib.generateTerrain(terrainRNG, CONST.WORLD_W, CONST.WORLD_H);
+          const h = TerrainLib.generateTerrain(terrainRNG, CONST.WORLD_W, CONST.WORLD_H, config);
           this.heights.set(h);
           this.biome = h.biome || 'plains';
         }
@@ -1233,6 +1252,10 @@
       }
 
       class Game {
+        get gravity() {
+          return this.config && this.config.gravity !== undefined ? this.config.gravity : CONST.GRAVITY;
+        }
+
         constructor(opts = {}) {
           this.headless = !!opts.headless;
           this.seed = opts.seed !== undefined ? opts.seed : 42;
@@ -2179,7 +2202,7 @@
               const startAngles = dx > 0 ? [60, 55, 65, 50, 70, 45, 75, 40, 80, 35, 85] : [120, 125, 115, 130, 110, 135, 105, 140, 100, 145, 95];
               let solvedAngle = null;
               let solvedPower = null;
-              const g = CONST.GRAVITY;
+              const g = this.gravity;
 
               for (let angle of startAngles) {
                 const angleRad = (angle * Math.PI) / 180;
@@ -2220,7 +2243,7 @@
               const startAngles = shootRight ? [60, 55, 65, 50, 70, 45, 75, 40, 80, 35, 85] : [120, 125, 115, 130, 110, 135, 105, 140, 100, 145, 95];
               let solvedAngle = null;
               let solvedPower = null;
-              const g = CONST.GRAVITY;
+              const g = this.gravity;
 
               for (let angle of startAngles) {
                 const angleRad = (angle * Math.PI) / 180;
@@ -2278,7 +2301,7 @@
               let solvedAngle = null;
               let solvedPower = null;
               const aw = this.wind || 0;
-              const g = CONST.GRAVITY;
+              const g = this.gravity;
 
               for (let angle of startAngles) {
                 const angleRad = (angle * Math.PI) / 180;
@@ -2700,7 +2723,7 @@
                   tank.falling = true;
                   tank.vy = 0;
                 }
-                tank.vy += CONST.GRAVITY * dt;
+                tank.vy += this.gravity * dt;
                 tank.y += tank.vy * dt;
 
                 const newGroundY = CONST.WORLD_H - this.terrain.heightAt(tank.x);
@@ -2845,7 +2868,7 @@
                 const groundY = CONST.WORLD_H - this.terrain.heightAt(proj.x);
                 if (proj.y < groundY - 1) {
                   // In air, apply gravity
-                  proj.vy += CONST.GRAVITY * dt;
+                  proj.vy += this.gravity * dt;
                   proj.x += proj.vx * dt;
                   proj.y += proj.vy * dt;
                 } else {
@@ -2917,7 +2940,7 @@
               const isLaser = proj.weapon === 'Laser';
               const prevVy = proj.vy;
               if (!isLaser) {
-                proj.vy += CONST.GRAVITY * dt;
+                proj.vy += this.gravity * dt;
                 proj.vx += (this.wind || 0) * dt;
               }
 
@@ -3279,7 +3302,7 @@
               p.y += p.vy * dt;
               p.vy -= 10 * dt; // Smoke rises slightly
             } else if (p.type === 'debris') {
-              p.vy += CONST.GRAVITY * dt;
+              p.vy += this.gravity * dt;
               p.x += p.vx * dt;
               p.y += p.vy * dt;
 
@@ -3546,10 +3569,17 @@
           return true;
         }
 
+        // Is this room running the restricted "Basic" tier? Every consumer of
+        // the tier asks here. Inlining the comparison a third time is what
+        // stranded the `isBasicOnly` reference in the shop's sell button.
+        isBasicTier() {
+          return !!(this.config && this.config.weaponsAvailability === 'basic');
+        }
+
         // The weapons this room's tier allows. One definition for the shop and
         // the AI buyer, which used to hold a copy of the basic list each.
         availableWeapons() {
-          if (this.config && this.config.weaponsAvailability === 'basic') {
+          if (this.isBasicTier()) {
             return WEAPONS.filter(w => BASIC_WEAPON_IDS.includes(w.id));
           }
           return WEAPONS.slice();
@@ -3742,6 +3772,7 @@
           });
 
           const availableWeapons = this.availableWeapons();
+          const isBasicOnly = this.isBasicTier();
           const availableItems = ITEMS;
 
           // Helper to add rows
@@ -4095,7 +4126,7 @@
               let hitY = py;
 
               for (let step = 0; step < 200; step++) {
-                pvy += CONST.GRAVITY * sim_dt;
+                pvy += this.gravity * sim_dt;
                 pvx += (this.wind || 0) * sim_dt;
                 px += pvx * sim_dt;
                 py += pvy * sim_dt;
