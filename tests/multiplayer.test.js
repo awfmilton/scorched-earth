@@ -259,8 +259,8 @@ describe('Multiplayer Flow', () => {
     // Steep and short, so the shell lands in-world and carves for ANY seed.
     // A flatter, harder shot leaves the map on some generated terrains and
     // the "terrain actually changed" check below then fails at random.
-    shooter.game.roster[shooter.game.activePlayerIdx].angle = 65;
-    shooter.game.roster[shooter.game.activePlayerIdx].power = 320;
+    shooter.game.roster[shooter.game.activePlayerIdx].angle = 85;
+    shooter.game.roster[shooter.game.activePlayerIdx].power = 150;
     // The watching client aims somewhere else entirely; it must NOT matter,
     // because the trajectory comes from the server's vector.
     const watcher = (shooter === A) ? B : A;
