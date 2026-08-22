@@ -3384,24 +3384,44 @@
           }
         }
 
-        buy(tank, id) {
+        buy(tank, id, packs = 1) {
           const weapon = WEAPONS.find(w => w.id === id);
           const item = ITEMS.find(i => i.id === id);
           const config = weapon || item;
           if (!config) return false;
 
-          if (tank.cash < config.cost) {
+          const totalCost = config.cost * packs;
+          if (tank.cash < totalCost) {
             return false;
           }
 
-          tank.cash -= config.cost;
+          tank.cash -= totalCost;
           if (!tank.inventory) {
             tank.inventory = {};
           }
           if (tank.inventory[id] === undefined) {
             tank.inventory[id] = 0;
           }
-          tank.inventory[id] += config.packSize;
+          tank.inventory[id] += (config.packSize * packs);
+
+          if (!this.headless) {
+            sfx('buy');
+          }
+          return true;
+        }
+
+        sell(tank, id, itemsToSell = 1) {
+          const config = WEAPONS.find(w => w.id === id) || ITEMS.find(i => i.id === id);
+          if (!config) return false;
+
+          tank.inventory = tank.inventory || {};
+          const owned = tank.inventory[id] || 0;
+          if (owned < itemsToSell) return false;
+
+          // Sell price is proportional to pack size.
+          const pricePerItem = Math.floor(config.cost / config.packSize);
+          tank.cash += (pricePerItem * itemsToSell);
+          tank.inventory[id] -= itemsToSell;
 
           if (!this.headless) {
             sfx('buy');
@@ -3543,6 +3563,40 @@
             container.appendChild(standingsBox);
           }
 
+          // Bulk toggle
+          opts.bulkMultiplier = opts.bulkMultiplier || 1;
+          const bulkDiv = document.createElement('div');
+          bulkDiv.style.marginBottom = '10px';
+          bulkDiv.style.display = 'flex';
+          bulkDiv.style.gap = '10px';
+          bulkDiv.style.alignItems = 'center';
+
+          const bulkLabel = document.createElement('span');
+          bulkLabel.textContent = 'QUANTITY:';
+          bulkLabel.style.color = '#888';
+          bulkLabel.style.fontWeight = 'bold';
+
+          bulkDiv.appendChild(bulkLabel);
+
+          [1, 5, 10].forEach(mult => {
+            const mBtn = document.createElement('button');
+            mBtn.textContent = `x${mult}`;
+            mBtn.style.fontFamily = 'inherit';
+            mBtn.style.padding = '4px 12px';
+            mBtn.style.cursor = 'pointer';
+            mBtn.style.border = '1px solid ' + (opts.bulkMultiplier === mult ? player.color : '#444');
+            mBtn.style.background = opts.bulkMultiplier === mult ? player.color : 'transparent';
+            mBtn.style.color = opts.bulkMultiplier === mult ? '#000' : '#888';
+
+            mBtn.addEventListener('click', () => {
+              opts.bulkMultiplier = mult;
+              this.showShopForPlayer(playerIdx, opts);
+            });
+            bulkDiv.appendChild(mBtn);
+          });
+
+          container.appendChild(bulkDiv);
+
           // Grid container (scrollable)
           const gridWrapper = document.createElement('div');
           gridWrapper.style.flex = '1 1 auto';
@@ -3604,9 +3658,13 @@
             ownedDiv.textContent = count === Infinity ? 'INF' : count;
             ownedDiv.style.color = '#888';
 
-            // Buy button
+            // Actions
+            const actionsDiv = document.createElement('div');
+            actionsDiv.style.display = 'flex';
+            actionsDiv.style.gap = '5px';
+
             const buyBtn = document.createElement('button');
-            buyBtn.textContent = 'BUY';
+            buyBtn.textContent = opts.bulkMultiplier > 1 ? `BUY x${opts.bulkMultiplier}` : 'BUY';
             buyBtn.style.fontFamily = 'inherit';
             buyBtn.style.padding = '4px 8px';
             buyBtn.style.border = '1px solid ' + player.color;
@@ -3614,25 +3672,52 @@
             buyBtn.style.color = player.color;
             buyBtn.style.cursor = 'pointer';
 
-            if (player.cash < itemConf.cost) {
+            if (player.cash < itemConf.cost * opts.bulkMultiplier) {
               buyBtn.disabled = true;
               buyBtn.style.borderColor = '#444';
               buyBtn.style.color = '#444';
               buyBtn.style.cursor = 'not-allowed';
             } else {
               buyBtn.addEventListener('click', () => {
-                if (this.buy(player, itemConf.id)) {
-                  // Refresh shop
+                if (this.buy(player, itemConf.id, opts.bulkMultiplier)) {
                   this.showShopForPlayer(playerIdx, opts);
                 }
               });
+            }
+
+            const sellBtn = document.createElement('button');
+            const itemsToSell = itemConf.packSize * opts.bulkMultiplier;
+            sellBtn.textContent = opts.bulkMultiplier > 1 ? `SELL x${opts.bulkMultiplier}` : 'SELL';
+            sellBtn.style.fontFamily = 'inherit';
+            sellBtn.style.padding = '4px 8px';
+            sellBtn.style.border = '1px solid #ff4444';
+            sellBtn.style.background = 'transparent';
+            sellBtn.style.color = '#ff4444';
+            sellBtn.style.cursor = 'pointer';
+
+            if (count === Infinity || count < itemsToSell || isBasicOnly) {
+              sellBtn.disabled = true;
+              sellBtn.style.borderColor = '#444';
+              sellBtn.style.color = '#444';
+              sellBtn.style.cursor = 'not-allowed';
+            } else {
+              sellBtn.addEventListener('click', () => {
+                if (this.sell(player, itemConf.id, itemsToSell)) {
+                  this.showShopForPlayer(playerIdx, opts);
+                }
+              });
+            }
+
+            actionsDiv.appendChild(buyBtn);
+            if (count !== Infinity) {
+              actionsDiv.appendChild(sellBtn);
             }
 
             grid.appendChild(nameDiv);
             grid.appendChild(costDiv);
             grid.appendChild(sizeDiv);
             grid.appendChild(ownedDiv);
-            grid.appendChild(buyBtn);
+            grid.appendChild(actionsDiv);
           };
 
           availableWeapons.forEach(addRow);
