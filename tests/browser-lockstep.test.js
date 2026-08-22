@@ -251,8 +251,8 @@ describe('Browser wiring: two clients play a real match', () => {
     // the "terrain actually changed" check below is testing nothing.
     const shooterGame = shooter.ctx.globalThis.SCORCHED.gameInstance;
     const aim = shooterGame.roster[shooterGame.activePlayerIdx];
-    aim.angle = 65;
-    aim.power = 320;
+    aim.angle = 85;
+    aim.power = 150;
 
     shooter.dom.window.dispatch('keydown', { key: ' ', code: 'Space' });
 
