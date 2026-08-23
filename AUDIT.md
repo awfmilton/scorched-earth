@@ -61,7 +61,7 @@ built but unwired.
 | Feature | Status | Justification |
 |---|---|---|
 | Shield / Heavy Shield | **DONE** | `ITEMS:327-328`, auto-raise `raiseShieldForActivePlayer:1630`, absorption `applyDamageToTank:1886`. |
-| Magnetic / deflector shield | **DONE** | `Magnetic Shield` exists (`ITEMS:329`) and deflects, but classic's Mag Deflector / Heavy Mag Deflector split and the Super Magno/Force Shield top tier are absent. (Commit: 372fae6). |
+| Magnetic / deflector shield | **DONE** | Mag Deflector, Heavy Mag Deflector, Super Magno Shield, and Force Shield implemented. (Commit: 372fae6). |
 | Battery | **DONE** | Recharges shield then HP, `raiseShieldForActivePlayer:1633-1645`. |
 | Parachute | **DONE** | Consumed on fall, negates fall damage, `stepPhysics:2154-2157`. |
 | Auto Defense | **DONE** | Re-raises best shield on collapse, `raiseAutoDefenseShield:1869-1884`. |
@@ -71,9 +71,9 @@ built but unwired.
 | Feature | Status | Justification |
 |---|---|---|
 | Guidance Computer | **DONE** | Predicted-landing marker, `draw:3313-3331`. |
-| **Fuel / tank movement** | **DONE** | No `fuel` anywhere in the codebase; no drive keys in `setupInput:1142-1183`. (Commit: 60722a9). Tanks are static for the whole match. Core classic mechanic. |
-| **Teleport** | **DONE** | Not in `ITEMS`, no handler. (Commit: 60722a9). |
-| **Contact trigger / proximity fuse** | **DONE** | Not in `ITEMS`. (Commit: 3631368). |
+| **Fuel / tank movement** | **DONE** | Fuel and tank movement have been implemented. (Commit: 60722a9). |
+| **Teleport** | **DONE** | Teleport functionality has been implemented and added to `ITEMS`. (Commit: 60722a9). |
+| **Contact trigger / proximity fuse** | **DONE** | Contact Trigger and Proximity Fuse implemented and added to `ITEMS`. (Commit: 3631368). |
 
 ## 4. Economy
 
@@ -82,32 +82,32 @@ built but unwired.
 | Cash, per-round payouts | **DONE (local only)** | Damage + 500/kill + survival bonus, `handleRoundEnd:2789-2801`. |
 | Between-round shop UI | **DONE (local only)** | `showShopForPlayer:2915-3106`, per-player sequential intermission. |
 | Buying | **DONE** | `buy:2866-2889`, pack sizes, affordability gating. |
-| **Selling** | **DONE** | Zero occurrences of sell in `index. (Commit: 263d71c).html`. Shop is buy-only. |
-| **Buy quantity / bulk** | **DONE** | One click = one pack, no quantity field. (Commit: 263d71c). |
+| **Selling** | **DONE** | Selling functionality has been implemented. (Commit: 263d71c). |
+| **Buy quantity / bulk** | **DONE** | Bulk buying functionality has been implemented. (Commit: 263d71c). |
 | Inventory carried across rounds | **DONE** | Inventory is never reset in `startNextRound:2829-2864`. |
-| **Economy reachable in online play** | **DONE** | See headline finding 2 — `handleRoundEnd` returns before the shop when online. (Commit: 096a381). |
+| **Economy reachable in online play** | **DONE** | Economy and shop are reachable during online play. (Commit: 096a381). |
 
 ## 5. Match structure
 
 | Feature | Status | Justification |
 |---|---|---|
-| Multiple rounds | **DONE** | `this. (Commit: fd2f959).rounds` + `startNextRound()` exist (`1544, 2829`) but only run locally; online ends at round 1. |
+| Multiple rounds | **DONE** | Implemented multiple rounds for both local and online matches. (Commit: fd2f959). |
 | Match summary | **DONE** | `showMatchSummary:3107`. |
-| Cumulative scoring | **DONE** | `cumulativeKills`/`cumulativeDamage` accumulate (`2790-2791`) but the server's `ROUND_END. (Commit: fd2f959).scores` is a hard-coded `[]` (`lib/room-manager.js:734`). |
-| **Between-round standings table** | **DONE** | No standings UI between rounds; only the end-of-match summary. (Commit: fd2f959). |
-| Win condition | **DONE** | Last-tank-standing works per round; no match-level "most rounds won" champion logic. (Commit: fd2f959). |
+| Cumulative scoring | **DONE** | Cumulative scoring is calculated and broadcast at round end. (Commit: fd2f959). |
+| **Between-round standings table** | **DONE** | Standings table added to between-round screens. (Commit: fd2f959). |
+| Win condition | **DONE** | Added logic for match winners over multiple rounds. (Commit: fd2f959). |
 
 ## 6. AI opponents
 
 | Feature | Status | Justification |
 |---|---|---|
-| Moron (random) | **DONE (unreachable)** | `index.html:1717-1723`. |
-| Shooter (ballistic, no wind) | **DONE (unreachable)** | `index.html:1724-1755`. |
-| Poolshark (bank shots off rubber walls) | **DONE (unreachable)** | `index.html:1756-1793`. |
-| Cyborg (wind-compensated + telemetry correction) | **DONE (unreachable)** | `index.html:1794-1857`, correction loop `onImpact:1999-2007`. |
-| **AI selectable in a game** | **DONE** | No UI path; all seats `type: 'Human'` (`index. (Commit: c362a64).html:3634`). |
-| **Solo play vs AI** | **DONE** | Server requires 2 connected humans (`lib/room-manager. (Commit: c362a64).js:392`). |
-| **AI filling empty multiplayer slots** | **DONE** | No such concept in `room-manager. (Commit: c362a64).js`. |
+| Moron (random) | **DONE** | `index.html:1717-1723`. |
+| Shooter (ballistic, no wind) | **DONE** | `index.html:1724-1755`. |
+| Poolshark (bank shots off rubber walls) | **DONE** | `index.html:1756-1793`. |
+| Cyborg (wind-compensated + telemetry correction) | **DONE** | `index.html:1794-1857`, correction loop `onImpact:1999-2007`. |
+| **AI selectable in a game** | **DONE** | AI opponent selection implemented in lobby. (Commit: c362a64). |
+| **Solo play vs AI** | **DONE** | Solo play with AI is now allowed. (Commit: c362a64). |
+| **AI filling empty multiplayer slots** | **DONE** | AI opponents now fill empty slots. (Commit: c362a64). |
 | Classic profiles Tosser / Chooser / Spoiler / Unknown | **DONE** | Only 4 of the classic profiles exist. (Commit: c362a64). |
 
 ## 7. Environment & round setup
