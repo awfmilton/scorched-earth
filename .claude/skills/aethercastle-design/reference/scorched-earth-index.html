@@ -3,215 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Æthercastle: Armored Alchemists</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <title>Scorched Earth</title>
   <style>
-    /* AETHERCASTLE webfonts. Uncial Antiqua = neon uncial wordmark,
-       Cinzel = Norman inscriptional banner caps, Spectral = body/lore,
-       Share Tech Mono = every number the player reads. */
-    @import url("https://fonts.googleapis.com/css2?family=Uncial+Antiqua&family=Cinzel:wght@400..900&family=Spectral:ital,wght@0,300;0,400;0,600;0,800;1,400&family=Share+Tech+Mono&display=swap");
-
-    /* ==================== AETHERCASTLE TOKENS ====================
-       Five brand anchors: Stone Gray #4A413C, Electric Magenta #D5007F,
-       Deep Violet #4B0082, Cyan Neon #00BFFF, Brass #B5A642.
-       Doctrine: metal is beveled and square; aether glows; the two never
-       mix on one element. Nothing is a rounded card — 2px is the ceiling. */
-    :root {
-      /* Void / ink */
-      --void-900:#08070A; --void-800:#0F0D14; --void-700:#171320; --void-600:#221B2E;
-      /* Stone — castle masonry, panel bodies */
-      --stone-800:#221E1A; --stone-700:#2E2823; --stone-600:#4A413C;
-      --stone-500:#65594F; --stone-400:#8A7C70; --stone-300:#B0A49A;
-      /* Parchment — reading surfaces */
-      --parchment-100:#F6E9C6; --parchment-200:#EEDCAC; --parchment-300:#DCC388;
-      --parchment-400:#C1A469; --parchment-rule:#8A6E3E;
-      /* Brass — trim, frames, gilding */
-      --brass-700:#6E6320; --brass-600:#8E7F2F; --brass-500:#B5A642;
-      --brass-400:#CDBE60; --brass-300:#E0D286; --brass-200:#F2E9B4;
-      /* Electric magenta — primary aether charge */
-      --magenta-700:#8A0052; --magenta-600:#D5007F; --magenta-500:#FF2D9B; --magenta-400:#FF6FBE;
-      /* Deep violet — void / late-tier ordnance */
-      --violet-800:#2A0049; --violet-700:#4B0082; --violet-600:#6A1FB0; --violet-500:#9B5DE0;
-      /* Cyan neon — clockwork telemetry, HUD lines */
-      --cyan-700:#00637F; --cyan-600:#00A0DC; --cyan-500:#00BFFF; --cyan-400:#7FE3FF;
-      /* Reactive alchemy */
-      --acid-500:#8FD400; --acid-400:#B4F03A;
-      --fire-600:#FF6A00; --fire-500:#FFA31A; --fire-400:#FFD166;
-      /* Blood — destruction, elimination */
-      --blood-600:#B3121B; --blood-500:#E23A2E;
-
-      /* Semantic aliases */
-      --surface-world:var(--void-900);
-      --surface-panel:var(--stone-700);
-      --surface-panel-raised:var(--stone-600);
-      --surface-inset:var(--void-800);
-      --surface-parchment:var(--parchment-200);
-      --surface-scrim:rgba(8,7,10,.86);
-      --border-etch:var(--stone-500);
-      --border-brass:var(--brass-500);
-      --border-brass-dim:var(--brass-700);
-      --text-on-plate:var(--parchment-100);
-      --text-on-plate-muted:var(--stone-300);
-      --text-on-parchment:#2B2115;
-      --text-numeric:var(--cyan-400);
-      --text-link:var(--magenta-500);
-      --accent-primary:var(--magenta-600);
-      --accent-secondary:var(--cyan-500);
-      --accent-tertiary:var(--violet-700);
-      --accent-gild:var(--brass-500);
-      --hp-full:var(--acid-500); --hp-mid:var(--fire-500); --hp-low:var(--blood-500);
-      --shield-charge:var(--cyan-500); --damage:var(--magenta-600);
-      --cash:var(--brass-300); --wind-marker:var(--cyan-400);
-      --tier-1:var(--brass-500); --tier-2:var(--cyan-500);
-      --tier-3:var(--magenta-600); --tier-4:var(--violet-600);
-
-      /* Typography — four voices */
-      --font-display:'Uncial Antiqua','Papyrus',serif;
-      --font-heading:'Cinzel','Trajan Pro',Georgia,serif;
-      --font-body:'Spectral',Georgia,'Times New Roman',serif;
-      --font-mono:'Share Tech Mono',ui-monospace,'Courier New',monospace;
-      --text-2xs:11px; --text-xs:12px; --text-sm:14px; --text-base:16px;
-      --text-md:18px; --text-lg:22px; --text-xl:28px; --text-2xl:36px; --text-3xl:48px;
-      --leading-tight:1.05; --leading-snug:1.25; --leading-normal:1.5;
-      --tracking-banner:.14em; --tracking-label:.18em; --tracking-numeric:.04em;
-      --type-title:400 var(--text-3xl)/var(--leading-tight) var(--font-display);
-      --type-banner:900 var(--text-lg)/var(--leading-snug) var(--font-heading);
-      --type-section:700 var(--text-md)/var(--leading-snug) var(--font-heading);
-      --type-label:700 var(--text-xs)/1.2 var(--font-heading);
-      --type-body:400 var(--text-base)/var(--leading-normal) var(--font-body);
-      --type-readout:400 var(--text-md)/1.1 var(--font-mono);
-      --type-readout-sm:400 var(--text-xs)/1.2 var(--font-mono);
-
-      /* Spacing — 4px base, dense game chrome */
-      --space-1:2px; --space-2:4px; --space-3:6px; --space-4:8px; --space-5:12px;
-      --space-6:16px; --space-7:20px; --space-8:24px; --space-9:32px; --space-10:40px;
-      --gutter-hud:12px; --gutter-panel:16px; --gutter-parchment:24px;
-      --hud-height:56px; --control-height:40px; --control-height-sm:30px;
-
-      /* Effects — 2px radius ceiling */
-      --radius-plate:2px; --radius-sheet:4px; --radius-icon:3px;
-      --border-hair:1px; --border-plate:2px; --border-frame:3px;
-      /* Bevels are for metal only */
-      --bevel-raised:inset 0 1px 0 rgba(242,233,180,.28), inset 0 -1px 0 rgba(8,7,10,.7);
-      --bevel-inset:inset 0 2px 4px rgba(8,7,10,.8), inset 0 -1px 0 rgba(181,166,66,.16);
-      --shadow-panel:0 2px 0 rgba(8,7,10,.9), 0 10px 26px rgba(8,7,10,.6);
-      --shadow-modal:0 24px 70px rgba(8,7,10,.85);
-      /* Glows are for aether only */
-      --glow-magenta:0 0 6px rgba(255,45,155,.75), 0 0 18px rgba(213,0,127,.45);
-      --glow-cyan:0 0 6px rgba(0,191,255,.75), 0 0 18px rgba(0,160,220,.4);
-      --glow-violet:0 0 8px rgba(155,93,224,.7), 0 0 22px rgba(75,0,130,.55);
-      --glow-text-magenta:0 0 8px rgba(255,45,155,.85), 0 0 22px rgba(213,0,127,.5);
-      --glow-text-cyan:0 0 8px rgba(0,191,255,.8), 0 0 22px rgba(0,160,220,.45);
-      /* Composites */
-      --plate:linear-gradient(180deg, var(--stone-600) 0%, var(--stone-700) 55%, var(--stone-800) 100%);
-      --plate-dark:linear-gradient(180deg, var(--stone-700) 0%, var(--void-700) 100%);
-      --brass-rail:linear-gradient(180deg, var(--brass-300) 0%, var(--brass-500) 45%, var(--brass-700) 100%);
-      --aether-rail:linear-gradient(90deg, var(--magenta-600) 0%, var(--violet-700) 50%, var(--cyan-500) 100%);
-      /* The only texture in the system */
-      --scanline:repeating-linear-gradient(0deg, rgba(8,7,10,.16) 0 1px, transparent 1px 3px);
-      --selection-bg:var(--magenta-600); --selection-fg:var(--parchment-100);
-      --focus-ring:var(--cyan-500);
-    }
-
-    /* ==================== CLASSIC THEME ====================
-       The original DOS-era Scorched Earth replica, preserved as a first-class
-       token set rather than left in git history. Æthercastle is built ON TOP
-       of this game, so the original has to stay reachable and look exactly as
-       it did: green-on-black, Courier, square corners, no bevels, no brand
-       colour anywhere.
-
-       This block deliberately remaps the RAW RAMPS as well as the semantic
-       aliases. A handful of inline styles in the markup reference ramp
-       variables directly (var(--brass-rail), var(--void-900)); overriding only
-       the semantics would leave those elements Æthercastle-brass while the
-       rest of the screen went green. Remapping the ramp catches them all.
-
-       Selected by <html data-theme="classic">, which beats the bare :root
-       above on specificity. No data-theme at all means Æthercastle. */
-    :root[data-theme="classic"] {
-      /* Ramps remapped onto the DOS palette */
-      --void-900:#0c0c0c; --void-800:#111111; --void-700:#141414; --void-600:#181818;
-      --stone-800:#111111; --stone-700:#181818; --stone-600:#141414;
-      --stone-500:#333333; --stone-400:#555555; --stone-300:#2d8a2d;
-      --parchment-100:#00ff00; --parchment-200:#000000; --parchment-300:#33ff33;
-      --parchment-400:#2d8a2d; --parchment-rule:#333333;
-      --brass-700:#2d8a2d; --brass-600:#00cc00; --brass-500:#00ff00;
-      --brass-400:#33ff33; --brass-300:#33ff33; --brass-200:#66ff66;
-      --magenta-700:#2d8a2d; --magenta-600:#00ff00; --magenta-500:#33ff33; --magenta-400:#66ff66;
-      --violet-800:#111111; --violet-700:#008800; --violet-600:#00aa00; --violet-500:#33ff33;
-      --cyan-700:#008888; --cyan-600:#00cccc; --cyan-500:#00ffff; --cyan-400:#00ffff;
-      --acid-500:#00ff00; --acid-400:#33ff33;
-      --fire-600:#ff6600; --fire-500:#ffaa00; --fire-400:#ffff00;
-      --blood-600:#cc0000; --blood-500:#ff0000;
-
-      /* Semantics — the values the original stylesheet used literally */
-      --surface-world:#0c0c0c;
-      --surface-panel:#181818;
-      --surface-panel-raised:#141414;
-      --surface-inset:#111111;
-      --surface-parchment:#000000;
-      --surface-scrim:rgba(12,12,12,.9);
-      --border-etch:#333333;
-      --border-brass:#00ff00;
-      --border-brass-dim:#2d8a2d;
-      --text-on-plate:#00ff00;
-      --text-on-plate-muted:#2d8a2d;
-      --text-on-parchment:#00ff00;
-      --text-numeric:#00ff00;
-      --text-link:#33ff33;
-      --accent-primary:#00ff00;
-      --accent-secondary:#33ff33;
-      --accent-tertiary:#00ff00;
-      --accent-gild:#00ff00;
-      --hp-full:#00ff00; --hp-mid:#ffff00; --hp-low:#ff0000;
-      --shield-charge:#00ffff; --damage:#ff4444;
-      --cash:#ffff00; --wind-marker:#00ffff;
-      --tier-1:#00ff00; --tier-2:#ffff00; --tier-3:#ffaa00; --tier-4:#ff0000;
-      --selection-bg:#00ff00; --selection-fg:#000000;
-      --focus-ring:#00ff00;
-
-      /* One voice, not four. Courier for everything, including the numbers. */
-      --font-display:'Courier New',Courier,monospace;
-      --font-heading:'Courier New',Courier,monospace;
-      --font-body:'Courier New',Courier,monospace;
-      --font-mono:'Courier New',Courier,monospace;
-      --text-base:14px;
-      --tracking-banner:.08em; --tracking-label:.08em; --tracking-numeric:0;
-      --type-title:700 var(--text-2xl)/1.1 var(--font-mono);
-      --type-banner:700 var(--text-lg)/1.25 var(--font-mono);
-      --type-section:700 var(--text-md)/1.25 var(--font-mono);
-      --type-label:700 var(--text-xs)/1.2 var(--font-mono);
-      --type-body:400 var(--text-sm)/1.5 var(--font-mono);
-      --type-readout:400 var(--text-md)/1.1 var(--font-mono);
-      --type-readout-sm:400 var(--text-xs)/1.2 var(--font-mono);
-
-      /* The original HUD was 40px. WORLD_W/WORLD_H drive the simulation, so
-         this is pure viewport chrome and cannot move a shell. */
-      --hud-height:40px; --control-height:32px; --control-height-sm:26px;
-
-      /* Square, flat, unbeveled. The only lighting the original had was a
-         green bloom on focus and button hover, so the glows stay (green) and
-         the bevels go to none. */
-      --radius-plate:0; --radius-sheet:0; --radius-icon:0;
-      --bevel-raised:none;
-      --bevel-inset:none;
-      --shadow-panel:none;
-      --shadow-modal:none;
-      --glow-magenta:0 0 5px #00ff00;
-      --glow-cyan:0 0 5px #00ff00;
-      --glow-violet:0 0 5px #00ff00;
-      --glow-text-magenta:none;
-      --glow-text-cyan:none;
-      --plate:#181818;
-      --plate-dark:#111111;
-      --brass-rail:#00ff00;
-      --aether-rail:#00ff00;
-      /* No CRT overlay: the original drew none. */
-      --scanline:none;
-    }
-
-    /* ==================== BASE ==================== */
     * {
       box-sizing: border-box;
     }
@@ -221,77 +14,28 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background-color: var(--surface-world);
-      color: var(--text-on-plate);
-      font: var(--type-body);
-      -webkit-font-smoothing: antialiased;
+      background-color: #0c0c0c;
+      color: #00ff00;
+      font-family: 'Courier New', Courier, monospace;
     }
     body {
       display: flex;
       flex-direction: column;
     }
-    ::selection { background: var(--selection-bg); color: var(--selection-fg); }
-    :focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
-
-    /* Norman banner caps and etched labels */
-    .ac-banner {
-      font: var(--type-banner);
-      letter-spacing: var(--tracking-banner);
-      text-transform: uppercase;
-    }
-    .ac-label {
-      font: var(--type-label);
-      letter-spacing: var(--tracking-label);
-      text-transform: uppercase;
-    }
-    /* Every number the player reads is mono with tabular figures, so digits
-       never reflow as values change. */
-    .ac-readout {
-      font: var(--type-readout);
-      letter-spacing: var(--tracking-numeric);
-      font-variant-numeric: tabular-nums;
-    }
-
-    /* ==================== BATTLE HUD ==================== */
     #hud {
       flex: 0 0 auto;
-      height: var(--hud-height);
-      background: var(--plate);
-      background-image: var(--scanline), var(--plate);
-      border-bottom: var(--border-plate) solid var(--border-brass);
-      box-shadow: var(--bevel-raised);
+      height: 40px;
+      background: #141414;
+      border-bottom: 2px solid #333;
       display: flex;
       align-items: center;
-      padding: 0 var(--gutter-panel);
-      gap: var(--gutter-hud);
-      color: var(--text-on-plate);
-    }
-    /* Readouts: mono, tabular, cyan telemetry. */
-    #hud .hud-hp, #hud .hud-angle, #hud .hud-power,
-    #hud .hud-weapon, #hud .hud-cash, #hud .hud-fuel,
-    #hud .hud-wind, #hud .hud-net {
-      font: var(--type-readout-sm);
-      letter-spacing: var(--tracking-numeric);
-      font-variant-numeric: tabular-nums;
-      color: var(--text-numeric);
-    }
-    #hud .hud-name {
-      font: var(--type-banner);
-      letter-spacing: var(--tracking-banner);
-      text-transform: uppercase;
-    }
-    #hud .hud-cash { color: var(--cash); }
-    #hud .hud-wind { color: var(--wind-marker); }
-    #hud .hud-legend {
-      font: var(--type-readout-sm);
-      letter-spacing: var(--tracking-numeric);
-      color: var(--text-on-plate-muted);
+      padding: 0 10px;
     }
     #game {
       flex: 1 1 auto;
       display: block;
       width: 100%;
-      height: calc(100% - var(--hud-height));
+      height: calc(100% - 40px);
     }
     /* Setup Modal styling */
     #setup {
@@ -300,7 +44,7 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: var(--surface-scrim);
+      background: rgba(12, 12, 12, 0.9);
       display: flex;
       justify-content: center;
       align-items: center;
@@ -309,77 +53,59 @@
     #setup[hidden] {
       display: none !important;
     }
-    /* A riveted plate panel: beveled metal, brass frame, square corners. */
     .setup-container {
-      background: var(--plate);
-      background-image: var(--scanline), var(--plate);
-      border: var(--border-plate) solid var(--border-brass);
-      border-radius: var(--radius-plate);
-      padding: var(--gutter-parchment);
+      background: #181818;
+      border: 3px double #00ff00;
+      padding: 20px;
       width: 90%;
       max-width: 650px;
-      box-shadow: var(--bevel-raised), var(--shadow-modal);
+      box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
       max-height: 95vh;
       overflow-y: auto;
     }
-    /* The wordmark voice — uncial display, aether-lit. Glow lives here, not
-       on the plate around it. */
     .setup-container h2 {
       margin-top: 0;
       text-align: center;
-      font: var(--type-title);
-      font-size: var(--text-2xl);
-      color: var(--magenta-500);
-      text-shadow: var(--glow-text-magenta);
-      border-bottom: var(--border-plate) solid var(--border-brass);
-      padding-bottom: var(--space-5);
-      letter-spacing: .02em;
+      color: #00ff00;
+      border-bottom: 2px solid #00ff00;
+      padding-bottom: 10px;
+      letter-spacing: 2px;
     }
     .form-group {
-      margin-bottom: var(--space-5);
+      margin-bottom: 15px;
       display: flex;
       align-items: center;
-      gap: var(--space-4);
     }
     .form-group label {
       width: 150px;
-      font: var(--type-label);
-      letter-spacing: var(--tracking-label);
-      text-transform: uppercase;
-      color: var(--brass-300);
+      color: #00ff00;
+      font-weight: bold;
     }
-    /* Inputs are recessed wells — inset bevel, never a glow. */
     .form-group input[type="text"],
     .form-group input[type="number"],
     .form-group select {
       flex: 1;
-      background: var(--surface-inset);
-      border: var(--border-hair) solid var(--border-etch);
-      border-radius: var(--radius-plate);
-      color: var(--text-numeric);
-      padding: 0 var(--space-5);
-      height: var(--control-height);
-      font: var(--type-readout);
-      font-size: var(--text-sm);
-      font-variant-numeric: tabular-nums;
-      box-shadow: var(--bevel-inset);
+      background: #000;
+      border: 1px solid #00ff00;
+      color: #00ff00;
+      padding: 6px 10px;
+      font-family: inherit;
+      font-size: 14px;
       outline: none;
     }
     .form-group select option {
-      background: var(--void-800);
-      color: var(--text-numeric);
+      background: #000;
+      color: #00ff00;
     }
     .form-group input:focus,
     .form-group select:focus {
-      border-color: var(--cyan-500);
-      box-shadow: var(--bevel-inset), var(--glow-cyan);
+      box-shadow: 0 0 5px #00ff00;
     }
     .player-row {
-      border: var(--border-hair) dashed var(--stone-500);
-      border-radius: var(--radius-plate);
-      padding: var(--space-5);
-      margin-bottom: var(--space-5);
-      background: var(--plate-dark);
+      border: 1px dashed #333;
+      padding: 10px;
+      margin-bottom: 15px;
+      background: #111;
     }
     .player-row .form-group {
       margin-bottom: 8px;
@@ -390,10 +116,10 @@
     .settings-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: var(--space-5);
-      border-top: var(--border-plate) solid var(--border-brass-dim);
-      padding-top: var(--space-5);
-      margin-top: var(--space-5);
+      gap: 15px;
+      border-top: 2px solid #333;
+      padding-top: 15px;
+      margin-top: 15px;
     }
     .settings-grid .form-group {
       flex-direction: column;
@@ -410,18 +136,15 @@
     }
     .checkbox-group .radio-options {
       display: flex;
-      gap: var(--space-5);
+      gap: 15px;
       width: 100%;
-      margin-top: var(--space-2);
+      margin-top: 5px;
     }
     .checkbox-group .radio-options label {
       display: flex;
       align-items: center;
-      gap: var(--space-2);
-      font: var(--type-label);
-      letter-spacing: var(--tracking-label);
-      text-transform: uppercase;
-      color: var(--text-on-plate);
+      gap: 5px;
+      font-weight: normal;
       cursor: pointer;
       width: auto;
     }
@@ -430,62 +153,45 @@
       -webkit-appearance: none;
       width: 14px;
       height: 14px;
-      border: var(--border-hair) solid var(--brass-500);
-      border-radius: var(--radius-plate);
-      background: var(--surface-inset);
-      box-shadow: var(--bevel-inset);
+      border: 1px solid #00ff00;
+      background: #000;
       display: inline-block;
       position: relative;
       cursor: pointer;
       outline: none;
     }
-    /* Selection is an aether charge — this is the one place the dot glows. */
-    .checkbox-group input[type="radio"]:checked {
-      border-color: var(--magenta-600);
-    }
     .checkbox-group input[type="radio"]:checked::after {
       content: '';
       position: absolute;
-      top: 2px;
-      left: 2px;
-      width: 8px;
-      height: 8px;
-      background: var(--magenta-500);
-      box-shadow: var(--glow-magenta);
+      top: 3px;
+      left: 3px;
+      width: 6px;
+      height: 6px;
+      background: #00ff00;
     }
     .error-msg {
-      color: var(--blood-500);
+      color: #ff5555;
       text-align: center;
-      font: var(--type-label);
-      font-size: var(--text-sm);
-      letter-spacing: var(--tracking-label);
-      text-transform: uppercase;
-      margin: var(--space-5) 0;
+      font-weight: bold;
+      margin: 15px 0;
       min-height: 20px;
     }
-    /* Primary action is a brass rail: beveled metal, square, no glow. */
     #start-btn {
       display: block;
       width: 100%;
-      background: var(--brass-rail);
-      color: var(--void-900);
-      border: var(--border-hair) solid var(--brass-700);
-      border-radius: var(--radius-plate);
-      padding: 0;
-      height: var(--control-height);
-      font: var(--type-banner);
-      font-size: var(--text-base);
-      letter-spacing: var(--tracking-banner);
-      text-transform: uppercase;
-      box-shadow: var(--bevel-raised);
+      background: #00ff00;
+      color: #000;
+      border: none;
+      padding: 12px;
+      font-family: inherit;
+      font-weight: bold;
+      font-size: 16px;
       cursor: pointer;
-      transition: filter .12s cubic-bezier(.2,.8,.2,1);
+      transition: background 0.2s;
     }
     #start-btn:hover {
-      filter: brightness(1.15);
-    }
-    #start-btn:active {
-      box-shadow: var(--bevel-inset);
+      background: #33ff33;
+      box-shadow: 0 0 10px #33ff33;
     }
     #shop {
       position: absolute;
@@ -493,7 +199,7 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: var(--surface-scrim);
+      background: rgba(12, 12, 12, 0.95);
       display: flex;
       justify-content: center;
       align-items: center;
@@ -512,125 +218,26 @@
       <h2 id="setup-title">SCORCHED EARTH MULTIPLAYER</h2>
       
       <div id="landing-view">
-        <button id="btn-create-match" style="width: 100%; padding: 15px; margin-bottom: 10px; font-weight: bold; font-size: 18px; background: var(--brass-rail); color: var(--void-900); border: 1px solid var(--brass-700); cursor: pointer;">CREATE PRIVATE MATCH</button>
+        <button id="btn-create-match" style="width: 100%; padding: 15px; margin-bottom: 10px; font-weight: bold; font-size: 18px; background: #00ff00; color: #000; border: none; cursor: pointer;">CREATE PRIVATE MATCH</button>
         <button id="btn-create-public" style="width: 100%; padding: 15px; margin-bottom: 20px; font-weight: bold; font-size: 18px; background: #ffff00; color: #000; border: none; cursor: pointer;">CREATE PUBLIC MATCH</button>
         
         <div style="text-align: center; margin-bottom: 20px;">OR</div>
         <div style="display: flex; gap: 10px; margin-bottom: 20px;">
           <input type="text" id="join-code" placeholder="Enter 4-letter code" maxlength="4" style="flex: 1; text-transform: uppercase; text-align: center; font-size: 18px; letter-spacing: 5px;">
-          <button id="btn-join-match" style="padding: 15px 30px; font-weight: bold; background: var(--cyan-600); color: var(--void-900); border: 1px solid var(--cyan-700); cursor: pointer;">JOIN</button>
+          <button id="btn-join-match" style="padding: 15px 30px; font-weight: bold; background: #0088ff; color: #fff; border: none; cursor: pointer;">JOIN</button>
         </div>
 
-        <div style="text-align: center; margin-bottom: 10px; color: var(--brass-300); border-bottom: 1px solid var(--border-etch); padding-bottom: 5px;">PUBLIC SESSIONS</div>
-        <button id="btn-refresh-rooms" style="width: 100%; padding: 10px; margin-bottom: 10px; background: var(--plate-dark); color: var(--brass-300); border: 1px solid var(--border-brass); cursor: pointer;">REFRESH LIST</button>
-        <div id="room-list" style="max-height: 150px; overflow-y: auto; background: var(--surface-inset); padding: 10px; border: 1px solid var(--border-etch); box-shadow: var(--bevel-inset); margin-bottom: 20px;">
-          <div style="text-align: center; color: var(--text-on-plate-muted);">Click REFRESH LIST to see public matches...</div>
+        <div style="text-align: center; margin-bottom: 10px; color: #00ff00; border-bottom: 1px solid #333; padding-bottom: 5px;">PUBLIC SESSIONS</div>
+        <button id="btn-refresh-rooms" style="width: 100%; padding: 10px; margin-bottom: 10px; background: #333; color: #00ff00; border: 1px solid #00ff00; cursor: pointer;">REFRESH LIST</button>
+        <div id="room-list" style="max-height: 150px; overflow-y: auto; background: #111; padding: 10px; border: 1px solid #333; margin-bottom: 20px;">
+          <div style="text-align: center; color: #777;">Click REFRESH LIST to see public matches...</div>
         </div>
-
-        <div style="text-align: center; margin-bottom: 10px; color: var(--text-on-plate-muted); border-top: 1px solid var(--border-etch); padding-top: 15px;">NO ONE AROUND?</div>
-        <button id="btn-play-solo" style="width: 100%; padding: 15px; font-weight: bold; font-size: 18px; background: var(--brass-rail); color: var(--void-900); border: 1px solid var(--brass-700); cursor: pointer;">PLAY SOLO vs AI</button>
-      </div>
-
-      <div id="solo-view" hidden>
-        <div class="settings-grid">
-          <div class="form-group">
-            <label for="solo-name">Your Name:</label>
-            <input type="text" id="solo-name" maxlength="12" value="PLAYER">
-          </div>
-          <div class="form-group">
-            <label for="solo-ai-count">AI Opponents:</label>
-            <select id="solo-ai-count">
-              <option value="1">1</option>
-              <option value="2" selected>2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-              <option value="5">5</option>
-            </select>
-          </div>
-        </div>
-
-        <div style="color: var(--brass-300); border-bottom: 1px solid var(--border-etch); padding-bottom: 5px; margin: 15px 0 10px;">OPPONENTS</div>
-        <div id="solo-ai-list" style="margin-bottom: 15px;"></div>
-
-        <div style="color: var(--brass-300); border-bottom: 1px solid var(--border-etch); padding-bottom: 5px; margin: 15px 0 10px;">MATCH SETTINGS</div>
-        <div class="settings-grid">
-          <div class="form-group">
-            <label for="solo-rounds">Rounds (1-20):</label>
-            <input type="number" id="solo-rounds" min="1" max="20" value="5">
-          </div>
-          <div class="form-group">
-            <label for="solo-cash">Starting Cash:</label>
-            <input type="number" id="solo-cash" min="0" value="10000">
-          </div>
-          <div class="form-group">
-            <label for="solo-wall-type">Wall Type:</label>
-            <select id="solo-wall-type">
-              <option value="off">Off (Wrap-around / None)</option>
-              <option value="rubber">Rubber (Bouncing)</option>
-              <option value="wrap">Wrap (Screen wrap)</option>
-              <option value="concrete">Concrete (Solid)</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="solo-weapons">Weapons:</label>
-            <select id="solo-weapons">
-              <option value="all">All</option>
-              <option value="basic">Basic</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="solo-gravity">Gravity:</label>
-            <select id="solo-gravity">
-              <option value="150" selected>Normal</option>
-              <option value="50">Low</option>
-              <option value="300">High</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="solo-wind">Wind Variability:</label>
-            <select id="solo-wind">
-              <option value="changing-per-round" selected>Changing (per round)</option>
-              <option value="changing-mid-round">Changing (mid-round)</option>
-              <option value="constant">Constant</option>
-              <option value="none">None</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="solo-terrain-style">Terrain Style:</label>
-            <select id="solo-terrain-style">
-              <option value="random" selected>Random Biome</option>
-              <option value="mountains">Mountains</option>
-              <option value="plains">Plains</option>
-              <option value="hills">Hills</option>
-              <option value="plateau">Plateau</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="solo-terrain-hills">Hill Count:</label>
-            <select id="solo-terrain-hills">
-              <option value="normal" selected>Normal</option>
-              <option value="high">High</option>
-              <option value="low">Low</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="solo-terrain-flatness">Flatness:</label>
-            <select id="solo-terrain-flatness">
-              <option value="normal" selected>Normal</option>
-              <option value="high">High</option>
-              <option value="low">Low</option>
-            </select>
-          </div>
-        </div>
-
-        <button id="btn-start-solo" style="width: 100%; padding: 15px; margin-top: 15px; font-weight: bold; font-size: 18px; background: var(--brass-rail); color: var(--void-900); border: 1px solid var(--brass-700); cursor: pointer;">START SOLO GAME</button>
-        <button id="btn-solo-back" style="width: 100%; padding: 10px; margin-top: 10px; background: #333; color: #aaa; border: 1px solid #555; cursor: pointer;">BACK</button>
       </div>
 
       <div id="lobby-view" hidden>
-        <div style="text-align: center; margin-bottom: 20px; padding: 10px; background: var(--surface-inset); border: 1px dashed var(--border-brass); box-shadow: var(--bevel-inset);">
+        <div style="text-align: center; margin-bottom: 20px; padding: 10px; background: #222; border: 1px dashed #00ff00;">
           <span style="font-size: 14px; color: #aaa;">SHARE CODE</span><br>
-          <strong id="display-share-code" style="font-size: 32px; letter-spacing: 5px; color: var(--magenta-500); font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-shadow: var(--glow-text-magenta);"></strong>
+          <strong id="display-share-code" style="font-size: 32px; letter-spacing: 5px; color: #00ff00;"></strong>
         </div>
 
         <div id="multiplayer-slots"></div>
@@ -666,49 +273,6 @@
               </label>
             </div>
           </div>
-          <div class="form-group">
-            <label for="gravity">Gravity:</label>
-            <select id="gravity">
-              <option value="150" selected>Normal</option>
-              <option value="50">Low</option>
-              <option value="300">High</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="wind">Wind Variability:</label>
-            <select id="wind">
-              <option value="changing-per-round" selected>Changing (per round)</option>
-              <option value="changing-mid-round">Changing (mid-round)</option>
-              <option value="constant">Constant</option>
-              <option value="none">None</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="terrain-style">Terrain Style:</label>
-            <select id="terrain-style">
-              <option value="random" selected>Random Biome</option>
-              <option value="mountains">Mountains</option>
-              <option value="plains">Plains</option>
-              <option value="hills">Hills</option>
-              <option value="plateau">Plateau</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="terrain-hills">Hill Count:</label>
-            <select id="terrain-hills">
-              <option value="normal" selected>Normal</option>
-              <option value="high">High</option>
-              <option value="low">Low</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="terrain-flatness">Flatness:</label>
-            <select id="terrain-flatness">
-              <option value="normal" selected>Normal</option>
-              <option value="high">High</option>
-              <option value="low">Low</option>
-            </select>
-          </div>
         </div>
 
         <div id="client-waiting" style="text-align: center; margin: 20px 0; color: #aaa;" hidden>
@@ -732,259 +296,7 @@
         WORLD_H: 700,
         GRAVITY: 260,
         TICK: 1/60,
-        MAX_FLIGHT_TICKS: 1800,
-        // Tanks never sit flush against the edge. Mirrors WORLD_MARGIN in
-        // lib/constants.js, which the server uses to mint teleport columns.
-        TANK_MARGIN: 40,
-        // Driving. One fuel unit buys one DRIVE_STEP of horizontal travel;
-        // MAX_CLIMB is the steepest rise a tank will haul itself up in a
-        // single step, which is what stops a tank driving up a sheer wall.
-        DRIVE_STEP: 4,
-        MAX_CLIMB: 10,
-        // Topped up to this at the start of every round, so a player who never
-        // visits the shop can still reposition. Purchased fuel stacks on top.
-        FUEL_PER_ROUND: 100,
-        // Half-width of the shaft a Sandhog bores on its way down.
-        SANDHOG_SHAFT_RADIUS: 9
-      };
-
-      /**
-       * Aethercastle palette for the CANVAS layer.
-       *
-       * The DOM reads its colours from the CSS custom properties in <style>;
-       * a 2D context cannot resolve var(), so the same anchors are mirrored
-       * here as literals. These two lists are the same design tokens and must
-       * be changed together.
-       *
-       * Doctrine: metal is beveled and square, aether glows. On canvas that
-       * means brass/stone shapes are drawn with a lit top edge and a shadowed
-       * bottom edge, while magenta/violet/cyan are drawn with shadowBlur. The
-       * two treatments are never applied to the same shape.
-       */
-      /**
-       * Canvas palettes, one per mode.
-       *
-       * The CSS custom properties above cannot be read by a 2D context, so the
-       * canvas needs the same two token sets as literal hex. THEMES.classic
-       * mirrors :root[data-theme="classic"]; THEMES.aethercastle mirrors the
-       * bare :root. tests/theme-tokens.test.js fails if either side grows a key
-       * the other does not have, which is how a half-themed classic screen gets
-       * caught before a fan sees it.
-       *
-       * Read through the live THEME binding below, never THEMES.x directly,
-       * except where the value is deliberately Æthercastle-only content.
-       */
-      const THEMES = {};
-      THEMES.aethercastle = {
-        // Brand anchors
-        stone: '#4a413c', magenta: '#d5007f', violet: '#4b0082',
-        cyan: '#00bfff', brass: '#b5a642',
-        // Ramps
-        void900: '#08070a', void800: '#0f0d14', void700: '#171320',
-        stone800: '#221e1a', stone700: '#2e2823', stone600: '#4a413c',
-        stone500: '#65594f', stone400: '#8a7c70', stone300: '#b0a49a',
-        parchment100: '#f6e9c6', parchment200: '#eedcac', parchment300: '#dcc388',
-        brass700: '#6e6320', brass600: '#8e7f2f', brass500: '#b5a642',
-        brass400: '#cdbe60', brass300: '#e0d286', brass200: '#f2e9b4',
-        magenta700: '#8a0052', magenta600: '#d5007f', magenta500: '#ff2d9b', magenta400: '#ff6fbe',
-        violet800: '#2a0049', violet700: '#4b0082', violet600: '#6a1fb0', violet500: '#9b5de0',
-        cyan700: '#00637f', cyan600: '#00a0dc', cyan500: '#00bfff', cyan400: '#7fe3ff',
-        acid500: '#8fd400', acid400: '#b4f03a',
-        fire600: '#ff6a00', fire500: '#ffa31a', fire400: '#ffd166',
-        blood600: '#b3121b', blood500: '#e23a2e',
-        // Match semantics
-        hpFull: '#8fd400', hpMid: '#ffa31a', hpLow: '#e23a2e',
-        shieldCharge: '#00bfff', damage: '#d5007f', cash: '#e0d286',
-        // Type roles for canvas text. Every number a player reads is mono.
-        fontMono: "'Share Tech Mono', ui-monospace, 'Courier New', monospace",
-        fontHeading: "'Cinzel', Georgia, serif",
-        fontDisplay: "'Uncial Antiqua', serif"
-      };
-
-      // The original canvas palette. These are the literal values the game
-      // drew with before the re-skin, recovered so classic mode renders the
-      // DOS-era screen rather than a green-tinted Aethercastle one.
-      THEMES.classic = {
-        stone: '#888888', magenta: '#ff00ff', violet: '#00aa00',
-        cyan: '#00ffff', brass: '#00ff00',
-        void900: '#0c0c0c', void800: '#111111', void700: '#141414',
-        stone800: '#111111', stone700: '#181818', stone600: '#141414',
-        stone500: '#333333', stone400: '#555555', stone300: '#888888',
-        parchment100: '#00ff00', parchment200: '#000000', parchment300: '#33ff33',
-        brass700: '#2d8a2d', brass600: '#00cc00', brass500: '#00ff00',
-        brass400: '#33ff33', brass300: '#33ff33', brass200: '#66ff66',
-        magenta700: '#2d8a2d', magenta600: '#00ff00', magenta500: '#33ff33', magenta400: '#66ff66',
-        violet800: '#111111', violet700: '#008800', violet600: '#00aa00', violet500: '#33ff33',
-        cyan700: '#008888', cyan600: '#00cccc', cyan500: '#00ffff', cyan400: '#00ffff',
-        acid500: '#00ff00', acid400: '#33ff33',
-        fire600: '#ff6600', fire500: '#ffaa00', fire400: '#ffff00',
-        blood600: '#cc0000', blood500: '#ff0000',
-        hpFull: '#00ff00', hpMid: '#ffff00', hpLow: '#ff0000',
-        shieldCharge: '#00ffff', damage: '#ff4444', cash: '#ffff00',
-        fontMono: "'Courier New', Courier, monospace",
-        fontHeading: "'Courier New', Courier, monospace",
-        fontDisplay: "'Courier New', Courier, monospace"
-      };
-
-      /**
-       * The live palette. Reassigned by applyTheme() when a match starts, so
-       * every draw call after ROUND_START uses the mode the SERVER chose.
-       * Never a per-client preference once a match is live.
-       */
-      let THEME = THEMES.aethercastle;
-
-      const GAME_MODES = ['aethercastle', 'classic'];
-      const DEFAULT_MODE = 'aethercastle';
-      const normaliseMode = (m) => (GAME_MODES.includes(m) ? m : DEFAULT_MODE);
-
-      /**
-       * The mode the CURRENT MATCH is running in. Starts at the default and is
-       * only ever written by applyMode(), which in an online match is driven by
-       * ROUND_START.mode — the server's value, not this client's preference.
-       */
-      let activeMode = DEFAULT_MODE;
-
-      /**
-       * Point the whole presentation layer at one mode.
-       *
-       * Two things have to move together: the CSS custom properties (via the
-       * data-theme attribute the stylesheet keys off) and the canvas palette,
-       * which cannot read var(). Anything that reads THEME after this call
-       * draws in the new mode.
-       *
-       * This is presentation ONLY. It must never be the thing that decides how
-       * the simulation behaves — read activeMode for that, and only after the
-       * server has set it.
-       */
-      function applyMode(mode) {
-        activeMode = normaliseMode(mode);
-        THEME = THEMES[activeMode];
-        if (typeof document !== 'undefined' && document.documentElement) {
-          // Absent attribute means Aethercastle, which is the bare :root set.
-          if (activeMode === 'classic') {
-            document.documentElement.setAttribute('data-theme', 'classic');
-          } else {
-            document.documentElement.removeAttribute('data-theme');
-          }
-
-          // The wordmark is part of the mode, not decoration around it. A fan
-          // who found the easter egg should be looking at the original name.
-          const wordmark = activeMode === 'classic'
-            ? 'SCORCHED EARTH'
-            : 'ÆTHERCASTLE: ARMORED ALCHEMISTS';
-          document.title = activeMode === 'classic'
-            ? 'Scorched Earth'
-            : 'Æthercastle: Armored Alchemists';
-          const titleEl = document.getElementById('setup-title');
-          if (titleEl) titleEl.textContent = wordmark;
-        }
-        return activeMode;
-      }
-
-      /**
-       * The classic replica's front door.
-       *
-       * Fans reach the original with ?mode=classic (also accepted: ?classic),
-       * which is a real URL and therefore survives a deploy, can be
-       * bookmarked, and can be handed to someone else. A player who does not
-       * know it exists never sees a hint of it.
-       *
-       * This is a REQUEST, not a decision. It selects the mode for rooms this
-       * client CREATES and for solo play; in an online match the room's mode
-       * always wins, because the room's mode is the one every other client is
-       * already simulating.
-       */
-      function requestedModeFromUrl() {
-        if (typeof window === 'undefined' || !window.location) return DEFAULT_MODE;
-        let params;
-        try {
-          params = new URLSearchParams(window.location.search || '');
-        } catch {
-          return DEFAULT_MODE;
-        }
-        if (params.has('classic')) return 'classic';
-        return normaliseMode(params.get('mode'));
-      }
-
-      let requestedMode = requestedModeFromUrl();
-
-      // Theme the landing screen to the request, so a fan arriving on the
-      // classic URL lands on the green screen rather than being re-skinned a
-      // few clicks later. An online match may still overrule this at
-      // ROUND_START if they join someone else's room.
-      applyMode(requestedMode);
-
-      /**
-       * Vehicle chassis registry — the client half.
-       *
-       * Mirrors CHASSIS in lib/constants.js and adds the draw data the server
-       * has no use for. The simulation fields (hp, armour, driveStep,
-       * maxClimb, fuel, fuelPerStep, locomotion) MUST stay identical to the
-       * server table: they decide where a tank ends up after a MOVE_SYNC, and
-       * two clients disagreeing about a chassis is a silent desync.
-       * tests/chassis-registry.test.js fails if the two drift apart.
-       */
-      const CHASSIS = {
-        'clockwork-tank': {
-          id: 'clockwork-tank', name: 'Clockwork Tank', locomotion: 'tracked',
-          hp: 100, armour: 1.00, driveStep: 4, maxClimb: 10, fuel: 100, fuelPerStep: 1,
-          blurb: 'Balanced brass-and-cog hull. Climbs a fair slope, dies at a fair rate.',
-          accent: THEMES.aethercastle.brass500, hullW: 16, hullH: 6, tier: 1
-        },
-        'walker-mech': {
-          id: 'walker-mech', name: 'Walker Mech', locomotion: 'legged',
-          hp: 120, armour: 0.85, driveStep: 7, maxClimb: 34, fuel: 70, fuelPerStep: 2,
-          strideClearance: true,
-          blurb: 'Steps over craters and scarps that stop a hull dead. Thirsty legs.',
-          accent: THEMES.aethercastle.brass300, hullW: 14, hullH: 8, tier: 2
-        },
-        'airship-platform': {
-          id: 'airship-platform', name: 'Airship Platform', locomotion: 'aerial',
-          hp: 80, armour: 1.15, driveStep: 5, maxClimb: Infinity, fuel: 110, fuelPerStep: 1,
-          cruiseAltitude: 140, windDrift: 0.05,
-          blurb: 'Ignores the ground entirely. The wind does not ignore it.',
-          accent: THEMES.aethercastle.cyan400, hullW: 22, hullH: 7, tier: 3
-        },
-        'brass-plated-tank': {
-          id: 'brass-plated-tank', name: 'Brass-Plated Tank', locomotion: 'tracked',
-          hp: 140, armour: 0.65, driveStep: 3, maxClimb: 6, fuel: 80, fuelPerStep: 1,
-          blurb: 'Walks off a direct hit. Cannot walk up anything much.',
-          accent: THEMES.aethercastle.brass600, hullW: 20, hullH: 8, tier: 2
-        },
-        'aether-field-tank': {
-          id: 'aether-field-tank', name: 'Aether-Field Tank', locomotion: 'tracked',
-          hp: 85, armour: 1.00, driveStep: 4, maxClimb: 12, fuel: 90, fuelPerStep: 1,
-          fieldRegen: 25,
-          blurb: 'Thin hull, but it relights its own field at the top of every round.',
-          accent: THEMES.aethercastle.magenta500, hullW: 16, hullH: 6, tier: 3
-        },
-        'scout-drone': {
-          id: 'scout-drone', name: 'Scout Drone', locomotion: 'hover',
-          hp: 60, armour: 1.35, driveStep: 8, maxClimb: 22, fuel: 160, fuelPerStep: 1,
-          hoverClearance: 18,
-          blurb: 'Crosses the map in a turn. Loses an argument with any direct hit.',
-          accent: THEMES.aethercastle.violet500, hullW: 12, hullH: 5, tier: 4
-        }
-      };
-
-      const CHASSIS_IDS = Object.keys(CHASSIS);
-      const DEFAULT_CHASSIS = 'clockwork-tank';
-
-      // Never index CHASSIS directly with a value off the wire.
-      function chassisOf(tank) {
-        const id = tank && tank.chassis;
-        return (id && CHASSIS[id]) || CHASSIS[DEFAULT_CHASSIS];
-      }
-
-      /**
-       * Per-biome terrain ramp: sky gradient, lit crust band and dark core.
-       * Mirrors --biome-*-{sky,crust,core} in the design tokens.
-       */
-      const BIOME_RAMPS = {
-        mountains: { sky: '#0b1b2e', skyLow: '#1d3550', crust: '#8a8f98', core: '#1c1e22' },
-        plains:    { sky: '#0a1c10', skyLow: '#16351f', crust: '#3e7a33', core: '#0a2410' },
-        plateau:   { sky: '#2b1606', skyLow: '#5a2f10', crust: '#c98a46', core: '#5a3a1c' },
-        hills:     { sky: '#0a0616', skyLow: '#1a1030', crust: '#6a4a30', core: '#1c1208' }
+        MAX_FLIGHT_TICKS: 1800
       };
 
       const WEAPONS = [
@@ -1002,116 +314,23 @@
         { id: 'Heavy Roller', name: 'Heavy Roller', cost: 4000, packSize: 2, blast: 45, damage: 90, kind: 'pattern' },
         { id: 'Digger', name: 'Digger', cost: 1500, packSize: 3, blast: 25, damage: 50, kind: 'explosive' },
         { id: 'Heavy Digger', name: 'Heavy Digger', cost: 3000, packSize: 2, blast: 40, damage: 80, kind: 'explosive' },
-        // Sandhogs bore straight down through the dirt, carving the shaft as
-        // they go, and detonate at the bottom of it. `tunnel` is how deep.
-        { id: 'Baby Sandhog', name: 'Baby Sandhog', cost: 1000, packSize: 5, blast: 25, damage: 50, kind: 'sandhog', tunnel: 70 },
-        { id: 'Sandhog', name: 'Sandhog', cost: 2500, packSize: 3, blast: 40, damage: 80, kind: 'sandhog', tunnel: 140 },
-        { id: 'Heavy Sandhog', name: 'Heavy Sandhog', cost: 5000, packSize: 2, blast: 60, damage: 120, kind: 'sandhog', tunnel: 240 },
-        // Riot weapons are digging tools, not killers: they clear dirt and do
-        // no damage at all, which is how you excavate yourself out of a hole.
-        { id: 'Riot Charge', name: 'Riot Charge', cost: 500, packSize: 5, blast: 30, damage: 0, kind: 'riot' },
-        { id: 'Riot Blast', name: 'Riot Blast', cost: 1000, packSize: 5, blast: 45, damage: 0, kind: 'riot' },
-        { id: 'Riot Bomb', name: 'Riot Bomb', cost: 2000, packSize: 3, blast: 65, damage: 0, kind: 'riot' },
-        { id: 'Heavy Riot Bomb', name: 'Heavy Riot Bomb', cost: 4000, packSize: 2, blast: 95, damage: 0, kind: 'riot' },
-        // Explodes, then hops onward and explodes again — `hops` extra times.
-        { id: 'LeapFrog', name: 'LeapFrog', cost: 2500, packSize: 3, blast: 30, damage: 60, kind: 'leapfrog', hops: 2 },
         { id: 'Napalm', name: 'Napalm', cost: 1500, packSize: 3, blast: 15, damage: 5, kind: 'liquid' },
         { id: 'Hot Napalm', name: 'Hot Napalm', cost: 3000, packSize: 2, blast: 20, damage: 10, kind: 'liquid' },
         { id: 'Liquid Dirt', name: 'Liquid Dirt', cost: 1000, packSize: 4, blast: 15, damage: 0, kind: 'liquid' },
-        // The dirt-delivery tier ADDS terrain instead of removing it: bury a
-        // tank, or rebuild the ridge someone just blew out from under you.
-        { id: 'Dirt Clod', name: 'Dirt Clod', cost: 500, packSize: 5, blast: 18, damage: 0, kind: 'dirt' },
-        { id: 'Dirt Ball', name: 'Dirt Ball', cost: 1000, packSize: 4, blast: 24, damage: 0, kind: 'dirt' },
-        { id: 'Dirt Bomb', name: 'Dirt Bomb', cost: 1500, packSize: 3, blast: 30, damage: 0, kind: 'dirt' },
-        { id: 'Ton of Dirt', name: 'Ton of Dirt', cost: 3000, packSize: 2, blast: 55, damage: 0, kind: 'dirt' },
+        { id: 'Dirt Bomb', name: 'Dirt Bomb', cost: 1500, packSize: 3, blast: 30, damage: 0, kind: 'utility' },
         { id: 'Dirt Detonator', name: 'Dirt Detonator', cost: 1000, packSize: 5, blast: 0, damage: 50, kind: 'utility' },
-        // Late-tier exotics.
-        { id: 'Earth Disrupter', name: 'Earth Disrupter', cost: 4000, packSize: 2, blast: 45, damage: 90, kind: 'disrupter' },
-        { id: 'Plasma Blast', name: 'Plasma Blast', cost: 7000, packSize: 1, blast: 120, damage: 220, kind: 'plasma' },
-        { id: 'Laser', name: 'Laser', cost: 5000, packSize: 3, blast: 20, damage: 110, kind: 'laser' },
         { id: 'Sandstorm', name: 'Sandstorm', cost: 2000, packSize: 3, blast: 0, damage: 0, kind: 'utility' },
-        { id: 'Tracer', name: 'Tracer', cost: 100, packSize: 10, blast: 0, damage: 0, kind: 'utility' },
-        { id: 'Smoke Tracer', name: 'Smoke Tracer', cost: 200, packSize: 10, blast: 0, damage: 0, kind: 'utility' }
+        { id: 'Tracer', name: 'Tracer', cost: 100, packSize: 10, blast: 0, damage: 0, kind: 'utility' }
       ];
-
-      const WEAPONS_BY_ID = new Map(WEAPONS.map(w => [w.id, w]));
-
-      // Tracers mark a trajectory and never damage anything. Smoke Tracer is
-      // the same shot with a trail that stays on screen after it lands.
-      function isTracer(weaponId) {
-        return weaponId === 'Tracer' || weaponId === 'Smoke Tracer';
-      }
-
-      // One table instead of the strength constant being repeated at every site
-      // that raises, recharges or draws a shield — they had already drifted into
-      // three separate copies of the same ternary. The shop entries below are
-      // generated from this, so a shield can never cost one thing and absorb
-      // another.
-      // Shields are aether, so they read as the aether ramp: cyan for plain
-      // absorbers, magenta and violet for the deflectors, brass at the top.
-      const SHIELD_TYPES = {
-        'Shield':              { cost: 1000,  strength: 100, deflects: false, colour: 'rgba(0, 191, 255, 0.5)' },
-        'Heavy Shield':        { cost: 2500,  strength: 200, deflects: false, colour: 'rgba(0, 160, 220, 0.6)' },
-        'Mag Deflector':       { cost: 4000,  strength: 150, deflects: true,  colour: 'rgba(255, 45, 155, 0.5)' },
-        'Heavy Mag Deflector': { cost: 6000,  strength: 250, deflects: true,  colour: 'rgba(213, 0, 127, 0.6)' },
-        'Super Magno Shield':  { cost: 8000,  strength: 400, deflects: true,  colour: 'rgba(155, 93, 224, 0.6)' },
-        'Force Shield':        { cost: 10000, strength: 500, deflects: false, colour: 'rgba(242, 233, 180, 0.6)' }
-      };
-
-      // Strongest first: the order a tank raises what it owns.
-      const SHIELD_PRIORITY = Object.keys(SHIELD_TYPES)
-        .sort((a, b) => SHIELD_TYPES[b].strength - SHIELD_TYPES[a].strength);
-
-      function shieldStrength(type) {
-        const conf = SHIELD_TYPES[type];
-        return conf ? conf.strength : 100;
-      }
-
-      function shieldDeflects(type) {
-        const conf = SHIELD_TYPES[type];
-        return !!(conf && conf.deflects);
-      }
-
-      // Proximity fuses trip this far from an enemy hull.
-      const PROXIMITY_FUSE_RADIUS = 34;
-
-      // A shot carries at most one trigger. The order is FIXED rather than
-      // player-chosen, and that is the whole reason FIRE_SYNC does not need a
-      // new field: every client runs armTrigger() against the same replicated
-      // inventory and therefore arms the same trigger for the same shot.
-      const TRIGGER_PRIORITY = [
-        { item: 'Proximity Fuse', trigger: 'proximity' },
-        { item: 'Contact Trigger', trigger: 'contact' }
-      ];
-
-      // What a room set to "Basic" may buy and fire. The server holds the same
-      // list in lib/constants.js and enforces it per room, so this is the shop
-      // filter rather than the security boundary; tests/weapon-registry.test.js
-      // fails if the two ever drift apart.
-      const BASIC_WEAPON_IDS = ['Baby Missile', 'Missile', 'Tracer'];
-
-      const SHIELD_ITEMS = Object.keys(SHIELD_TYPES).map(id => ({
-        id: id,
-        name: id,
-        cost: SHIELD_TYPES[id].cost,
-        packSize: 1,
-        kind: 'shield',
-        strength: SHIELD_TYPES[id].strength
-      }));
 
       const ITEMS = [
-        ...SHIELD_ITEMS,
+        { id: 'Shield', name: 'Shield', cost: 1000, packSize: 1, kind: 'shield', strength: 100 },
+        { id: 'Heavy Shield', name: 'Heavy Shield', cost: 2500, packSize: 1, kind: 'shield', strength: 200 },
+        { id: 'Magnetic Shield', name: 'Magnetic Shield', cost: 4000, packSize: 1, kind: 'shield', strength: 150 },
         { id: 'Battery', name: 'Battery', cost: 500, packSize: 2, kind: 'battery' },
         { id: 'Parachute', name: 'Parachute', cost: 500, packSize: 3, kind: 'parachute' },
         { id: 'Guidance Computer', name: 'Guidance Computer', cost: 2000, packSize: 1, kind: 'utility' },
-        { id: 'Auto Defense', name: 'Auto Defense', cost: 3000, packSize: 1, kind: 'utility' },
-        { id: 'Fuel', name: 'Fuel', cost: 400, packSize: 100, kind: 'fuel' },
-        { id: 'Teleport', name: 'Teleport', cost: 2000, packSize: 1, kind: 'teleport' },
-        // Triggers change how YOUR next shot detonates. Both arm automatically
-        // while you hold stock, the way Parachute and Battery already do, so
-        // there is no extra mode to remember mid-turn.
-        { id: 'Contact Trigger', name: 'Contact Trigger', cost: 800, packSize: 5, kind: 'trigger' },
-        { id: 'Proximity Fuse', name: 'Proximity Fuse', cost: 1500, packSize: 3, kind: 'trigger' }
+        { id: 'Auto Defense', name: 'Auto Defense', cost: 3000, packSize: 1, kind: 'utility' }
       ];
 
       // Helper function to create deterministic mulberry32 generator stream
@@ -1294,55 +513,6 @@
             gain.connect(masterGain);
             osc.start();
             osc.stop(audioCtx.currentTime + 0.1);
-          } else if (name === 'hit') {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'square';
-            osc.frequency.setValueAtTime(100, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.15);
-            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-            gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
-            osc.connect(gain);
-            gain.connect(masterGain);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.15);
-          } else if (name === 'death') {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(80, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.5);
-            gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
-            gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-            osc.connect(gain);
-            gain.connect(masterGain);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.5);
-          } else if (name === 'shieldHit') {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(600, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.1);
-            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-            gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-            osc.connect(gain);
-            gain.connect(masterGain);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.1);
-          } else if (name === 'roundEnd') {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(300, audioCtx.currentTime);
-            osc.frequency.setValueAtTime(400, audioCtx.currentTime + 0.2);
-            osc.frequency.setValueAtTime(500, audioCtx.currentTime + 0.4);
-            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-            gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
-            osc.connect(gain);
-            gain.connect(masterGain);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.6);
           } else if (name === 'explode') {
             try {
               const bufferSize = audioCtx.sampleRate * 0.5;
@@ -1451,7 +621,6 @@
           case 'CONNECTION_ERROR': return 'Could not reach the game server.';
           case 'SOCKET_ERROR': return 'Connection error — retrying...';
           case 'PARSE_ERROR': return 'Received a malformed message from the server.';
-          case 'HANDLER_ERROR': return 'This client hit an internal error handling a server update.';
           case 'SEND_ERROR': return 'Could not send to the server.';
           default: return 'Network error.';
         }
@@ -1489,8 +658,6 @@
             TURN_SYNC: (msg) => this.toGame('applyTurnSync', msg),
             PLAYER_LEFT: (msg) => this.toGame('applyPlayerLeft', msg),
             ROUND_END: (msg) => this.toGame('applyRoundEnd', msg),
-            MOVE_SYNC: (msg) => this.toGame('applyMoveSync', msg),
-            TELEPORT_SYNC: (msg) => this.toGame('applyTeleportSync', msg),
             ERROR: (msg) => {
               console.warn('Server ERROR:', msg.code, msg.message);
             }
@@ -1606,46 +773,28 @@
           };
 
           this.socket.onmessage = (event) => {
-            // Parsing and dispatching are caught SEPARATELY on purpose. These
-            // used to share one try, so a bug thrown by any handler was
-            // reported as PARSE_ERROR — as if the server had sent garbage —
-            // and then swallowed. That is exactly how a ReferenceError in the
-            // shop renderer shipped: the online shop silently never opened and
-            // nothing anywhere said why.
-            let msg;
             try {
-              msg = JSON.parse(event.data);
+              const msg = JSON.parse(event.data);
               if (!msg || typeof msg !== 'object') {
                 throw new Error('Invalid message format');
               }
+
+              const type = msg.type;
+
+              console.debug("Received S2C message:", type, msg);
+
+              const handler = type ? this.dispatchTable[type] : null;
+              if (handler) {
+                handler(msg);
+                if (type === 'ERROR') {
+                  // Surface the server error once, via the onError callback.
+                  this.handleError(msg);
+                }
+              } else {
+                console.warn('Unrecognised S2C message type:', type, msg);
+              }
             } catch (err) {
               this.handleError({ type: 'PARSE_ERROR', error: err, data: event.data });
-              return;
-            }
-
-            const type = msg.type;
-
-            console.debug("Received S2C message:", type, msg);
-
-            const handler = type ? this.dispatchTable[type] : null;
-            if (!handler) {
-              console.warn('Unrecognised S2C message type:', type, msg);
-              return;
-            }
-
-            try {
-              handler(msg);
-            } catch (err) {
-              // A handler bug is OUR defect, not a malformed frame. Say so
-              // loudly and keep the socket alive so the match is not dropped.
-              console.error('Handler for S2C message', type, 'threw:', err);
-              this.handleError({ type: 'HANDLER_ERROR', messageType: type, error: err });
-              return;
-            }
-
-            if (type === 'ERROR') {
-              // Surface the server error once, via the onError callback.
-              this.handleError(msg);
             }
           };
 
@@ -1767,9 +916,9 @@
           this.biome = 'plains';
         }
 
-        generate(seed, config = {}) {
+        generate(seed) {
           terrainRNG.seed(seed);
-          const h = TerrainLib.generateTerrain(terrainRNG, CONST.WORLD_W, CONST.WORLD_H, config);
+          const h = TerrainLib.generateTerrain(terrainRNG, CONST.WORLD_W, CONST.WORLD_H);
           this.heights.set(h);
           this.biome = h.biome || 'plains';
         }
@@ -1922,10 +1071,6 @@
       }
 
       class Game {
-        get gravity() {
-          return this.config && this.config.gravity !== undefined ? this.config.gravity : CONST.GRAVITY;
-        }
-
         constructor(opts = {}) {
           this.headless = !!opts.headless;
           this.seed = opts.seed !== undefined ? opts.seed : 42;
@@ -2028,15 +1173,6 @@
             } else if (e.key === '[' || e.key === ']' || e.key === 'Tab') {
               this.cycleWeapon(e.key === '[' ? -1 : 1);
               e.preventDefault();
-            } else if (e.key === 'a' || e.key === 'A') {
-              this.requestDrive(-1);
-              e.preventDefault();
-            } else if (e.key === 'd' || e.key === 'D') {
-              this.requestDrive(1);
-              e.preventDefault();
-            } else if (e.key === 't' || e.key === 'T') {
-              this.requestTeleport();
-              e.preventDefault();
             }
 
             if (changed) {
@@ -2073,7 +1209,6 @@
           if (ammo !== undefined && ammo !== Infinity) {
             activeTank.inventory[weapon]--;
           }
-          const trigger = this.armTrigger(activeTank);
 
           const angleRad = (activeTank.angle * Math.PI) / 180;
           const barrelLen = 12;
@@ -2089,8 +1224,7 @@
             vx: vx,
             vy: vy,
             weapon: weapon,
-            shooterIdx: this.activePlayerIdx,
-            trigger: trigger
+            shooterIdx: this.activePlayerIdx
           };
 
           if (!this.headless && typeof sfx === 'function') {
@@ -2114,18 +1248,11 @@
           // late cannot fly the projectile through a different breeze.
           if (msg.wind !== undefined) this.wind = msg.wind;
 
-          let weapon = msg.weapon || 'Baby Missile';
-          let ammo = shooter.inventory[weapon];
-          if (ammo === undefined || (ammo <= 0 && ammo !== Infinity)) {
-            weapon = 'Baby Missile';
-            ammo = shooter.inventory[weapon];
-          }
+          const weapon = msg.weapon || 'Baby Missile';
+          const ammo = shooter.inventory[weapon];
           if (ammo !== undefined && ammo !== Infinity) {
             shooter.inventory[weapon]--;
           }
-          // Armed locally, from the inventory every client already replicates —
-          // the same reason the ammo decrement above is safe to do client-side.
-          const trigger = this.armTrigger(shooter);
           shooter.selectedWeapon = weapon;
 
           // angle is used ONLY to place the barrel tip, and goes through the
@@ -2145,8 +1272,7 @@
             vy: msg.vy,
             weapon: weapon,
             shooterIdx: shooterIdx,
-            shotId: msg.shotId,
-            trigger: trigger
+            shotId: msg.shotId
           };
 
           if (!this.headless && typeof sfx === 'function') {
@@ -2162,10 +1288,6 @@
           this.turnNumber = msg.turnNumber;
           this.activeShotId = null;
           this.reportedShotId = null;
-          // Wind moves the airships before the new shooter takes aim. Online
-          // this is the one place every client advances a turn, so applying
-          // the drift here keeps all of them on the same pixel.
-          this.applyChassisTurnDrift();
           this.setActiveSlot(msg.activeSlot);
           this.raiseShieldForActivePlayer();
           this.updateHUD();
@@ -2192,135 +1314,8 @@
             this.handleRoundEnd();
           }
           this.roundOver = true;
-
-          // Rounds won is the server's number, not ours — it is the only
-          // match-level score neither client computes locally.
-          if (msg && Array.isArray(msg.scores)) {
-            this.standings = msg.scores;
-            this.standings.forEach(s => {
-              const tank = this.roster && this.roster.find(t => t.slot === s.slot);
-              if (tank) tank.roundsWon = s.roundsWon || 0;
-            });
-          }
-          if (msg && Number.isFinite(msg.totalRounds)) this.rounds = msg.totalRounds;
-          if (msg && Number.isFinite(msg.round)) this.currentRound = msg.round;
-
-          // A server that never sends matchOver only knows the old
-          // single-round flow, so treat a missing field as "match is over"
-          // rather than parking the player in a shop nothing will close.
-          const matchOver = !msg || msg.matchOver === undefined ? true : msg.matchOver;
-          this.matchOver = matchOver;
-
-          if (this.headless) return;
-          if (matchOver) {
+          if (!this.headless) {
             this.showMatchSummary();
-          } else {
-            this.showOnlineIntermission();
-          }
-        }
-
-        // Online intermission: standings, then this client's own shop. Unlike
-        // the local hot-seat shop this is NOT sequential — every client shops
-        // for its own player at the same time, and the server starts the next
-        // round once each of them has sent SHOP_DONE.
-        showOnlineIntermission() {
-          if (this.headless) return;
-          const myIdx = this.roster ? this.roster.findIndex(t => t.slot === this.mySlot) : -1;
-          if (myIdx === -1) {
-            // A spectator, or a slot we never learned. Nothing to buy, but the
-            // server still counts us, so report in immediately.
-            this.sendShopDone();
-            this.showWaitingForPlayers();
-            return;
-          }
-          this.showShopForPlayer(myIdx, {
-            standings: this.standings,
-            onDone: () => {
-              this.sendShopDone();
-              this.showWaitingForPlayers();
-            }
-          });
-        }
-
-        sendShopDone() {
-          if (this.shopDoneSentForRound === this.currentRound) return;
-          this.shopDoneSentForRound = this.currentRound;
-          if (this.net) this.net.send('SHOP_DONE', {});
-        }
-
-        showWaitingForPlayers() {
-          if (this.headless || typeof document === 'undefined') return;
-          const shopEl = document.getElementById('shop');
-          if (!shopEl) return;
-          shopEl.hidden = false;
-          shopEl.innerHTML = '';
-
-          const box = document.createElement('div');
-          box.style.background = '#181818';
-          box.style.border = 'var(--border-plate) solid var(--border-brass)';
-          box.style.padding = '30px';
-          box.style.maxWidth = '500px';
-          box.style.margin = '80px auto';
-          box.style.textAlign = 'center';
-          box.style.color = 'var(--brass-300)';
-          box.style.letterSpacing = '2px';
-          box.textContent = 'WAITING FOR OTHER PLAYERS…';
-          shopEl.appendChild(box);
-        }
-
-        // Round 2+ of an online match. Deliberately NOT start(): start()
-        // rebuilds the roster from the server's tank list, which would reset
-        // cash and inventory to the starting values every round and wipe the
-        // progression the shop just bought.
-        applyServerRoundStart(msg) {
-          this.currentRound = Number.isFinite(msg.round) ? msg.round : (this.currentRound || 1) + 1;
-          if (Number.isFinite(msg.totalRounds)) this.rounds = msg.totalRounds;
-          if (Array.isArray(msg.turnOrder)) this.turnOrder = msg.turnOrder.slice();
-          this.matchOver = false;
-
-          // Same call order as start(): newRound() seeds gameplayRNG from the
-          // server's seed, then every tank position is drawn from that stream
-          // in roster order. Any client that reorders or skips a draw here
-          // builds a different world and desyncs silently.
-          this.newRound(msg.seed);
-          if (Number.isFinite(msg.wind)) this.wind = msg.wind;
-
-          const N = this.roster.length;
-          const zoneW = CONST.WORLD_W / N;
-          const margin = 40;
-          this.roster.forEach((tank, i) => {
-            // A chassis decides how much hull there is to lose.
-            tank.maxHp = chassisOf(tank).hp;
-            tank.hp = tank.maxHp;
-            tank.shield = null;
-            tank.alive = true;
-            tank.reportedDead = false;
-            tank.damageDealt = 0;
-            tank.kills = 0;
-            this.grantRoundFuel(tank);
-            this.applyChassisRoundStart(tank);
-            const minX = zoneW * i + margin;
-            const maxX = zoneW * (i + 1) - margin;
-            tank.x = gameplayRNG.range(minX, maxX);
-          });
-          this.snapTanksToTerrain();
-
-          this.activeShotId = null;
-          this.reportedShotId = null;
-          this.projectile = null;
-          this.roundOver = false;
-          // The server sends a TURN_SYNC right behind this to place the real
-          // cursor; turnOrder[0] is only the placeholder until it lands.
-          this.activePlayerIdx = 0;
-          if (this.turnOrder && this.turnOrder.length) {
-            this.setActiveSlot(this.turnOrder[0]);
-          }
-          this.raiseShieldForActivePlayer();
-
-          if (!this.headless && typeof document !== 'undefined') {
-            const shopEl = document.getElementById('shop');
-            if (shopEl) shopEl.hidden = true;
-            this.updateHUD();
           }
         }
 
@@ -2385,253 +1380,14 @@
             if (this.explosions) {
               this.explosions.length = 0;
             }
-            this.damageNumbers = [];
           }
         }
 
-        // Each chassis settles at its own altitude — an airship parks in the
-        // air, a drone hovers, a hull sits on the dirt.
         snapTanksToTerrain() {
           if (!this.roster) return;
           this.roster.forEach(tank => {
-            tank.y = this.restingY(tank, tank.x);
+            tank.y = CONST.WORLD_H - this.terrain.heightAt(tank.x);
           });
-        }
-
-        // Every round starts with at least a full tank so repositioning is
-        // never gated behind a shop visit; anything bought on top carries.
-        // The size of "full" is a chassis stat: legs are thirsty, a drone
-        // carries a lot because it burns it fast.
-        grantRoundFuel(tank) {
-          const held = tank.inventory['Fuel'] || 0;
-          tank.inventory['Fuel'] = Math.max(held, chassisOf(tank).fuel);
-        }
-
-        // An aether-field hull relights its own field at the top of a round.
-        // Pure function of the chassis table and the tank's own state, so it
-        // needs no lockstep traffic — every client runs it and agrees.
-        // Uses the stock 'Shield' type rather than inventing one, so the
-        // shop's shield list and SHIELD_PRIORITY stay a single source of truth.
-        applyChassisRoundStart(tank) {
-          const spec = chassisOf(tank);
-          if (!spec.fieldRegen) return;
-          if (!tank.shield || tank.shield.hp <= 0) {
-            tank.shield = { type: 'Shield', hp: spec.fieldRegen };
-          } else {
-            tank.shield.hp += spec.fieldRegen;
-          }
-        }
-
-        /**
-         * Drive a tank horizontally. Deterministic by construction: terrain
-         * heights and arithmetic only, no RNG, so every client that applies the
-         * same MOVE_SYNC lands on the same pixel.
-         *
-         * Fuel is deliberately NOT a precondition here. Online, a client only
-         * knows its own inventory — every remote tank's Fuel entry is undefined
-         * on this machine — so gating the movement on fuel would stop remote
-         * tanks moving on every screen but their owner's, which is a desync.
-         * The fuel check belongs at the input site, before the MOVE is sent;
-         * this function only spends what it can see.
-         */
-        /**
-         * The altitude a chassis rests at once it is over column x.
-         *
-         * Aerial hulls hold station above the tallest ground in a window
-         * around them, so an airship crossing a ridge rises over it instead of
-         * clipping through. Hover hulls sit a fixed clearance above the
-         * surface. Everything else sits ON the surface.
-         *
-         * Arithmetic and terrain reads only — no RNG — so every client that
-         * applies the same MOVE_SYNC lands on the same pixel.
-         */
-        restingY(tank, x) {
-          const spec = chassisOf(tank);
-          if (spec.locomotion === 'aerial') {
-            // Scan a fixed window so the result depends only on x and the
-            // terrain, never on the path taken to get here.
-            let peak = 0;
-            const half = 60;
-            for (let c = x - half; c <= x + half; c += 4) {
-              const h = this.terrain.heightAt(c);
-              if (h > peak) peak = h;
-            }
-            const y = CONST.WORLD_H - peak - spec.cruiseAltitude;
-            // Never leave the top of the world.
-            return Math.max(24, y);
-          }
-          if (spec.locomotion === 'hover') {
-            return CONST.WORLD_H - this.terrain.heightAt(x) - spec.hoverClearance;
-          }
-          return CONST.WORLD_H - this.terrain.heightAt(x);
-        }
-
-        /**
-         * Drive a tank horizontally under its chassis's movement model.
-         * Deterministic by construction: terrain heights and arithmetic only.
-         *
-         * Fuel is deliberately NOT a precondition here. Online, a client only
-         * knows its own inventory — every remote tank's Fuel entry is undefined
-         * on this machine — so gating the movement on fuel would stop remote
-         * tanks moving on every screen but their owner's, which is a desync.
-         * The fuel check belongs at the input site, before the MOVE is sent;
-         * this function only spends what it can see.
-         *
-         * Four branches, one per locomotion type:
-         *   aerial  — terrain cannot block it at all
-         *   legged  — clears the ground between footfalls
-         *   hover   — surface-following, but forgiving about slope
-         *   tracked — surface-following, refuses anything over maxClimb
-         */
-        driveTank(tank, dir, steps) {
-          if (!tank || tank.hp <= 0) return 0;
-          const spec = chassisOf(tank);
-          const minX = CONST.TANK_MARGIN;
-          const maxX = CONST.WORLD_W - CONST.TANK_MARGIN;
-          const stride = spec.driveStep;
-
-          let taken = 0;
-          for (let i = 0; i < steps; i++) {
-            const nextX = tank.x + dir * stride;
-            if (nextX < minX || nextX > maxX) break;
-
-            if (spec.locomotion === 'aerial') {
-              // An airship is never stopped by ground: it is already above it.
-              tank.x = nextX;
-              tank.y = this.restingY(tank, nextX);
-              taken++;
-              continue;
-            }
-
-            const currentHeight = this.terrain.heightAt(tank.x);
-            const nextHeight = this.terrain.heightAt(nextX);
-
-            if (spec.locomotion === 'legged') {
-              // A stride is a single footfall: only the destination column has
-              // to be reachable, and whatever sits between the two feet —
-              // a crater, a spire, a trench — is simply stepped over. This is
-              // the whole point of legs, and it is why a mech crosses ground a
-              // tracked hull has to go around.
-              if (nextHeight - currentHeight > spec.maxClimb) break;
-            } else if (spec.locomotion === 'hover') {
-              // Rotors care about the surface, but a lot less than tracks do.
-              if (nextHeight - currentHeight > spec.maxClimb) break;
-            } else {
-              // Tracked: every column must be climbable. Uphill only to a
-              // point; downhill of any depth is fine, because the hull settles
-              // onto the new column rather than toppling, which keeps this
-              // independent of the falling/parachute physics.
-              if (nextHeight - currentHeight > spec.maxClimb) break;
-            }
-
-            tank.x = nextX;
-            tank.y = this.restingY(tank, nextX);
-            taken++;
-          }
-
-          if (taken > 0 && typeof tank.inventory['Fuel'] === 'number') {
-            const spent = taken * spec.fuelPerStep;
-            tank.inventory['Fuel'] = Math.max(0, tank.inventory['Fuel'] - spent);
-          }
-          return taken;
-        }
-
-        /**
-         * An airship holds no ground: every turn it is airborne, the same wind
-         * that bends the shells slides it downwind.
-         *
-         * Runs off this.wind, which is already server-authoritative and
-         * identical on every client, and is called from exactly the two places
-         * every client advances a turn (applyTurnSync online, nextTurn local).
-         * No RNG, so the drift is the same pixel everywhere.
-         */
-        applyChassisTurnDrift() {
-          if (!this.roster) return;
-          const wind = this.wind || 0;
-          this.roster.forEach(tank => {
-            if (tank.hp <= 0) return;
-            const spec = chassisOf(tank);
-            if (spec.locomotion !== 'aerial' || !spec.windDrift) return;
-            const drifted = tank.x + wind * spec.windDrift;
-            tank.x = Math.min(
-              CONST.WORLD_W - CONST.TANK_MARGIN,
-              Math.max(CONST.TANK_MARGIN, drifted)
-            );
-            tank.y = this.restingY(tank, tank.x);
-          });
-        }
-
-        teleportTank(tank, x) {
-          if (!tank || tank.hp <= 0) return false;
-          const clamped = Math.min(
-            CONST.WORLD_W - CONST.TANK_MARGIN,
-            Math.max(CONST.TANK_MARGIN, x)
-          );
-          tank.x = clamped;
-          tank.y = this.restingY(tank, clamped);
-          return true;
-        }
-
-        // Driving and teleporting are INPUTS, handled exactly like FIRE:
-        // online they are sent and nothing is applied locally, so the move
-        // lands on every client at the same point in the message order.
-        requestDrive(dir) {
-          if (!this.roster || this.activePlayerIdx === undefined) return;
-          const tank = this.roster[this.activePlayerIdx];
-          if (!tank || tank.hp <= 0 || this.projectile) return;
-          if ((tank.inventory['Fuel'] || 0) <= 0) return;
-
-          if (this.mode === 'online') {
-            if (tank.slot !== this.mySlot) return;
-            if (this.activeShotId) return;
-            if (this.net) this.net.send('MOVE', { dir, steps: 1 });
-            return;
-          }
-
-          this.driveTank(tank, dir, 1);
-          if (!this.headless) this.updateHUD();
-        }
-
-        requestTeleport() {
-          if (!this.roster || this.activePlayerIdx === undefined) return;
-          const tank = this.roster[this.activePlayerIdx];
-          if (!tank || tank.hp <= 0 || this.projectile) return;
-          if ((tank.inventory['Teleport'] || 0) <= 0) return;
-
-          if (this.mode === 'online') {
-            if (tank.slot !== this.mySlot) return;
-            if (this.activeShotId) return;
-            if (this.net) this.net.send('TELEPORT', {});
-            return;
-          }
-
-          // Local play is the only simulation there is, so the shared gameplay
-          // stream is a safe source for the destination.
-          const x = gameplayRNG.range(CONST.TANK_MARGIN, CONST.WORLD_W - CONST.TANK_MARGIN);
-          this.teleportTank(tank, x);
-          tank.inventory['Teleport'] = Math.max(0, (tank.inventory['Teleport'] || 0) - 1);
-          if (!this.headless) this.updateHUD();
-        }
-
-        applyMoveSync(msg) {
-          if (!this.roster || !msg) return;
-          const tank = this.roster.find(t => t.slot === msg.slot);
-          if (!tank) return;
-          this.driveTank(tank, msg.dir, msg.steps);
-          if (!this.headless) this.updateHUD();
-        }
-
-        applyTeleportSync(msg) {
-          if (!this.roster || !msg) return;
-          const tank = this.roster.find(t => t.slot === msg.slot);
-          if (!tank) return;
-          this.teleportTank(tank, msg.x);
-          // Only the owning client tracks a Teleport count; on every other
-          // client the entry is undefined and there is nothing to spend.
-          if (typeof tank.inventory['Teleport'] === 'number') {
-            tank.inventory['Teleport'] = Math.max(0, tank.inventory['Teleport'] - 1);
-          }
-          if (!this.headless) this.updateHUD();
         }
 
         updateHUD() {
@@ -2670,7 +1426,6 @@
           let powerSpan = hud.querySelector('.hud-power');
           let weaponSpan = hud.querySelector('.hud-weapon');
           let cashSpan = hud.querySelector('.hud-cash');
-          let fuelSpan = hud.querySelector('.hud-fuel');
           let windSpan = hud.querySelector('.hud-wind');
           let netSpan = hud.querySelector('.hud-net');
           let legendSpan = hud.querySelector('.hud-legend');
@@ -2703,10 +1458,6 @@
             cashSpan.className = 'hud-cash';
             cashSpan.style.marginRight = '15px';
 
-            fuelSpan = document.createElement('span');
-            fuelSpan.className = 'hud-fuel';
-            fuelSpan.style.marginRight = '15px';
-
             windSpan = document.createElement('span');
             windSpan.className = 'hud-wind';
             windSpan.style.marginRight = '15px';
@@ -2728,32 +1479,18 @@
             hud.appendChild(powerSpan);
             hud.appendChild(weaponSpan);
             hud.appendChild(cashSpan);
-            hud.appendChild(fuelSpan);
             hud.appendChild(windSpan);
             hud.appendChild(netSpan);
             hud.appendChild(legendSpan);
-          } else if (legendSpan && (!netSpan || !fuelSpan)) {
-            // Upgrade a HUD built by an earlier version rather than rebuilding
-            // it, which would drop the spans this frame is about to write.
-            const addBeforeLegend = (span) => {
-              if (typeof hud.insertBefore === 'function') {
-                hud.insertBefore(span, legendSpan);
-              } else {
-                hud.appendChild(span);
-              }
-            };
-            if (!netSpan) {
-              netSpan = document.createElement('span');
-              netSpan.className = 'hud-net';
-              netSpan.style.marginRight = '15px';
-              netSpan.style.fontWeight = 'bold';
-              addBeforeLegend(netSpan);
-            }
-            if (!fuelSpan) {
-              fuelSpan = document.createElement('span');
-              fuelSpan.className = 'hud-fuel';
-              fuelSpan.style.marginRight = '15px';
-              addBeforeLegend(fuelSpan);
+          } else if (!netSpan && legendSpan) {
+            netSpan = document.createElement('span');
+            netSpan.className = 'hud-net';
+            netSpan.style.marginRight = '15px';
+            netSpan.style.fontWeight = 'bold';
+            if (typeof hud.insertBefore === 'function') {
+              hud.insertBefore(netSpan, legendSpan);
+            } else {
+              hud.appendChild(netSpan);
             }
           }
 
@@ -2763,19 +1500,8 @@
           hpSpan.textContent = `HP: ${activeTank.hp}`;
           angleSpan.textContent = `ANG: ${activeTank.angle}°`;
           powerSpan.textContent = `PWR: ${activeTank.power}`;
-          // Read off TRIGGER_PRIORITY rather than a second list, so the HUD can
-          // never advertise a trigger different from the one armTrigger() will
-          // actually spend.
-          const armed = TRIGGER_PRIORITY.find(t => (activeTank.inventory[t.item] || 0) > 0);
-          weaponSpan.textContent = `WEAP: ${weapon} (${ammoStr})`
-            + (armed ? ` [${armed.trigger === 'proximity' ? 'PROX' : 'CONTACT'}]` : '');
+          weaponSpan.textContent = `WEAP: ${weapon} (${ammoStr})`;
           cashSpan.textContent = `CASH: $${activeTank.cash}`;
-          if (fuelSpan) {
-            const fuel = activeTank.inventory['Fuel'] || 0;
-            const teleports = activeTank.inventory['Teleport'] || 0;
-            fuelSpan.textContent = `FUEL: ${fuel}` + (teleports > 0 ? ` TP: ${teleports}` : '');
-            fuelSpan.style.color = fuel > 0 ? '#ffaa00' : '#555';
-          }
           windSpan.textContent = `WIND: ${windDir} ${windSpeed}`;
 
           if (this.mode === 'online') {
@@ -2783,7 +1509,7 @@
               netSpan.style.display = '';
               let stateColor = '#ff0000';
               const netState = this.net ? this.net.state : 'lost';
-              if (netState === 'live') stateColor = 'var(--acid-500)';
+              if (netState === 'live') stateColor = '#00ff00';
               else if (netState === 'connecting' || netState === 'reconnecting') stateColor = '#ffff00';
               netSpan.textContent = `NET: ${netState.toUpperCase()}`;
               netSpan.style.color = stateColor;
@@ -2794,7 +1520,7 @@
             }
           }
 
-          legendSpan.textContent = 'L/R: Angle | U/D: Power | A/D: Drive | T: Teleport | Space: Fire | [/]: Weapon | Shift: Coarse';
+          legendSpan.textContent = 'L/R: Angle | U/D: Power | Space: Fire | [/]: Weapon | Shift: Coarse';
         }
 
         // Put a net error somewhere the player can actually read it. #error-msg
@@ -2864,18 +1590,11 @@
               // roster array index, which can differ from slot order.
               slot: Number.isInteger(p.slot) ? p.slot : i,
               connected: true,
-              // Chassis is chosen in the lobby and echoed by the server in
-              // ROUND_START.tanks, so every client builds the same vehicle.
-              chassis: (p.chassis && CHASSIS[p.chassis]) ? p.chassis : DEFAULT_CHASSIS,
-              hp: ((p.chassis && CHASSIS[p.chassis]) || CHASSIS[DEFAULT_CHASSIS]).hp,
-              maxHp: ((p.chassis && CHASSIS[p.chassis]) || CHASSIS[DEFAULT_CHASSIS]).hp,
+              hp: 100,
               angle: 45,
               power: 500,
               cash: this.startingCash,
-              inventory: {
-                'Baby Missile': Infinity,
-                'Fuel': ((p.chassis && CHASSIS[p.chassis]) || CHASSIS[DEFAULT_CHASSIS]).fuel
-              },
+              inventory: { 'Baby Missile': Infinity },
               selectedWeapon: 'Baby Missile',
               shield: null,
               x: x,
@@ -2915,9 +1634,11 @@
 
           // Battery logic: "Battery restoring hp or recharging a raised shield."
           if (activeTank.inventory && activeTank.inventory['Battery'] > 0) {
-            const cap = activeTank.shield ? shieldStrength(activeTank.shield.type) : 0;
-            if (activeTank.shield && activeTank.shield.hp < cap) {
-              activeTank.shield.hp = Math.min(cap, activeTank.shield.hp + 50);
+            if (activeTank.shield && activeTank.shield.hp < (activeTank.shield.type === 'Heavy Shield' ? 200 : (activeTank.shield.type === 'Magnetic Shield' ? 150 : 100))) {
+              activeTank.shield.hp = Math.min(
+                activeTank.shield.type === 'Heavy Shield' ? 200 : (activeTank.shield.type === 'Magnetic Shield' ? 150 : 100),
+                activeTank.shield.hp + 50
+              );
               activeTank.inventory['Battery']--;
             } else if (activeTank.hp < 100) {
               activeTank.hp = Math.min(100, activeTank.hp + 30);
@@ -2928,23 +1649,19 @@
           // Raise shield from inventory if none is active
           if (!activeTank.shield || activeTank.shield.hp <= 0) {
             activeTank.shield = null;
-            this.raiseBestShield(activeTank);
-          }
-        }
-
-        // Raises the strongest shield the tank owns and spends it. Shared by the
-        // start-of-turn raise and Auto Defense, so the two can never disagree
-        // about which shield is best.
-        raiseBestShield(tank) {
-          if (!tank || !tank.inventory) return null;
-          for (const type of SHIELD_PRIORITY) {
-            if (tank.inventory[type] > 0) {
-              tank.shield = { type: type, hp: shieldStrength(type) };
-              tank.inventory[type]--;
-              return tank.shield;
+            if (activeTank.inventory) {
+              if (activeTank.inventory['Heavy Shield'] > 0) {
+                activeTank.shield = { type: 'Heavy Shield', hp: 200 };
+                activeTank.inventory['Heavy Shield']--;
+              } else if (activeTank.inventory['Magnetic Shield'] > 0) {
+                activeTank.shield = { type: 'Magnetic Shield', hp: 150 };
+                activeTank.inventory['Magnetic Shield']--;
+              } else if (activeTank.inventory['Shield'] > 0) {
+                activeTank.shield = { type: 'Shield', hp: 100 };
+                activeTank.inventory['Shield']--;
+              }
             }
           }
-          return null;
         }
 
         nextTurn() {
@@ -2957,10 +1674,6 @@
             this.reportShotResolved();
             return;
           }
-
-          // Local play advances its own turn, so the drift is applied here
-          // instead — same call, same point in the turn.
-          this.applyChassisTurnDrift();
 
           let nextIdx = this.activePlayerIdx;
           for (let i = 0; i < this.roster.length; i++) {
@@ -3013,7 +1726,7 @@
               const startAngles = dx > 0 ? [60, 55, 65, 50, 70, 45, 75, 40, 80, 35, 85] : [120, 125, 115, 130, 110, 135, 105, 140, 100, 145, 95];
               let solvedAngle = null;
               let solvedPower = null;
-              const g = this.gravity;
+              const g = CONST.GRAVITY;
 
               for (let angle of startAngles) {
                 const angleRad = (angle * Math.PI) / 180;
@@ -3054,7 +1767,7 @@
               const startAngles = shootRight ? [60, 55, 65, 50, 70, 45, 75, 40, 80, 35, 85] : [120, 125, 115, 130, 110, 135, 105, 140, 100, 145, 95];
               let solvedAngle = null;
               let solvedPower = null;
-              const g = this.gravity;
+              const g = CONST.GRAVITY;
 
               for (let angle of startAngles) {
                 const angleRad = (angle * Math.PI) / 180;
@@ -3112,7 +1825,7 @@
               let solvedAngle = null;
               let solvedPower = null;
               const aw = this.wind || 0;
-              const g = this.gravity;
+              const g = CONST.GRAVITY;
 
               for (let angle of startAngles) {
                 const angleRad = (angle * Math.PI) / 180;
@@ -3155,22 +1868,16 @@
         // shield to zero (blast damage, napalm burn, magnetic deflection).
         raiseAutoDefenseShield(tank) {
           if (!tank.inventory || !(tank.inventory['Auto Defense'] > 0)) return;
-          this.raiseBestShield(tank);
-        }
-
-        // Spends and returns the trigger arming this shot, or null. A trigger
-        // governs WHEN the shell first detonates, not what the explosion then
-        // does: a Contact-triggered LeapFrog still hops afterwards, it just
-        // does not roll, dig or tunnel before the first blast.
-        armTrigger(tank) {
-          if (!tank || !tank.inventory) return null;
-          for (const t of TRIGGER_PRIORITY) {
-            if (tank.inventory[t.item] > 0) {
-              tank.inventory[t.item]--;
-              return t.trigger;
-            }
+          if (tank.inventory['Heavy Shield'] > 0) {
+            tank.shield = { type: 'Heavy Shield', hp: 200 };
+            tank.inventory['Heavy Shield']--;
+          } else if (tank.inventory['Magnetic Shield'] > 0) {
+            tank.shield = { type: 'Magnetic Shield', hp: 150 };
+            tank.inventory['Magnetic Shield']--;
+          } else if (tank.inventory['Shield'] > 0) {
+            tank.shield = { type: 'Shield', hp: 100 };
+            tank.inventory['Shield']--;
           }
-          return null;
         }
 
         // Single entry point for damaging a tank. Every damage source must route
@@ -3179,13 +1886,7 @@
         applyDamageToTank(tank, amount, shooter) {
           if (!tank || tank.hp <= 0) return false;
 
-          // Armour is the other half of a chassis's trade-off: a brass-plated
-          // hull takes 0.65x, a scout drone 1.35x. Rounded to a whole point so
-          // hp stays an integer everywhere — the HUD, the elimination check and
-          // the tests all read it, and a fractional hp would drift into a
-          // different rounding on a different client.
-          const armour = chassisOf(tank).armour;
-          let remaining = Math.max(0, Math.round(Math.max(0, amount) * armour));
+          let remaining = Math.max(0, amount);
           if (remaining <= 0) return false;
 
           // Damage dealt counts the full hit, including whatever the shield eats
@@ -3194,13 +1895,10 @@
           }
 
           // Shield damage absorption
-          let shieldAbsorbed = 0;
           if (tank.shield && tank.shield.hp > 0) {
             const shieldDmg = Math.min(tank.shield.hp, remaining);
             tank.shield.hp -= shieldDmg;
             remaining -= shieldDmg;
-            shieldAbsorbed = shieldDmg;
-            if (!this.headless && shieldDmg > 0 && typeof sfx === 'function') sfx('shieldHit');
             if (tank.shield.hp <= 0) {
               tank.shield = null;
               this.raiseAutoDefenseShield(tank);
@@ -3210,19 +1908,8 @@
           const prevHp = tank.hp;
           tank.hp = Math.max(0, tank.hp - remaining);
 
-          if (!this.headless && this.damageNumbers) {
-            if (shieldAbsorbed > 0) {
-              this.damageNumbers.push({ x: tank.x, y: tank.y - 15, text: shieldAbsorbed.toFixed(0), color: THEME.shieldCharge, life: 60 });
-            }
-            if (remaining > 0) {
-              this.damageNumbers.push({ x: tank.x, y: tank.y, text: remaining.toFixed(0), color: THEME.damage, life: 60 });
-              if (typeof sfx === 'function') sfx('hit');
-            }
-          }
-
           // Mark dead and credit kill
           if (prevHp > 0 && tank.hp <= 0) {
-            if (!this.headless && typeof sfx === 'function') sfx('death');
             if (shooter) {
               shooter.kills = (shooter.kills || 0) + 1;
             }
@@ -3231,15 +1918,9 @@
           return false;
         }
 
-        // opts.carve === false leaves the terrain untouched (Plasma Blast is
-        // pure energy — it cooks tanks without moving a grain of dirt).
-        explosion(x, y, radius, damage, shooterIdx, opts) {
-          opts = opts || {};
-
+        explosion(x, y, radius, damage, shooterIdx) {
           // 1. Carve terrain
-          if (opts.carve !== false) {
-            this.terrain.carve(x, y, radius);
-          }
+          this.terrain.carve(x, y, radius);
 
           // Track newly killed tanks to trigger chain reaction explosions
           const deadTanksToExplode = [];
@@ -3313,57 +1994,7 @@
           });
         }
 
-        // A LeapFrog detonation throws the round forward for another hop. Every
-        // number here is fixed, not drawn from a stream: the hop distance is the
-        // same on every client, so an unlucky RNG-ordering difference can never
-        // land the second explosion in a different crater on two screens.
-        spawnLeapFrogHop(x, y, weaponId, shooterIdx, proj) {
-          const wConf = WEAPONS_BY_ID.get(weaponId);
-          const maxHops = (wConf && wConf.hops) || 0;
-          const hopsLeft = (proj && proj.hopsLeft !== undefined) ? proj.hopsLeft : maxHops;
-          if (hopsLeft <= 0) return;
-
-          // Direction is fixed at the first detonation and carried through every
-          // hop after it. Re-deriving it from vx each time would let a strong
-          // headwind flip a hop backwards mid-sequence, which reads as a bug.
-          const dir = (proj && proj.hopDir !== undefined)
-            ? proj.hopDir
-            : ((proj && proj.vx < 0) ? -1 : 1);
-
-          this.projectiles.push({
-            x: x,
-            y: y - 10,
-            vx: dir * 110,
-            vy: -170,
-            weapon: weaponId,
-            hopsLeft: hopsLeft - 1,
-            hopDir: dir,
-            shooterIdx: shooterIdx
-          });
-        }
-
-        // Visual only — a Smoke Tracer's landing marker. Runs off visualRNG,
-        // which no simulation state ever reads, so it cannot affect a replay.
-        spawnSmokePuff(x, y) {
-          for (let i = 0; i < 12; i++) {
-            this.spawnParticle(
-              'smoke',
-              x + visualRNG.range(-6, 6),
-              y + visualRNG.range(-6, 6),
-              visualRNG.range(-12, 12),
-              visualRNG.range(-26, -6),
-              '#cccccc',
-              visualRNG.range(1.4, 2.6),
-              visualRNG.range(2, 4)
-            );
-          }
-        }
-
-        // `proj` is the projectile that just died, when there was one. Only the
-        // hop-and-re-explode weapons need it (they carry their travel direction
-        // and remaining hop count into the next detonation); every other weapon
-        // is fully described by x/y/weapon, so the argument stays optional.
-        onImpact(x, y, weapon, shooterIdx, proj) {
+        onImpact(x, y, weapon, shooterIdx) {
           if (shooterIdx !== undefined && this.roster) {
             const shooter = this.roster[shooterIdx];
             if (shooter && shooter.type === 'Cyborg' && shooter.lastTargetName) {
@@ -3389,54 +2020,13 @@
 
           this.lastShooterIdx = shooterIdx;
 
-          const kind = wConf.kind;
-
           // Perform specific actions based on weapon type
-          if (kind === 'dirt') {
-            // The dirt-delivery tier ADDS terrain. No damage at all: being
-            // buried is the punishment, and a buried tank digs itself out with
-            // fuel or a Riot charge.
+          if (wp === 'Dirt Bomb') {
             this.terrain.deposit(x, y, radius);
             if (!this.headless) {
               sfx('explode', { radius });
               this.spawnCraterEffects(x, y, radius);
             }
-          } else if (kind === 'riot') {
-            // Clears dirt, harms nobody — deliberately routed around
-            // explosion() so there is no code path that can damage a tank.
-            this.terrain.carve(x, y, radius);
-            if (!this.headless) {
-              sfx('explode', { radius });
-              this.spawnCraterEffects(x, y, radius);
-            }
-          } else if (kind === 'plasma') {
-            // Energy blast: huge damage radius, terrain left intact.
-            this.explosion(x, y, radius, damage, shooterIdx, { carve: false });
-          } else if (kind === 'disrupter') {
-            // Ordinary blast, plus a narrow shaft punched all the way down to
-            // bedrock — the classic way to drop a hilltop tank into a pit.
-            this.explosion(x, y, radius, damage, shooterIdx);
-            // The shaft is cut to bedrock across a solid core and tapered at the
-            // edges, wide enough that settle() cannot simply pour it shut again.
-            const coreHalfWidth = 22;
-            const shaftHalfWidth = 40;
-            const floor = CONST.WORLD_H * 0.15;
-            const startCol = Math.max(0, Math.floor(x - shaftHalfWidth));
-            const endCol = Math.min(CONST.WORLD_W - 1, Math.ceil(x + shaftHalfWidth));
-            for (let col = startCol; col <= endCol; col++) {
-              const d = Math.abs(col - x);
-              const cut = d <= coreHalfWidth
-                ? 1
-                : 1 - (d - coreHalfWidth) / (shaftHalfWidth - coreHalfWidth);
-              if (cut <= 0) continue;
-              const target = floor + (this.terrain.heights[col] - floor) * (1 - cut);
-              if (target < this.terrain.heights[col]) {
-                this.terrain.heights[col] = target;
-              }
-            }
-          } else if (kind === 'leapfrog') {
-            this.explosion(x, y, radius, damage, shooterIdx);
-            this.spawnLeapFrogHop(x, y, wp, shooterIdx, proj);
           } else if (wp === 'Dirt Detonator') {
             // collapse deposited dirt: flatten heights within radius 40
             const collapseRadius = 40;
@@ -3463,11 +2053,8 @@
             if (!this.headless) {
               sfx('explode', { radius: 50 });
             }
-          } else if (isTracer(wp)) {
-            // Tracers deal exactly zero damage and zero blast
-            if (wp === 'Smoke Tracer' && !this.headless) {
-              this.spawnSmokePuff(x, y);
-            }
+          } else if (wp === 'Tracer') {
+            // Tracer deals exactly zero damage and zero blast
           } else {
             // standard explosion
             this.explosion(x, y, radius, damage, shooterIdx);
@@ -3554,7 +2141,7 @@
                   tank.falling = true;
                   tank.vy = 0;
                 }
-                tank.vy += this.gravity * dt;
+                tank.vy += CONST.GRAVITY * dt;
                 tank.y += tank.vy * dt;
 
                 const newGroundY = CONST.WORLD_H - this.terrain.heightAt(tank.x);
@@ -3632,12 +2219,12 @@
 
               proj.flightTicks = (proj.flightTicks || 0) + 1;
               if (proj.flightTicks > CONST.MAX_FLIGHT_TICKS) {
-                if (isTracer(proj.weapon) && proj.path) {
+                if (proj.weapon === 'Tracer' && proj.path) {
                   this.persistentTracers = this.persistentTracers || [];
                   this.persistentTracers.push(proj.path);
                 }
                 this.projectiles = this.projectiles.filter(p => p !== proj);
-                this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx, proj);
+                this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx);
                 if (this.projectiles.length === 0) {
                   this.nextTurn();
                 }
@@ -3677,7 +2264,7 @@
 
                 if (detonate) {
                   this.projectiles = this.projectiles.filter(p => p !== proj);
-                  this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx, proj);
+                  this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx);
                   if (this.projectiles.length === 0) {
                     this.nextTurn();
                   }
@@ -3699,7 +2286,7 @@
                 const groundY = CONST.WORLD_H - this.terrain.heightAt(proj.x);
                 if (proj.y < groundY - 1) {
                   // In air, apply gravity
-                  proj.vy += this.gravity * dt;
+                  proj.vy += CONST.GRAVITY * dt;
                   proj.x += proj.vx * dt;
                   proj.y += proj.vy * dt;
                 } else {
@@ -3760,20 +2347,15 @@
               }
 
               // 4. Trace line path recording
-              if (isTracer(proj.weapon)) {
+              if (proj.weapon === 'Tracer') {
                 proj.path = proj.path || [];
                 proj.path.push({ x: proj.x, y: proj.y });
               }
 
-              // 5. Standard projectile gravity & wind integration.
-              // A Laser is a beam, not a shell: it ignores both, so it flies
-              // the straight line the barrel was pointing along.
-              const isLaser = proj.weapon === 'Laser';
+              // 5. Standard projectile gravity & wind integration
               const prevVy = proj.vy;
-              if (!isLaser) {
-                proj.vy += this.gravity * dt;
-                proj.vx += (this.wind || 0) * dt;
-              }
+              proj.vy += CONST.GRAVITY * dt;
+              proj.vx += (this.wind || 0) * dt;
 
               // Trajectory apex split trigger for MIRV and Death's Head
               if ((proj.weapon === 'MIRV' || proj.weapon === "Death's Head") && !proj.split && prevVy < 0 && proj.vy >= 0) {
@@ -3801,32 +2383,16 @@
               let step_vx = proj.vx;
               let step_vy = proj.vy;
 
-              // The beam covers ground fast enough to read as a beam. This is a
-              // fixed multiple of the server-minted launch vector, so every
-              // client scales the identical doubles by the identical constant.
-              if (isLaser) {
-                step_vx *= 2.5;
-                step_vy *= 2.5;
-              }
-
               if (proj.digging) {
                 step_vx = 0;
                 step_vy = 30; // constant burrow speed
                 proj.digDepth += step_vy * dt;
-
-                // A Sandhog carves the shaft it is descending; a Digger just
-                // burrows through and leaves the dirt where it was.
-                if (proj.tunnelling) {
-                  this.terrain.carve(proj.x, proj.y, CONST.SANDHOG_SHAFT_RADIUS);
-                }
-
+                
                 // Check if it reached max depth
-                const maxDepth = proj.maxDigDepth !== undefined
-                  ? proj.maxDigDepth
-                  : (proj.weapon === 'Heavy Digger' ? 80 : 40);
+                const maxDepth = proj.weapon === 'Heavy Digger' ? 80 : 40;
                 if (proj.digDepth > maxDepth) {
                   this.projectiles = this.projectiles.filter(p => p !== proj);
-                  this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx, proj);
+                  this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx);
                   if (this.projectiles.length === 0) {
                     this.nextTurn();
                   }
@@ -3866,7 +2432,7 @@
                 // Walls boundaries
                 if (this.wallType === 'off') {
                   if (proj.x < 0 || proj.x > CONST.WORLD_W) {
-                    if (isTracer(proj.weapon) && proj.path) {
+                    if (proj.weapon === 'Tracer' && proj.path) {
                       this.persistentTracers = this.persistentTracers || [];
                       this.persistentTracers.push(proj.path);
                     }
@@ -3916,41 +2482,9 @@
                   }
                 }
 
-                // Proximity Fuse: an air burst as the shell passes an enemy
-                // hull, instead of sailing over it for a near miss. The SHOOTER
-                // is excluded or the shell would trip on its own tank 12px off
-                // the barrel; tracers are excluded because detonating an aiming
-                // aid early just loses the trace you fired it for.
-                //
-                // Determinism: roster index order, and only + - * and a
-                // comparison, so every client trips on the same substep.
-                if (proj.trigger === 'proximity' && !isTracer(proj.weapon) && this.roster) {
-                  let tripped = false;
-                  for (let i = 0; i < this.roster.length; i++) {
-                    if (i === proj.shooterIdx) continue;
-                    const near = this.roster[i];
-                    if (!near || near.hp <= 0) continue;
-                    const pdx = proj.x - near.x;
-                    const pdy = proj.y - (near.y - 3);
-                    if (pdx * pdx + pdy * pdy <= PROXIMITY_FUSE_RADIUS * PROXIMITY_FUSE_RADIUS) {
-                      tripped = true;
-                      break;
-                    }
-                  }
-                  if (tripped) {
-                    this.projectiles = this.projectiles.filter(p => p !== proj);
-                    this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx, proj);
-                    if (this.projectiles.length === 0) {
-                      this.nextTurn();
-                    }
-                    impacted = true;
-                    break;
-                  }
-                }
-
                 // Below screen bottom
                 if (proj.y > CONST.WORLD_H) {
-                  if (isTracer(proj.weapon) && proj.path) {
+                  if (proj.weapon === 'Tracer' && proj.path) {
                     this.persistentTracers = this.persistentTracers || [];
                     this.persistentTracers.push(proj.path);
                   }
@@ -3967,14 +2501,8 @@
                 if (terrainX >= 0 && terrainX < CONST.WORLD_W) {
                   const groundY = CONST.WORLD_H - this.terrain.heightAt(proj.x);
                   if (proj.y >= groundY) {
-                    // A Contact Trigger detonates the shell where it lands.
-                    // Every check below this line is a family that would
-                    // otherwise DELAY the first detonation — roll downhill,
-                    // bounce, dig, tunnel — so contact skips all of them.
-                    const contactArmed = proj.trigger === 'contact';
-
                     // Check roller trigger
-                    if (!contactArmed && proj.weapon.includes('Roller') && !proj.rolling) {
+                    if (proj.weapon.includes('Roller') && !proj.rolling) {
                       proj.rolling = true;
                       proj.vy = 0;
                       proj.y = groundY;
@@ -3986,7 +2514,7 @@
                     }
 
                     // Check Funky Bomblet bounce trigger
-                    if (!contactArmed && proj.weapon === 'Funky Bomblet') {
+                    if (proj.weapon === 'Funky Bomblet') {
                       proj.vy = -Math.abs(proj.vy) * 0.6;
                       proj.vx *= 0.8;
                       proj.y = groundY - 2;
@@ -3996,32 +2524,20 @@
                     }
 
                     // Check Digger trigger
-                    if (!contactArmed && proj.weapon.includes('Digger') && !proj.digging) {
+                    if (proj.weapon.includes('Digger') && !proj.digging) {
                       proj.digging = true;
                       proj.digDepth = 0;
-                      impacted = true;
-                      break;
-                    }
-
-                    // Check Sandhog trigger: tunnels down through the dirt,
-                    // carving as it goes, and detonates at the bottom.
-                    const hitConf = WEAPONS_BY_ID.get(proj.weapon);
-                    if (!contactArmed && hitConf && hitConf.kind === 'sandhog' && !proj.digging) {
-                      proj.digging = true;
-                      proj.tunnelling = true;
-                      proj.digDepth = 0;
-                      proj.maxDigDepth = hitConf.tunnel;
                       impacted = true;
                       break;
                     }
 
                     // Normal impact
-                    if (isTracer(proj.weapon) && proj.path) {
+                    if (proj.weapon === 'Tracer' && proj.path) {
                       this.persistentTracers = this.persistentTracers || [];
                       this.persistentTracers.push(proj.path);
                     }
                     this.projectiles = this.projectiles.filter(p => p !== proj);
-                    this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx, proj);
+                    this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx);
                     if (this.projectiles.length === 0) {
                       this.nextTurn();
                     }
@@ -4039,10 +2555,8 @@
                       if (proj.x >= tank.x - 8 && proj.x <= tank.x + 8 &&
                           proj.y >= tank.y - 6 && proj.y <= tank.y) {
 
-                        // Deflector shields bounce the shell instead of eating
-                        // it. Which types deflect is SHIELD_TYPES' business, not
-                        // a name comparison here.
-                        if (tank.shield && tank.shield.hp > 0 && shieldDeflects(tank.shield.type)) {
+                        // Magnetic Shield Reflection check!
+                        if (tank.shield && tank.shield.type === 'Magnetic Shield' && tank.shield.hp > 0) {
                           const dx = proj.x - tank.x;
                           const dy = proj.y - (tank.y - 3);
                           let dist = Math.sqrt(dx * dx + dy * dy);
@@ -4064,12 +2578,12 @@
                           break;
                         } else {
                           // Normal impact on tank
-                          if (isTracer(proj.weapon) && proj.path) {
+                          if (proj.weapon === 'Tracer' && proj.path) {
                             this.persistentTracers = this.persistentTracers || [];
                             this.persistentTracers.push(proj.path);
                           }
                           this.projectiles = this.projectiles.filter(p => p !== proj);
-                          this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx, proj);
+                          this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx);
                           if (this.projectiles.length === 0) {
                             this.nextTurn();
                           }
@@ -4133,7 +2647,7 @@
               p.y += p.vy * dt;
               p.vy -= 10 * dt; // Smoke rises slightly
             } else if (p.type === 'debris') {
-              p.vy += this.gravity * dt;
+              p.vy += CONST.GRAVITY * dt;
               p.x += p.vx * dt;
               p.y += p.vy * dt;
 
@@ -4153,17 +2667,6 @@
                   p.vx = 0;
                   p.y = groundY;
                 }
-              }
-            }
-          }
-
-          if (!this.headless && this.damageNumbers) {
-            for (let i = this.damageNumbers.length - 1; i >= 0; i--) {
-              const dn = this.damageNumbers[i];
-              dn.life -= 1;
-              dn.y -= 0.5; // float up
-              if (dn.life <= 0) {
-                this.damageNumbers.splice(i, 1);
               }
             }
           }
@@ -4279,7 +2782,6 @@
 
         handleRoundEnd() {
           this.roundOver = true;
-          if (!this.headless && typeof sfx === 'function') sfx('roundEnd');
 
           // 1. Calculate and apply payouts
           if (this.roster) {
@@ -4299,11 +2801,6 @@
             });
           }
 
-          // Online, payouts are all this function does. The server owns round
-          // structure — whether a shop intermission follows, and when the next
-          // round starts — and drives it through applyRoundEnd(). Falling into
-          // the local branch below would have each client advancing its own
-          // rounds independently of the server and of each other.
           if (this.mode === 'online') {
             return;
           }
@@ -4344,7 +2841,6 @@
             this.roster.forEach((tank, i) => {
               tank.hp = 100;
               tank.shield = null;
-              this.grantRoundFuel(tank);
 
               // Fresh random position within player zone
               const minX = zoneW * i + margin;
@@ -4367,70 +2863,41 @@
           }
         }
 
-        buy(tank, id, packs = 1) {
+        buy(tank, id) {
           const weapon = WEAPONS.find(w => w.id === id);
           const item = ITEMS.find(i => i.id === id);
           const config = weapon || item;
           if (!config) return false;
 
-          const totalCost = config.cost * packs;
-          if (tank.cash < totalCost) {
+          if (tank.cash < config.cost) {
             return false;
           }
 
-          tank.cash -= totalCost;
+          tank.cash -= config.cost;
           if (!tank.inventory) {
             tank.inventory = {};
           }
           if (tank.inventory[id] === undefined) {
             tank.inventory[id] = 0;
           }
-          tank.inventory[id] += (config.packSize * packs);
+          tank.inventory[id] += config.packSize;
 
           if (!this.headless) {
             sfx('buy');
           }
           return true;
-        }
-
-        sell(tank, id, itemsToSell = 1) {
-          const config = WEAPONS.find(w => w.id === id) || ITEMS.find(i => i.id === id);
-          if (!config) return false;
-
-          tank.inventory = tank.inventory || {};
-          const owned = tank.inventory[id] || 0;
-          if (owned < itemsToSell) return false;
-
-          // Sell price is proportional to pack size.
-          const pricePerItem = Math.floor(config.cost / config.packSize);
-          tank.cash += (pricePerItem * itemsToSell);
-          tank.inventory[id] -= itemsToSell;
-
-          if (!this.headless) {
-            sfx('buy');
-          }
-          return true;
-        }
-
-        // Is this room running the restricted "Basic" tier? Every consumer of
-        // the tier asks here. Inlining the comparison a third time is what
-        // stranded the `isBasicOnly` reference in the shop's sell button.
-        isBasicTier() {
-          return !!(this.config && this.config.weaponsAvailability === 'basic');
-        }
-
-        // The weapons this room's tier allows. One definition for the shop and
-        // the AI buyer, which used to hold a copy of the basic list each.
-        availableWeapons() {
-          if (this.isBasicTier()) {
-            return WEAPONS.filter(w => BASIC_WEAPON_IDS.includes(w.id));
-          }
-          return WEAPONS.slice();
         }
 
         handleAIPurchases(player) {
           if (player.type === 'Cyborg') {
-            const availableWeapons = this.availableWeapons();
+            const isBasicOnly = this.config && this.config.weaponsAvailability === 'basic';
+            const BASIC_WEAPONS = ['Baby Missile', 'Missile', 'Tracer'];
+            const availableWeapons = WEAPONS.filter(w => {
+              if (isBasicOnly) {
+                return BASIC_WEAPONS.includes(w.id);
+              }
+              return true;
+            });
             // Sort by damage descending
             const sortedWeapons = [...availableWeapons].sort((a, b) => b.damage - a.damage);
             const bestWeapon = sortedWeapons.find(w => player.cash >= w.cost);
@@ -4445,12 +2912,7 @@
           this.showShopForPlayer(this.shoppingPlayerIdx);
         }
 
-        // opts.onDone replaces the hot-seat "next player, then start the round"
-        // behaviour — online, DONE means "tell the server I am ready" and the
-        // server starts the round when everyone has. opts.standings renders the
-        // between-round table above the grid.
-        showShopForPlayer(playerIdx, opts) {
-          opts = opts || {};
+        showShopForPlayer(playerIdx) {
           if (this.headless) return;
           const shopEl = document.getElementById('shop');
           if (!shopEl) return;
@@ -4460,7 +2922,7 @@
             this.handleAIPurchases(player);
             this.shoppingPlayerIdx++;
             if (this.shoppingPlayerIdx < this.roster.length) {
-              this.showShopForPlayer(this.shoppingPlayerIdx, opts);
+              this.showShopForPlayer(this.shoppingPlayerIdx);
             } else {
               this.startNextRound();
             }
@@ -4503,7 +2965,7 @@
 
           const info = document.createElement('div');
           info.style.textAlign = 'right';
-          info.style.color = 'var(--brass-300)';
+          info.style.color = '#00ff00';
           info.innerHTML = `
             <div style="font-weight: bold; font-size: 18px;">CASH: $${player.cash}</div>
             <div style="font-size: 14px; color: #888;">Round ${this.currentRound} of ${this.rounds}</div>
@@ -4512,82 +2974,6 @@
           header.appendChild(title);
           header.appendChild(info);
           container.appendChild(header);
-
-          // Between-round standings. Only rendered when a caller supplies them
-          // (the online intermission does; the local hot-seat shop does not,
-          // because every player is looking at the same screen anyway).
-          if (Array.isArray(opts.standings) && opts.standings.length) {
-            const standingsBox = document.createElement('div');
-            standingsBox.style.marginBottom = '15px';
-            standingsBox.style.border = '1px solid #333';
-            standingsBox.style.padding = '10px';
-            standingsBox.style.background = '#111';
-
-            const sTitle = document.createElement('div');
-            sTitle.textContent = 'STANDINGS';
-            sTitle.style.color = '#888';
-            sTitle.style.fontSize = '12px';
-            sTitle.style.letterSpacing = '2px';
-            sTitle.style.marginBottom = '6px';
-            standingsBox.appendChild(sTitle);
-
-            opts.standings.forEach((s, i) => {
-              const row = document.createElement('div');
-              row.style.display = 'flex';
-              row.style.justifyContent = 'space-between';
-              row.style.fontSize = '14px';
-              row.style.padding = '2px 0';
-              row.style.color = s.colour || '#fff';
-
-              const left = document.createElement('span');
-              left.textContent = `#${i + 1} ${String(s.name || ('SLOT ' + s.slot)).toUpperCase()}`
-                + (s.slot === this.mySlot ? ' (YOU)' : '')
-                + (s.connected === false ? ' [DISCONNECTED]' : '');
-
-              const right = document.createElement('span');
-              right.textContent = `ROUNDS WON: ${s.roundsWon || 0}`;
-              right.style.color = '#fff';
-
-              row.appendChild(left);
-              row.appendChild(right);
-              standingsBox.appendChild(row);
-            });
-            container.appendChild(standingsBox);
-          }
-
-          // Bulk toggle
-          opts.bulkMultiplier = opts.bulkMultiplier || 1;
-          const bulkDiv = document.createElement('div');
-          bulkDiv.style.marginBottom = '10px';
-          bulkDiv.style.display = 'flex';
-          bulkDiv.style.gap = '10px';
-          bulkDiv.style.alignItems = 'center';
-
-          const bulkLabel = document.createElement('span');
-          bulkLabel.textContent = 'QUANTITY:';
-          bulkLabel.style.color = '#888';
-          bulkLabel.style.fontWeight = 'bold';
-
-          bulkDiv.appendChild(bulkLabel);
-
-          [1, 5, 10].forEach(mult => {
-            const mBtn = document.createElement('button');
-            mBtn.textContent = `x${mult}`;
-            mBtn.style.fontFamily = 'inherit';
-            mBtn.style.padding = '4px 12px';
-            mBtn.style.cursor = 'pointer';
-            mBtn.style.border = '1px solid ' + (opts.bulkMultiplier === mult ? player.color : '#444');
-            mBtn.style.background = opts.bulkMultiplier === mult ? player.color : 'transparent';
-            mBtn.style.color = opts.bulkMultiplier === mult ? '#000' : '#888';
-
-            mBtn.addEventListener('click', () => {
-              opts.bulkMultiplier = mult;
-              this.showShopForPlayer(playerIdx, opts);
-            });
-            bulkDiv.appendChild(mBtn);
-          });
-
-          container.appendChild(bulkDiv);
 
           // Grid container (scrollable)
           const gridWrapper = document.createElement('div');
@@ -4614,8 +3000,17 @@
             grid.appendChild(h);
           });
 
-          const availableWeapons = this.availableWeapons();
-          const isBasicOnly = this.isBasicTier();
+          // Filter weapons if basicOnly is checked
+          const isBasicOnly = this.config && this.config.weaponsAvailability === 'basic';
+          const BASIC_WEAPONS = ['Baby Missile', 'Missile', 'Tracer'];
+
+          const availableWeapons = WEAPONS.filter(w => {
+            if (isBasicOnly) {
+              return BASIC_WEAPONS.includes(w.id);
+            }
+            return true;
+          });
+
           const availableItems = ITEMS;
 
           // Helper to add rows
@@ -4628,7 +3023,7 @@
             // Cost
             const costDiv = document.createElement('div');
             costDiv.textContent = `$${itemConf.cost}`;
-            costDiv.style.color = 'var(--cash)';
+            costDiv.style.color = '#00ff00';
 
             // Pack Size
             const sizeDiv = document.createElement('div');
@@ -4641,13 +3036,9 @@
             ownedDiv.textContent = count === Infinity ? 'INF' : count;
             ownedDiv.style.color = '#888';
 
-            // Actions
-            const actionsDiv = document.createElement('div');
-            actionsDiv.style.display = 'flex';
-            actionsDiv.style.gap = '5px';
-
+            // Buy button
             const buyBtn = document.createElement('button');
-            buyBtn.textContent = opts.bulkMultiplier > 1 ? `BUY x${opts.bulkMultiplier}` : 'BUY';
+            buyBtn.textContent = 'BUY';
             buyBtn.style.fontFamily = 'inherit';
             buyBtn.style.padding = '4px 8px';
             buyBtn.style.border = '1px solid ' + player.color;
@@ -4655,52 +3046,25 @@
             buyBtn.style.color = player.color;
             buyBtn.style.cursor = 'pointer';
 
-            if (player.cash < itemConf.cost * opts.bulkMultiplier) {
+            if (player.cash < itemConf.cost) {
               buyBtn.disabled = true;
               buyBtn.style.borderColor = '#444';
               buyBtn.style.color = '#444';
               buyBtn.style.cursor = 'not-allowed';
             } else {
               buyBtn.addEventListener('click', () => {
-                if (this.buy(player, itemConf.id, opts.bulkMultiplier)) {
-                  this.showShopForPlayer(playerIdx, opts);
+                if (this.buy(player, itemConf.id)) {
+                  // Refresh shop
+                  this.showShopForPlayer(playerIdx);
                 }
               });
-            }
-
-            const sellBtn = document.createElement('button');
-            const itemsToSell = itemConf.packSize * opts.bulkMultiplier;
-            sellBtn.textContent = opts.bulkMultiplier > 1 ? `SELL x${opts.bulkMultiplier}` : 'SELL';
-            sellBtn.style.fontFamily = 'inherit';
-            sellBtn.style.padding = '4px 8px';
-            sellBtn.style.border = '1px solid #ff4444';
-            sellBtn.style.background = 'transparent';
-            sellBtn.style.color = '#ff4444';
-            sellBtn.style.cursor = 'pointer';
-
-            if (count === Infinity || count < itemsToSell || isBasicOnly) {
-              sellBtn.disabled = true;
-              sellBtn.style.borderColor = '#444';
-              sellBtn.style.color = '#444';
-              sellBtn.style.cursor = 'not-allowed';
-            } else {
-              sellBtn.addEventListener('click', () => {
-                if (this.sell(player, itemConf.id, itemsToSell)) {
-                  this.showShopForPlayer(playerIdx, opts);
-                }
-              });
-            }
-
-            actionsDiv.appendChild(buyBtn);
-            if (count !== Infinity) {
-              actionsDiv.appendChild(sellBtn);
             }
 
             grid.appendChild(nameDiv);
             grid.appendChild(costDiv);
             grid.appendChild(sizeDiv);
             grid.appendChild(ownedDiv);
-            grid.appendChild(actionsDiv);
+            grid.appendChild(buyBtn);
           };
 
           availableWeapons.forEach(addRow);
@@ -4727,13 +3091,9 @@
           doneBtn.style.cursor = 'pointer';
 
           doneBtn.addEventListener('click', () => {
-            if (opts.onDone) {
-              opts.onDone();
-              return;
-            }
             this.shoppingPlayerIdx++;
             if (this.shoppingPlayerIdx < this.roster.length) {
-              this.showShopForPlayer(this.shoppingPlayerIdx, opts);
+              this.showShopForPlayer(this.shoppingPlayerIdx);
             } else {
               this.startNextRound();
             }
@@ -4765,7 +3125,7 @@
           const container = document.createElement('div');
           container.className = 'summary-container';
           container.style.background = '#181818';
-          container.style.border = 'var(--border-plate) solid var(--border-brass)';
+          container.style.border = '3px double #00ff00';
           container.style.padding = '20px';
           container.style.width = '90%';
           container.style.maxWidth = '650px';
@@ -4775,8 +3135,8 @@
 
           const title = document.createElement('h2');
           title.textContent = 'FINAL MATCH SUMMARY';
-          title.style.color = 'var(--magenta-500)';
-          title.style.borderBottom = 'var(--border-plate) solid var(--border-brass)';
+          title.style.color = '#00ff00';
+          title.style.borderBottom = '2px solid #00ff00';
           title.style.paddingBottom = '10px';
           title.style.letterSpacing = '2px';
           container.appendChild(title);
@@ -4825,7 +3185,7 @@
           restartBtn.style.fontWeight = 'bold';
           restartBtn.style.padding = '12px';
           restartBtn.style.width = '100%';
-          restartBtn.style.background = 'var(--brass-rail)';
+          restartBtn.style.background = '#00ff00';
           restartBtn.style.color = '#000';
           restartBtn.style.border = 'none';
           restartBtn.style.cursor = 'pointer';
@@ -4940,11 +3300,8 @@
             this.roster.forEach(tank => {
               if (tank.hp > 0 && tank.shield && tank.shield.hp > 0) {
                 ctx.save();
-                const shieldConf = SHIELD_TYPES[tank.shield.type];
-                ctx.strokeStyle = shieldConf ? shieldConf.colour : 'rgba(0, 255, 0, 0.5)';
-                // A deflector reads as a thicker arc, so you can tell at a
-                // glance whether the next shell will bounce or be absorbed.
-                ctx.lineWidth = shieldDeflects(tank.shield.type) ? 4 : 3;
+                ctx.strokeStyle = tank.shield.type === 'Heavy Shield' ? 'rgba(0, 0, 255, 0.5)' : (tank.shield.type === 'Magnetic Shield' ? 'rgba(0, 255, 255, 0.5)' : 'rgba(0, 255, 0, 0.5)');
+                ctx.lineWidth = 3;
                 ctx.beginPath();
                 ctx.arc(tank.x, tank.y - 6, 12, Math.PI, 0);
                 ctx.stroke();
@@ -4969,7 +3326,7 @@
               let hitY = py;
 
               for (let step = 0; step < 200; step++) {
-                pvy += this.gravity * sim_dt;
+                pvy += CONST.GRAVITY * sim_dt;
                 pvx += (this.wind || 0) * sim_dt;
                 px += pvx * sim_dt;
                 py += pvy * sim_dt;
@@ -5046,33 +3403,7 @@
         requestAnimationFrame(loop);
       }
 
-      // The four AI profiles implemented in Game.checkAIShot(). `type` is what
-      // the roster carries and what checkAIShot() branches on, so these strings
-      // must match those branches exactly.
-      const AI_PROFILES = [
-        { type: 'Moron', label: 'MORON — random spray' },
-        { type: 'Shooter', label: 'SHOOTER — solves ballistics, ignores wind' },
-        { type: 'Poolshark', label: 'POOLSHARK — banks shots off walls' },
-        { type: 'Cyborg', label: 'CYBORG — wind-corrected, learns from misses' }
-      ];
-
-      // Mirrors AETHERCASTLE_COLORS / CLASSIC_COLORS in lib/constants.js. Slot
-      // order is a wire contract: index N is the default colour of room slot
-      // N, so each list must stay identical to its server twin in both value
-      // and position. tests/mode-contract.test.js fails if they drift.
-      const AETHERCASTLE_COLORS = [
-        { value: '#ff2d9b', name: 'Aether Magenta' },
-        { value: '#00bfff', name: 'Clockwork Cyan' },
-        { value: '#e23a2e', name: 'Blood Iron' },
-        { value: '#8fd400', name: 'Acid Green' },
-        { value: '#e0c862', name: 'Guild Brass' },
-        { value: '#9b5de0', name: 'Void Violet' },
-        { value: '#ffa31a', name: 'Phosphor Fire' },
-        { value: '#f6e9c6', name: 'Parchment' }
-      ];
-
-      // The original CGA/EGA names and values, restored for classic mode.
-      const CLASSIC_COLORS = [
+      const RETRO_COLORS = [
         { value: '#ff00ff', name: 'Magenta' },
         { value: '#00ffff', name: 'Cyan' },
         { value: '#ff2222', name: 'Red' },
@@ -5083,18 +3414,6 @@
         { value: '#ffffff', name: 'White' }
       ];
 
-      const PALETTES = {
-        aethercastle: AETHERCASTLE_COLORS,
-        classic: CLASSIC_COLORS
-      };
-
-      function paletteFor(mode) {
-        return PALETTES[normaliseMode(mode)];
-      }
-
-      // Back-compatible alias for the call sites that predate modes.
-      const RETRO_COLORS = AETHERCASTLE_COLORS;
-
       const net = new NetClient();
       let myPlayerToken = null;
       let mySlot = -1;
@@ -5102,16 +3421,6 @@
       // Names and colours arrive over the wire from other players. The server
       // validates them, but this is the sink that actually executes, so it
       // escapes too: one hardened layer is a single point of failure.
-      // Gravity comes from a <select>, and a missing or empty control must not
-      // reach the simulation as NaN: `vy += NaN * dt` freezes every shell in
-      // mid-air, the turn never resolves and the match reads as a hard freeze
-      // rather than a bad setting. Every other setup control already falls back
-      // to a default; this one does too.
-      function readGravity(el) {
-        const parsed = el ? parseInt(el.value, 10) : NaN;
-        return Number.isFinite(parsed) ? parsed : CONST.GRAVITY;
-      }
-
       function escapeHtml(value) {
         return String(value === undefined || value === null ? '' : value)
           .replace(/&/g, '&amp;')
@@ -5124,12 +3433,7 @@
       // A colour is interpolated into a style="..." attribute, where escaping
       // alone is not enough — CSS has its own injection surface. Only palette
       // values are allowed through; anything else falls back to white.
-      // Both palettes, matching ALLOWED_COLOURS on the server. A classic-mode
-      // player's colour still has to render in an Aethercastle client's lobby
-      // listing, so the sink cannot be narrowed to the active mode.
-      const PALETTE_VALUES = new Set(
-        [...AETHERCASTLE_COLORS, ...CLASSIC_COLORS].map(c => c.value)
-      );
+      const PALETTE_VALUES = new Set(RETRO_COLORS.map(c => c.value));
       function safeColour(value) {
         return PALETTE_VALUES.has(value) ? value : '#ffffff';
       }
@@ -5153,7 +3457,7 @@
 
           if (player) {
             if (isMe) {
-              const colorOptionsHtml = paletteFor(activeMode).map(c =>
+              const colorOptionsHtml = RETRO_COLORS.map(c =>
                 `<option value="${c.value}" ${c.value === player.colour ? 'selected' : ''} style="color: ${safeColour(c.value)}; background: #000;">${escapeHtml(c.name)}</option>`
               ).join('');
 
@@ -5236,197 +3540,6 @@
             const clientWaiting = document.getElementById('client-waiting');
             const displayShareCode = document.getElementById('display-share-code');
 
-            /**
-             * The easter egg's discovery mechanism.
-             *
-             * Typing CLASSIC anywhere on the setup screen (outside a text
-             * field, so it never eats a player name) flips this client into
-             * the original replica and back. It is deliberately unadvertised:
-             * a fan who wants the DOS game finds it, and a player who does not
-             * know it exists sees nothing.
-             *
-             * The durable form is the URL — ?mode=classic — which is what
-             * survives a deploy and can be bookmarked or shared. This just
-             * writes the same request, and rewrites the address bar to match
-             * so a discovered mode can be copied out of it.
-             *
-             * Both are only ever a REQUEST. In an online match ROUND_START.mode
-             * overrules whatever was typed here.
-             */
-            const CLASSIC_CODE = 'CLASSIC';
-            let classicBuffer = '';
-            document.addEventListener('keydown', (e) => {
-              const setupEl = document.getElementById('setup');
-              if (!setupEl || setupEl.hidden) { classicBuffer = ''; return; }
-              const tag = e.target && e.target.tagName;
-              if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
-              if (!/^[a-zA-Z]$/.test(e.key)) { classicBuffer = ''; return; }
-
-              classicBuffer = (classicBuffer + e.key.toUpperCase()).slice(-CLASSIC_CODE.length);
-              if (classicBuffer !== CLASSIC_CODE) return;
-              classicBuffer = '';
-
-              requestedMode = requestedMode === 'classic' ? 'aethercastle' : 'classic';
-              applyMode(requestedMode);
-
-              try {
-                const url = new URL(window.location.href);
-                if (requestedMode === 'classic') {
-                  url.searchParams.set('mode', 'classic');
-                } else {
-                  url.searchParams.delete('mode');
-                  url.searchParams.delete('classic');
-                }
-                window.history.replaceState({}, '', url);
-              } catch { /* address bar is cosmetic; the mode already applied */ }
-
-              if (errorMsg) {
-                errorMsg.textContent = requestedMode === 'classic'
-                  ? 'CLASSIC MODE — Scorched Earth, as it was.'
-                  : 'ÆTHERCASTLE MODE';
-              }
-            });
-
-            // --- Solo play vs AI -------------------------------------------------
-            // Local mode: no socket, no lockstep, no server round-trip. This is the
-            // only entry point that reaches Game.checkAIShot(), the local shop
-            // intermission and the multi-round loop, all of which were previously
-            // unreachable code.
-            const soloView = document.getElementById('solo-view');
-            const btnPlaySolo = document.getElementById('btn-play-solo');
-            const btnStartSolo = document.getElementById('btn-start-solo');
-            const btnSoloBack = document.getElementById('btn-solo-back');
-            const soloAiCount = document.getElementById('solo-ai-count');
-            const soloAiList = document.getElementById('solo-ai-list');
-
-            function renderSoloAiList() {
-              if (!soloAiList) return;
-              const count = soloAiCount ? (parseInt(soloAiCount.value, 10) || 2) : 2;
-              soloAiList.innerHTML = '';
-              for (let i = 0; i < count; i++) {
-                const row = document.createElement('div');
-                row.className = 'form-group';
-                row.style.display = 'flex';
-                row.style.alignItems = 'center';
-                row.style.gap = '10px';
-                row.style.marginBottom = '6px';
-
-                const swatch = document.createElement('span');
-                // Slot 0 is the human, so AI i takes colour i+1.
-                swatch.textContent = '■';
-                swatch.style.color = paletteFor(activeMode)[(i + 1) % paletteFor(activeMode).length].value;
-
-                const label = document.createElement('label');
-                label.textContent = 'CPU ' + (i + 1);
-                label.style.minWidth = '60px';
-                label.setAttribute('for', 'solo-ai-' + i);
-
-                const select = document.createElement('select');
-                select.id = 'solo-ai-' + i;
-                select.style.flex = '1';
-                AI_PROFILES.forEach((profile) => {
-                  const opt = document.createElement('option');
-                  opt.value = profile.type;
-                  opt.textContent = profile.label;
-                  select.appendChild(opt);
-                });
-                // Spread the default difficulty so a fresh solo game is not four
-                // identical opponents: Shooter, Poolshark, Cyborg, Moron, Shooter...
-                const defaults = ['Shooter', 'Poolshark', 'Cyborg', 'Moron'];
-                select.value = defaults[i % defaults.length];
-
-                row.appendChild(swatch);
-                row.appendChild(label);
-                row.appendChild(select);
-                soloAiList.appendChild(row);
-              }
-            }
-
-            if (btnPlaySolo) {
-              btnPlaySolo.addEventListener('click', () => {
-                if (errorMsg) errorMsg.textContent = '';
-                if (landingView) landingView.hidden = true;
-                if (lobbyView) lobbyView.hidden = true;
-                if (soloView) soloView.hidden = false;
-                renderSoloAiList();
-              });
-            }
-
-            if (btnSoloBack) {
-              btnSoloBack.addEventListener('click', () => {
-                if (soloView) soloView.hidden = true;
-                if (landingView) landingView.hidden = false;
-              });
-            }
-
-            if (soloAiCount) {
-              soloAiCount.addEventListener('change', renderSoloAiList);
-            }
-
-            if (btnStartSolo) {
-              btnStartSolo.addEventListener('click', () => {
-                if (errorMsg) errorMsg.textContent = '';
-                // Solo has no peer to agree with, so the local request IS the
-                // decision here. Applied before the roster is built so the
-                // players get the right palette.
-                applyMode(requestedMode);
-                const nameEl = document.getElementById('solo-name');
-                const humanName = (nameEl && nameEl.value.trim()) || 'PLAYER';
-                const count = soloAiCount ? (parseInt(soloAiCount.value, 10) || 2) : 2;
-
-                const players = [{
-                  name: humanName.toUpperCase().slice(0, 12),
-                  type: 'Human',
-                  color: paletteFor(activeMode)[0].value,
-                  slot: 0
-                }];
-                for (let i = 0; i < count; i++) {
-                  const sel = document.getElementById('solo-ai-' + i);
-                  const type = (sel && sel.value) || 'Shooter';
-                  players.push({
-                    name: 'CPU ' + (i + 1) + ' (' + type.toUpperCase() + ')',
-                    type,
-                    color: paletteFor(activeMode)[(i + 1) % paletteFor(activeMode).length].value,
-                    slot: i + 1
-                  });
-                }
-
-                const readInt = (id, fallback, lo, hi) => {
-                  const el = document.getElementById(id);
-                  const raw = el ? parseInt(el.value, 10) : NaN;
-                  const val = Number.isFinite(raw) ? raw : fallback;
-                  return Math.max(lo, Math.min(hi, val));
-                };
-                const wallEl = document.getElementById('solo-wall-type');
-                const weaponsEl = document.getElementById('solo-weapons');
-                const gravityEl = document.getElementById('solo-gravity');
-                const windEl = document.getElementById('solo-wind');
-                const terrainStyleEl = document.getElementById('solo-terrain-style');
-                const terrainHillsEl = document.getElementById('solo-terrain-hills');
-                const terrainFlatnessEl = document.getElementById('solo-terrain-flatness');
-
-                if (soloView) soloView.hidden = true;
-
-                // Local play needs a fresh world per match but has no peer to
-                // agree with, so the wall-clock seed is safe here. Networked
-                // play still takes its seed from the server's ROUND_START.
-                gameInstance.start({
-                  players,
-                  rounds: readInt('solo-rounds', 5, 1, 20),
-                  startingCash: readInt('solo-cash', 10000, 0, 1000000),
-                  wallType: (wallEl && wallEl.value) || 'off',
-                  weaponsAvailability: (weaponsEl && weaponsEl.value) || 'all',
-                  gravity: readGravity(gravityEl),
-                  windVariability: (windEl && windEl.value) || 'changing-per-round',
-                  terrainStyle: (terrainStyleEl && terrainStyleEl.value) || 'random',
-                  hillCount: (terrainHillsEl && terrainHillsEl.value) || 'normal',
-                  flatness: (terrainFlatnessEl && terrainFlatnessEl.value) || 'normal',
-                  seed: (Date.now() >>> 0)
-                });
-              });
-            }
-            // --- end solo play ---------------------------------------------------
-
             net.onError((err) => {
               if (errorMsg) errorMsg.textContent = formatNetError(err);
             });
@@ -5434,7 +3547,7 @@
             net.register('ROOM_LIST', (msg) => {
               roomListDiv.innerHTML = '';
               if (!msg.rooms || msg.rooms.length === 0) {
-                roomListDiv.innerHTML = '<div style="text-align: center; color: var(--text-on-plate-muted);">No public matches found.</div>';
+                roomListDiv.innerHTML = '<div style="text-align: center; color: #777;">No public matches found.</div>';
                 return;
               }
               msg.rooms.forEach(r => {
@@ -5446,7 +3559,7 @@
                 
                 const joinBtn = document.createElement('button');
                 joinBtn.textContent = 'JOIN';
-                joinBtn.style.cssText = 'padding: 5px 15px; background: var(--cyan-600); color: var(--void-900); border: 1px solid var(--cyan-700); cursor: pointer;';
+                joinBtn.style.cssText = 'padding: 5px 15px; background: #0088ff; color: #fff; border: none; cursor: pointer;';
                 joinBtn.onclick = () => {
                   errorMsg.textContent = '';
                   net.send('JOIN_ROOM', { code: r.code });
@@ -5513,26 +3626,6 @@
             net.register('ROUND_START', (msg) => {
                document.getElementById('setup').hidden = true;
                mySlot = msg.yourSlot; // Now we know it!
-
-               // The room's mode, not this client's. A player who arrived on
-               // ?mode=classic but joined an Aethercastle room gets switched
-               // here, which is the whole point: both clients have to be
-               // simulating the same game before the first shell flies.
-               applyMode(msg.mode);
-
-               // If the client just reconnected and is already in this round, do not reset the board.
-               if (gameInstance.roster && gameInstance.currentRound === msg.round) {
-                 return;
-               }
-
-               // Round 2+ is a new round of the SAME match. Re-running start()
-               // would rebuild the roster and reset every player's cash and
-               // inventory to the starting values, silently undoing the shop.
-               if (Number.isFinite(msg.round) && msg.round > 1 && gameInstance.roster) {
-                 gameInstance.applyServerRoundStart(msg);
-                 return;
-               }
-
                // Initialize game
                const config = msg.config || { rounds: 5, startingCash: 10000, wallType: 'off', weaponsAvailability: 'all' };
                // We need to map `msg.tanks` to `config.players` for the Game class.
@@ -5547,9 +3640,6 @@
                config.seed = msg.seed;
                config.wind = msg.wind;
                config.turnOrder = msg.turnOrder;
-               // The server clamps the round count; its value wins over
-               // whatever the lobby form happened to post.
-               if (Number.isFinite(msg.totalRounds)) config.rounds = msg.totalRounds;
                // Hand the Game the lobby's live socket so it can send FIRE and
                // RESOLVE_SHOT. Without this `this.net` is null and the client
                // simulates in silence.
@@ -5560,7 +3650,7 @@
 
             btnCreate.addEventListener('click', () => {
               errorMsg.textContent = '';
-              net.send('CREATE_ROOM', { isPublic: false, mode: requestedMode });
+              net.send('CREATE_ROOM', { isPublic: false });
               hostSettings.hidden = false;
               startBtn.hidden = false;
               clientWaiting.hidden = true;
@@ -5568,7 +3658,7 @@
 
             btnCreatePublic.addEventListener('click', () => {
               errorMsg.textContent = '';
-              net.send('CREATE_ROOM', { isPublic: true, mode: requestedMode });
+              net.send('CREATE_ROOM', { isPublic: true });
               hostSettings.hidden = false;
               startBtn.hidden = false;
               clientWaiting.hidden = true;
@@ -5598,23 +3688,13 @@
               const wallType = document.getElementById('wall-type').value;
               const weaponRadio = document.querySelector('input[name="weapon-availability"]:checked');
               const weaponsAvailability = weaponRadio ? weaponRadio.value : 'all';
-              const gravityEl = document.getElementById('gravity');
-              const windEl = document.getElementById('wind');
-              const terrainStyleEl = document.getElementById('terrain-style');
-              const terrainHillsEl = document.getElementById('terrain-hills');
-              const terrainFlatnessEl = document.getElementById('terrain-flatness');
 
               net.send('START_GAME', {
                 config: {
                   rounds,
                   startingCash,
                   wallType,
-                  weaponsAvailability,
-                  gravity: readGravity(gravityEl),
-                  windVariability: (windEl && windEl.value) || 'changing-per-round',
-                  terrainStyle: (terrainStyleEl && terrainStyleEl.value) || 'random',
-                  hillCount: (terrainHillsEl && terrainHillsEl.value) || 'normal',
-                  flatness: (terrainFlatnessEl && terrainFlatnessEl.value) || 'normal'
+                  weaponsAvailability
                 }
               });
             });
@@ -5639,14 +3719,7 @@
         Terrain,
         WEAPONS,
         ITEMS,
-        SHIELD_TYPES,
-        SHIELD_PRIORITY,
-        PROXIMITY_FUSE_RADIUS,
-        BASIC_WEAPON_IDS,
         NetClient,
-        // The live client, not just its class: it owns a socket and a
-        // reconnect timer, so a harness needs the instance to shut it down.
-        netInstance: net,
         detSin,
         detCos,
         detTan

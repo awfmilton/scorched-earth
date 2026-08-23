@@ -1,0 +1,1639 @@
+{
+  "generatedAt": "2026-08-22T18:06:18.394Z",
+  "files": [
+    {
+      "path": "a.js",
+      "symbols": [],
+      "imports": [],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "check.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "find",
+          "line": 5
+        }
+      ],
+      "imports": [
+        "fs"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "lib/constants.js",
+      "symbols": [
+        {
+          "type": "commonJsExport",
+          "name": "RETRO_COLORS",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "MAX_PLAYERS",
+          "line": 0
+        }
+      ],
+      "imports": [],
+      "exports": [
+        "RETRO_COLORS",
+        "MAX_PLAYERS"
+      ],
+      "routes": []
+    },
+    {
+      "path": "lib/protocol.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "validate",
+          "line": 146
+        },
+        {
+          "type": "commonJsExport",
+          "name": "C2S",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "S2C",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "ERRORS",
+          "line": 0
+        }
+      ],
+      "imports": [
+        "./constants.js"
+      ],
+      "exports": [
+        "C2S",
+        "S2C",
+        "ERRORS",
+        "validate"
+      ],
+      "routes": []
+    },
+    {
+      "path": "lib/room-code.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "getRandomIndex",
+          "line": 5
+        },
+        {
+          "type": "function",
+          "name": "generate",
+          "line": 30
+        },
+        {
+          "type": "function",
+          "name": "generateUnique",
+          "line": 39
+        },
+        {
+          "type": "function",
+          "name": "normalize",
+          "line": 62
+        },
+        {
+          "type": "function",
+          "name": "isValid",
+          "line": 67
+        },
+        {
+          "type": "commonJsExport",
+          "name": "ALPHABET",
+          "line": 0
+        }
+      ],
+      "imports": [
+        "node:crypto"
+      ],
+      "exports": [
+        "ALPHABET",
+        "generate",
+        "generateUnique",
+        "normalize",
+        "isValid"
+      ],
+      "routes": []
+    },
+    {
+      "path": "lib/room-manager.js",
+      "symbols": [
+        {
+          "type": "class",
+          "name": "RoomManager",
+          "line": 26
+        },
+        {
+          "type": "function",
+          "name": "roomError",
+          "line": 20
+        },
+        {
+          "type": "constFunc",
+          "name": "chosenWeapon",
+          "line": 614
+        },
+        {
+          "type": "constFunc",
+          "name": "angleRad",
+          "line": 620
+        },
+        {
+          "type": "constFunc",
+          "name": "shotId",
+          "line": 674
+        },
+        {
+          "type": "constFunc",
+          "name": "eliminated",
+          "line": 694
+        },
+        {
+          "type": "constFunc",
+          "name": "nextIndex",
+          "line": 741
+        }
+      ],
+      "imports": [
+        "node:crypto",
+        "./room-code",
+        "./protocol",
+        "./constants"
+      ],
+      "exports": [
+        "RoomManager"
+      ],
+      "routes": []
+    },
+    {
+      "path": "lib/terrain.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "createRng",
+          "line": 5
+        },
+        {
+          "type": "function",
+          "name": "generateTerrain",
+          "line": 23
+        },
+        {
+          "type": "function",
+          "name": "displace",
+          "line": 61
+        },
+        {
+          "type": "constFunc",
+          "name": "rngInstance",
+          "line": 24
+        },
+        {
+          "type": "constFunc",
+          "name": "avg",
+          "line": 65
+        },
+        {
+          "type": "constFunc",
+          "name": "rangeVal",
+          "line": 66
+        }
+      ],
+      "imports": [],
+      "exports": [
+        "createRng",
+        "generateTerrain"
+      ],
+      "routes": []
+    },
+    {
+      "path": "scratch/find-hit.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "evaluateIndexHtml",
+          "line": 9
+        }
+      ],
+      "imports": [
+        "fs",
+        "path",
+        "vm",
+        "../lib/terrain.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "server.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "createServer",
+          "line": 25
+        },
+        {
+          "type": "function",
+          "name": "attachWebSocketServer",
+          "line": 121
+        },
+        {
+          "type": "function",
+          "name": "send",
+          "line": 133
+        },
+        {
+          "type": "function",
+          "name": "broadcast",
+          "line": 142
+        },
+        {
+          "type": "function",
+          "name": "sendError",
+          "line": 146
+        },
+        {
+          "type": "function",
+          "name": "handleClose",
+          "line": 158
+        },
+        {
+          "type": "function",
+          "name": "createRoomManagerHandlers",
+          "line": 224
+        },
+        {
+          "type": "commonJsExport",
+          "name": "MAX_PAYLOAD_BYTES",
+          "line": 0
+        }
+      ],
+      "imports": [
+        "node:http",
+        "node:fs",
+        "node:path",
+        "node:crypto",
+        "ws",
+        "./lib/protocol.js",
+        "./lib/room-manager.js"
+      ],
+      "exports": [
+        "createServer",
+        "attachWebSocketServer",
+        "MAX_PAYLOAD_BYTES",
+        "createRoomManagerHandlers"
+      ],
+      "routes": []
+    },
+    {
+      "path": "tests/browser-lockstep.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "createBrowserDom",
+          "line": 27
+        },
+        {
+          "type": "function",
+          "name": "makeEl",
+          "line": 37
+        },
+        {
+          "type": "function",
+          "name": "bootBrowser",
+          "line": 108
+        },
+        {
+          "type": "function",
+          "name": "until",
+          "line": 139
+        },
+        {
+          "type": "function",
+          "name": "hashTerrain",
+          "line": 148
+        },
+        {
+          "type": "constFunc",
+          "name": "wait",
+          "line": 137
+        },
+        {
+          "type": "constFunc",
+          "name": "tanksOf",
+          "line": 156
+        },
+        {
+          "type": "constFunc",
+          "name": "hostGame",
+          "line": 221
+        },
+        {
+          "type": "constFunc",
+          "name": "guestGame",
+          "line": 222
+        },
+        {
+          "type": "constFunc",
+          "name": "shooter",
+          "line": 246
+        },
+        {
+          "type": "constFunc",
+          "name": "watcher",
+          "line": 247
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "ws",
+        "fs",
+        "path",
+        "vm",
+        "../server.js",
+        "../lib/room-manager.js",
+        "../lib/terrain.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/determinism.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "evaluateIndexHtml",
+          "line": 42
+        },
+        {
+          "type": "function",
+          "name": "evaluateIndexHtml",
+          "line": 81
+        },
+        {
+          "type": "constFunc",
+          "name": "rad",
+          "line": 155
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "fs",
+        "path",
+        "vm",
+        "../lib/terrain.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/disconnect.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "setupRoom",
+          "line": 10
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "../lib/room-manager",
+        "../lib/protocol"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/game-determinism.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "evaluateIndexHtml",
+          "line": 12
+        },
+        {
+          "type": "function",
+          "name": "runSimulation",
+          "line": 35
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "fs",
+        "path",
+        "vm",
+        "../lib/terrain.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/multiplayer.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "evaluateScript",
+          "line": 21
+        },
+        {
+          "type": "function",
+          "name": "hashTerrain",
+          "line": 44
+        },
+        {
+          "type": "function",
+          "name": "snapshotTanks",
+          "line": 56
+        },
+        {
+          "type": "function",
+          "name": "createClient",
+          "line": 62
+        },
+        {
+          "type": "function",
+          "name": "configFromRoundStart",
+          "line": 91
+        },
+        {
+          "type": "function",
+          "name": "bootClientGame",
+          "line": 109
+        },
+        {
+          "type": "constFunc",
+          "name": "shooter",
+          "line": 258
+        },
+        {
+          "type": "constFunc",
+          "name": "watcher",
+          "line": 266
+        },
+        {
+          "type": "constFunc",
+          "name": "idle",
+          "line": 339
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "ws",
+        "fs",
+        "path",
+        "vm",
+        "../server.js",
+        "../lib/room-manager.js",
+        "../lib/protocol.js",
+        "../lib/terrain.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/protocol.test.js",
+      "symbols": [],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "../lib/protocol.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/rejoin.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "setupAndStartRoom",
+          "line": 9
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "../lib/room-manager",
+        "../lib/protocol"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/room-code.test.js",
+      "symbols": [
+        {
+          "type": "constFunc",
+          "name": "mockRng",
+          "line": 40
+        },
+        {
+          "type": "constFunc",
+          "name": "mockRng",
+          "line": 48
+        },
+        {
+          "type": "constFunc",
+          "name": "isTaken",
+          "line": 55
+        },
+        {
+          "type": "constFunc",
+          "name": "mockRng",
+          "line": 61
+        },
+        {
+          "type": "constFunc",
+          "name": "isTaken",
+          "line": 62
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "../lib/room-code"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/room-security.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "twoPlayerRoom",
+          "line": 9
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "../lib/room-manager",
+        "../lib/protocol",
+        "../lib/constants"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/room-sweep.test.js",
+      "symbols": [
+        {
+          "type": "constFunc",
+          "name": "createAndSetManager",
+          "line": 160
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "../lib/room-manager",
+        "../lib/protocol",
+        "node:crypto"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/rooms.test.js",
+      "symbols": [],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "../lib/room-manager",
+        "../lib/room-code",
+        "../lib/protocol"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/server-integration.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "startServer",
+          "line": 9
+        },
+        {
+          "type": "function",
+          "name": "httpGet",
+          "line": 15
+        },
+        {
+          "type": "function",
+          "name": "connect",
+          "line": 27
+        },
+        {
+          "type": "function",
+          "name": "nextMessage",
+          "line": 35
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "node:http",
+        "ws",
+        "../server.js",
+        "../lib/room-manager.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/server.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "request",
+          "line": 9
+        },
+        {
+          "type": "function",
+          "name": "startServer",
+          "line": 29
+        },
+        {
+          "type": "function",
+          "name": "stopServer",
+          "line": 37
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "node:http",
+        "node:fs",
+        "node:path",
+        "../server.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/smoke.test.js",
+      "symbols": [
+        {
+          "type": "class",
+          "name": "MockClassList",
+          "line": 19
+        },
+        {
+          "type": "class",
+          "name": "MockElement",
+          "line": 35
+        },
+        {
+          "type": "class",
+          "name": "generate",
+          "line": 310
+        },
+        {
+          "type": "class",
+          "name": "MockWS",
+          "line": 1489
+        },
+        {
+          "type": "class",
+          "name": "MockWS",
+          "line": 1523
+        },
+        {
+          "type": "class",
+          "name": "MockWS",
+          "line": 1577
+        },
+        {
+          "type": "class",
+          "name": "MockWS",
+          "line": 1621
+        },
+        {
+          "type": "class",
+          "name": "MockWS",
+          "line": 1701
+        },
+        {
+          "type": "class",
+          "name": "MockWS",
+          "line": 1839
+        },
+        {
+          "type": "function",
+          "name": "createDomMock",
+          "line": 156
+        },
+        {
+          "type": "function",
+          "name": "evaluateScript",
+          "line": 233
+        },
+        {
+          "type": "function",
+          "name": "makeArsenalGame",
+          "line": 935
+        },
+        {
+          "type": "function",
+          "name": "onlineGameCtx",
+          "line": 1619
+        },
+        {
+          "type": "constFunc",
+          "name": "angleRad",
+          "line": 576
+        },
+        {
+          "type": "constFunc",
+          "name": "runWallTest",
+          "line": 653
+        },
+        {
+          "type": "constFunc",
+          "name": "runGameWithSeed",
+          "line": 1317
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "fs",
+        "path",
+        "vm",
+        "../lib/terrain.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/turn-authority.test.js",
+      "symbols": [],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "../lib/room-manager"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/ws-server.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "startServer",
+          "line": 8
+        },
+        {
+          "type": "function",
+          "name": "httpGet",
+          "line": 14
+        },
+        {
+          "type": "function",
+          "name": "connect",
+          "line": 26
+        },
+        {
+          "type": "function",
+          "name": "nextMessage",
+          "line": 34
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "node:http",
+        "ws",
+        "../server.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "test_pr105.js",
+      "symbols": [],
+      "imports": [],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "test_pr105_utf8.js",
+      "symbols": [
+        {
+          "type": "class",
+          "name": "MockElement",
+          "line": 17
+        },
+        {
+          "type": "function",
+          "name": "createDomMock",
+          "line": 14
+        },
+        {
+          "type": "function",
+          "name": "runTests",
+          "line": 188
+        },
+        {
+          "type": "function",
+          "name": "makeArsenalGame",
+          "line": 815
+        },
+        {
+          "type": "constFunc",
+          "name": "angleRad",
+          "line": 372
+        },
+        {
+          "type": "constFunc",
+          "name": "runWallTest",
+          "line": 446
+        }
+      ],
+      "imports": [
+        "fs",
+        "vm"
+      ],
+      "exports": [],
+      "routes": []
+    }
+  ],
+  "callSites": [
+    {
+      "callee": "generateUnique",
+      "calledFrom": "lib/room-manager.js",
+      "definedIn": "lib/room-code.js",
+      "line": 126
+    },
+    {
+      "callee": "normalize",
+      "calledFrom": "lib/room-manager.js",
+      "definedIn": "lib/room-code.js",
+      "line": 110
+    },
+    {
+      "callee": "normalize",
+      "calledFrom": "lib/room-manager.js",
+      "definedIn": "lib/room-code.js",
+      "line": 210
+    },
+    {
+      "callee": "normalize",
+      "calledFrom": "lib/room-manager.js",
+      "definedIn": "lib/room-code.js",
+      "line": 785
+    },
+    {
+      "callee": "validate",
+      "calledFrom": "server.js",
+      "definedIn": "lib/protocol.js",
+      "line": 188
+    },
+    {
+      "callee": "validate",
+      "calledFrom": "server.js",
+      "definedIn": "lib/protocol.js",
+      "line": 194
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "server.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 297
+    },
+    {
+      "callee": "createServer",
+      "calledFrom": "tests/browser-lockstep.test.js",
+      "definedIn": "server.js",
+      "line": 163
+    },
+    {
+      "callee": "attachWebSocketServer",
+      "calledFrom": "tests/browser-lockstep.test.js",
+      "definedIn": "server.js",
+      "line": 168
+    },
+    {
+      "callee": "createRoomManagerHandlers",
+      "calledFrom": "tests/browser-lockstep.test.js",
+      "definedIn": "server.js",
+      "line": 162
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/browser-lockstep.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 162
+    },
+    {
+      "callee": "generateTerrain",
+      "calledFrom": "tests/determinism.test.js",
+      "definedIn": "lib/terrain.js",
+      "line": 14
+    },
+    {
+      "callee": "generateTerrain",
+      "calledFrom": "tests/determinism.test.js",
+      "definedIn": "lib/terrain.js",
+      "line": 15
+    },
+    {
+      "callee": "generateTerrain",
+      "calledFrom": "tests/determinism.test.js",
+      "definedIn": "lib/terrain.js",
+      "line": 20
+    },
+    {
+      "callee": "generateTerrain",
+      "calledFrom": "tests/determinism.test.js",
+      "definedIn": "lib/terrain.js",
+      "line": 21
+    },
+    {
+      "callee": "generateTerrain",
+      "calledFrom": "tests/determinism.test.js",
+      "definedIn": "lib/terrain.js",
+      "line": 26
+    },
+    {
+      "callee": "generateTerrain",
+      "calledFrom": "tests/determinism.test.js",
+      "definedIn": "lib/terrain.js",
+      "line": 28
+    },
+    {
+      "callee": "generateTerrain",
+      "calledFrom": "tests/determinism.test.js",
+      "definedIn": "lib/terrain.js",
+      "line": 29
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/disconnect.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 25
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/disconnect.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 52
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/disconnect.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 85
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/disconnect.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 110
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/disconnect.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 124
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/disconnect.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 135
+    },
+    {
+      "callee": "validate",
+      "calledFrom": "tests/disconnect.test.js",
+      "definedIn": "lib/protocol.js",
+      "line": 35
+    },
+    {
+      "callee": "validate",
+      "calledFrom": "tests/disconnect.test.js",
+      "definedIn": "lib/protocol.js",
+      "line": 61
+    },
+    {
+      "callee": "createServer",
+      "calledFrom": "tests/multiplayer.test.js",
+      "definedIn": "server.js",
+      "line": 127
+    },
+    {
+      "callee": "attachWebSocketServer",
+      "calledFrom": "tests/multiplayer.test.js",
+      "definedIn": "server.js",
+      "line": 136
+    },
+    {
+      "callee": "createRoomManagerHandlers",
+      "calledFrom": "tests/multiplayer.test.js",
+      "definedIn": "server.js",
+      "line": 126
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/multiplayer.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 125
+    },
+    {
+      "callee": "validate",
+      "calledFrom": "tests/protocol.test.js",
+      "definedIn": "lib/protocol.js",
+      "line": 222
+    },
+    {
+      "callee": "validate",
+      "calledFrom": "tests/protocol.test.js",
+      "definedIn": "lib/protocol.js",
+      "line": 228
+    },
+    {
+      "callee": "validate",
+      "calledFrom": "tests/protocol.test.js",
+      "definedIn": "lib/protocol.js",
+      "line": 232
+    },
+    {
+      "callee": "validate",
+      "calledFrom": "tests/protocol.test.js",
+      "definedIn": "lib/protocol.js",
+      "line": 236
+    },
+    {
+      "callee": "validate",
+      "calledFrom": "tests/protocol.test.js",
+      "definedIn": "lib/protocol.js",
+      "line": 242
+    },
+    {
+      "callee": "validate",
+      "calledFrom": "tests/protocol.test.js",
+      "definedIn": "lib/protocol.js",
+      "line": 246
+    },
+    {
+      "callee": "validate",
+      "calledFrom": "tests/protocol.test.js",
+      "definedIn": "lib/protocol.js",
+      "line": 252
+    },
+    {
+      "callee": "validate",
+      "calledFrom": "tests/protocol.test.js",
+      "definedIn": "lib/protocol.js",
+      "line": 258
+    },
+    {
+      "callee": "validate",
+      "calledFrom": "tests/protocol.test.js",
+      "definedIn": "lib/protocol.js",
+      "line": 264
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/rejoin.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 29
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/rejoin.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 97
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/rejoin.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 117
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/rejoin.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 129
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/rejoin.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 163
+    },
+    {
+      "callee": "validate",
+      "calledFrom": "tests/rejoin.test.js",
+      "definedIn": "lib/protocol.js",
+      "line": 57
+    },
+    {
+      "callee": "validate",
+      "calledFrom": "tests/rejoin.test.js",
+      "definedIn": "lib/protocol.js",
+      "line": 61
+    },
+    {
+      "callee": "validate",
+      "calledFrom": "tests/rejoin.test.js",
+      "definedIn": "lib/protocol.js",
+      "line": 148
+    },
+    {
+      "callee": "validate",
+      "calledFrom": "tests/rejoin.test.js",
+      "definedIn": "lib/protocol.js",
+      "line": 182
+    },
+    {
+      "callee": "generate",
+      "calledFrom": "tests/room-code.test.js",
+      "definedIn": "lib/room-code.js",
+      "line": 35
+    },
+    {
+      "callee": "generate",
+      "calledFrom": "tests/room-code.test.js",
+      "definedIn": "lib/room-code.js",
+      "line": 36
+    },
+    {
+      "callee": "generate",
+      "calledFrom": "tests/room-code.test.js",
+      "definedIn": "lib/room-code.js",
+      "line": 41
+    },
+    {
+      "callee": "generateUnique",
+      "calledFrom": "tests/room-code.test.js",
+      "definedIn": "lib/room-code.js",
+      "line": 45
+    },
+    {
+      "callee": "generateUnique",
+      "calledFrom": "tests/room-code.test.js",
+      "definedIn": "lib/room-code.js",
+      "line": 56
+    },
+    {
+      "callee": "generateUnique",
+      "calledFrom": "tests/room-code.test.js",
+      "definedIn": "lib/room-code.js",
+      "line": 60
+    },
+    {
+      "callee": "generateUnique",
+      "calledFrom": "tests/room-code.test.js",
+      "definedIn": "lib/room-code.js",
+      "line": 65
+    },
+    {
+      "callee": "normalize",
+      "calledFrom": "tests/room-code.test.js",
+      "definedIn": "lib/room-code.js",
+      "line": 5
+    },
+    {
+      "callee": "normalize",
+      "calledFrom": "tests/room-code.test.js",
+      "definedIn": "lib/room-code.js",
+      "line": 6
+    },
+    {
+      "callee": "normalize",
+      "calledFrom": "tests/room-code.test.js",
+      "definedIn": "lib/room-code.js",
+      "line": 7
+    },
+    {
+      "callee": "normalize",
+      "calledFrom": "tests/room-code.test.js",
+      "definedIn": "lib/room-code.js",
+      "line": 8
+    },
+    {
+      "callee": "normalize",
+      "calledFrom": "tests/room-code.test.js",
+      "definedIn": "lib/room-code.js",
+      "line": 9
+    },
+    {
+      "callee": "normalize",
+      "calledFrom": "tests/room-code.test.js",
+      "definedIn": "lib/room-code.js",
+      "line": 10
+    },
+    {
+      "callee": "isValid",
+      "calledFrom": "tests/room-code.test.js",
+      "definedIn": "lib/room-code.js",
+      "line": 13
+    },
+    {
+      "callee": "isValid",
+      "calledFrom": "tests/room-code.test.js",
+      "definedIn": "lib/room-code.js",
+      "line": 15
+    },
+    {
+      "callee": "isValid",
+      "calledFrom": "tests/room-code.test.js",
+      "definedIn": "lib/room-code.js",
+      "line": 16
+    },
+    {
+      "callee": "isValid",
+      "calledFrom": "tests/room-code.test.js",
+      "definedIn": "lib/room-code.js",
+      "line": 19
+    },
+    {
+      "callee": "isValid",
+      "calledFrom": "tests/room-code.test.js",
+      "definedIn": "lib/room-code.js",
+      "line": 20
+    },
+    {
+      "callee": "isValid",
+      "calledFrom": "tests/room-code.test.js",
+      "definedIn": "lib/room-code.js",
+      "line": 21
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/room-security.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 10
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/room-security.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 101
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/room-security.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 113
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/room-sweep.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 11
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/room-sweep.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 19
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/room-sweep.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 62
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/room-sweep.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 87
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/room-sweep.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 119
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/room-sweep.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 161
+    },
+    {
+      "callee": "validate",
+      "calledFrom": "tests/room-sweep.test.js",
+      "definedIn": "lib/protocol.js",
+      "line": 50
+    },
+    {
+      "callee": "validate",
+      "calledFrom": "tests/room-sweep.test.js",
+      "definedIn": "lib/protocol.js",
+      "line": 56
+    },
+    {
+      "callee": "validate",
+      "calledFrom": "tests/room-sweep.test.js",
+      "definedIn": "lib/protocol.js",
+      "line": 111
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/rooms.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 11
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/rooms.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 29
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/rooms.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 49
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/rooms.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 58
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/rooms.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 79
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/rooms.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 94
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/rooms.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 108
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/rooms.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 119
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/rooms.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 155
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/rooms.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 173
+    },
+    {
+      "callee": "isValid",
+      "calledFrom": "tests/rooms.test.js",
+      "definedIn": "lib/room-code.js",
+      "line": 23
+    },
+    {
+      "callee": "validate",
+      "calledFrom": "tests/rooms.test.js",
+      "definedIn": "lib/protocol.js",
+      "line": 167
+    },
+    {
+      "callee": "createServer",
+      "calledFrom": "tests/server-integration.test.js",
+      "definedIn": "server.js",
+      "line": 47
+    },
+    {
+      "callee": "attachWebSocketServer",
+      "calledFrom": "tests/server-integration.test.js",
+      "definedIn": "server.js",
+      "line": 51
+    },
+    {
+      "callee": "createRoomManagerHandlers",
+      "calledFrom": "tests/server-integration.test.js",
+      "definedIn": "server.js",
+      "line": 49
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/server-integration.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 48
+    },
+    {
+      "callee": "createServer",
+      "calledFrom": "tests/server.test.js",
+      "definedIn": "server.js",
+      "line": 48
+    },
+    {
+      "callee": "createServer",
+      "calledFrom": "tests/server.test.js",
+      "definedIn": "server.js",
+      "line": 54
+    },
+    {
+      "callee": "createServer",
+      "calledFrom": "tests/server.test.js",
+      "definedIn": "server.js",
+      "line": 73
+    },
+    {
+      "callee": "createServer",
+      "calledFrom": "tests/server.test.js",
+      "definedIn": "server.js",
+      "line": 84
+    },
+    {
+      "callee": "createServer",
+      "calledFrom": "tests/server.test.js",
+      "definedIn": "server.js",
+      "line": 108
+    },
+    {
+      "callee": "createServer",
+      "calledFrom": "tests/server.test.js",
+      "definedIn": "server.js",
+      "line": 128
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/turn-authority.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 9
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/turn-authority.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 115
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/turn-authority.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 145
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/turn-authority.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 168
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/turn-authority.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 207
+    },
+    {
+      "callee": "createServer",
+      "calledFrom": "tests/ws-server.test.js",
+      "definedIn": "server.js",
+      "line": 52
+    },
+    {
+      "callee": "attachWebSocketServer",
+      "calledFrom": "tests/ws-server.test.js",
+      "definedIn": "server.js",
+      "line": 53
+    }
+  ],
+  "layout": {
+    "a.js": {
+      "x": 486,
+      "y": 371
+    },
+    "check.js": {
+      "x": 328,
+      "y": 365
+    },
+    "lib/constants.js": {
+      "x": 356,
+      "y": 226
+    },
+    "lib/protocol.js": {
+      "x": 389,
+      "y": 185
+    },
+    "lib/room-code.js": {
+      "x": 428,
+      "y": 195
+    },
+    "lib/room-manager.js": {
+      "x": 386,
+      "y": 210
+    },
+    "lib/terrain.js": {
+      "x": 451,
+      "y": 282
+    },
+    "scratch/find-hit.js": {
+      "x": 460,
+      "y": 319
+    },
+    "server.js": {
+      "x": 449,
+      "y": 221
+    },
+    "tests/browser-lockstep.test.js": {
+      "x": 432,
+      "y": 258
+    },
+    "tests/determinism.test.js": {
+      "x": 491,
+      "y": 295
+    },
+    "tests/disconnect.test.js": {
+      "x": 377,
+      "y": 154
+    },
+    "tests/game-determinism.test.js": {
+      "x": 422,
+      "y": 313
+    },
+    "tests/multiplayer.test.js": {
+      "x": 411,
+      "y": 239
+    },
+    "tests/protocol.test.js": {
+      "x": 419,
+      "y": 142
+    },
+    "tests/rejoin.test.js": {
+      "x": 363,
+      "y": 210
+    },
+    "tests/room-code.test.js": {
+      "x": 385,
+      "y": 258
+    },
+    "tests/room-security.test.js": {
+      "x": 367,
+      "y": 186
+    },
+    "tests/room-sweep.test.js": {
+      "x": 343,
+      "y": 180
+    },
+    "tests/rooms.test.js": {
+      "x": 408,
+      "y": 194
+    },
+    "tests/server-integration.test.js": {
+      "x": 426,
+      "y": 219
+    },
+    "tests/server.test.js": {
+      "x": 487,
+      "y": 194
+    },
+    "tests/smoke.test.js": {
+      "x": 476,
+      "y": 254
+    },
+    "tests/turn-authority.test.js": {
+      "x": 320,
+      "y": 218
+    },
+    "tests/ws-server.test.js": {
+      "x": 506,
+      "y": 240
+    },
+    "test_pr105.js": {
+      "x": 267,
+      "y": 284
+    },
+    "test_pr105_utf8.js": {
+      "x": 232,
+      "y": 170
+    }
+  }
+}

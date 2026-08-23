@@ -1,0 +1,32 @@
+<!-- @dsCard group="Aethercastle" viewport="1280x720" name="Game — click-through" subtitle="Landing → lobby → battle → forge → standings" -->
+<!-- @startingPoint section="Aethercastle" subtitle="Full game flow: landing, lobby, battle, forge, standings" viewport="1280x720" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Æthercastle — UI kit</title>
+<link rel="stylesheet" href="../../styles.css">
+<style>html,body{height:100%}body{margin:0;background:var(--surface-world);overflow-x:hidden}#root{min-height:100%;position:relative}
+.nav{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);z-index:100;display:flex;gap:6px;padding:6px 8px;background:rgba(15,13,20,.9);border:1px solid var(--brass-700);border-radius:var(--radius-plate);backdrop-filter:var(--blur-glass)}
+.nav button{font:var(--type-label);letter-spacing:var(--tracking-label);text-transform:uppercase;background:transparent;border:1px solid var(--brass-700);color:var(--brass-300);padding:5px 10px;cursor:pointer;border-radius:2px}
+.nav button[aria-current="true"]{background:var(--magenta-600);border-color:var(--magenta-500);color:var(--parchment-100)}</style>
+</head><body><div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script type="text/babel" src="data.jsx"></script>
+<script type="text/babel" src="LandingScreen.jsx"></script>
+<script type="text/babel" src="LobbyScreen.jsx"></script>
+<script type="text/babel" src="BattleScreen.jsx"></script>
+<script type="text/babel" src="ArmoryScreen.jsx"></script>
+<script type="text/babel">
+const SCREENS=['landing','lobby','battle','forge','standings'];
+function App(){const [s,setS]=React.useState('landing');
+ return (<div style={{minHeight:'100vh',display:'flex',flexDirection:'column'}}>
+  {s==='landing'&&<LandingScreen onCreate={()=>setS('lobby')} onJoin={()=>setS('lobby')}/>}
+  {s==='lobby'&&<LobbyScreen onStart={()=>setS('battle')} onBack={()=>setS('landing')}/>}
+  {(s==='battle'||s==='forge')&&<BattleScreen onIntermission={()=>setS('forge')}/>}
+  {s==='forge'&&<ArmoryScreen onDone={()=>setS('standings')}/>}
+  {s==='standings'&&<StandingsScreen onAgain={()=>setS('battle')} onLobby={()=>setS('lobby')}/>}
+  <nav className="nav">{SCREENS.map(k=><button key={k} aria-current={s===k} onClick={()=>setS(k)}>{k}</button>)}</nav>
+ </div>);}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script></body></html>

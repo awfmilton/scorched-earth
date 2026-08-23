@@ -1,0 +1,25 @@
+<!-- @dsCard group="Components" viewport="1000x330" name="HUD — Battle instruments" subtitle="Strip, readouts, hull bar, wind gauge, turn banner, kill feed" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>HUD components</title>
+<link rel="stylesheet" href="../../styles.css">
+<style>body{background:var(--surface-world);margin:0;padding:0;font:var(--type-body)}.pad{padding:14px 16px;display:flex;flex-direction:column;gap:14px}.row{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}.feed{display:flex;flex-direction:column;gap:6px;align-items:flex-start}</style>
+</head><body><div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script type="text/babel">
+const { HudStrip, HudReadout, HpBar, WindGauge, TurnBanner, KillFeedToast } = window.AethercastleDesignSystem_42f734;
+const arsenal=[{name:'Steam Mortar',sprite:'steam-mortar',ammo:Infinity,tier:1},{name:'Void Bomb',sprite:'void-bomb',ammo:2,tier:4},{name:'Tesla Cores',sprite:'tesla-cores',ammo:5,tier:2}];
+function Card(){const [i,setI]=React.useState(1);return (<div>
+<HudStrip player={{name:'Sir Aldric',color:'var(--player-1)',hp:74,shield:60,shieldMax:100,angle:45,power:500,cash:10000}} weapons={arsenal} weaponIndex={i} onCycle={setI} wind={-18} netState="live"/>
+<TurnBanner player="Magister Vane" color="var(--player-4)" subtitle="Cyborg AI · shot 2" timer={24}/>
+<div className="pad">
+<div className="row"><HudReadout label="Angle" value={45} unit="°" emphasis/><HudReadout label="Power" value={500} emphasis/><HudReadout label="Cash" value="$10,000" tone="brass"/><HudReadout label="Kills" value={3} tone="magenta"/><HudReadout label="Net" value="LIVE" tone="acid" size="sm"/>
+<HpBar hp={92} label="Hull"/><HpBar hp={41} shield={30} shieldMax={100}/><HpBar hp={12} width={120}/><WindGauge value={26}/></div>
+<div className="feed"><KillFeedToast actor="Sir Aldric" verb="obliterated" target="Magister Vane" targetColor="var(--player-4)" weapon="Aether-Nuke" damage={112}/>
+<KillFeedToast actor="Dame Oriel" actorColor="var(--player-2)" verb="shielded" tone="info" weapon="Hardened Shield"/>
+<KillFeedToast actor="Guild Forge" actorColor="var(--player-3)" verb="repaired" target="Dame Oriel" targetColor="var(--player-2)" tone="heal" damage={30}/></div>
+</div></div>);}
+ReactDOM.createRoot(document.getElementById('root')).render(<Card/>);
+</script></body></html>

@@ -1,0 +1,35 @@
+/* AETHERCASTLE — typography.
+   Four voices: uncial display (signage), Norman caps (banners/labels/buttons),
+   Spectral serif (lore + shop prose), mono (every number the player reads). */
+:root{
+  --font-display:'Uncial Antiqua', 'Papyrus', serif;
+  --font-heading:'Cinzel', 'Trajan Pro', Georgia, serif;
+  --font-body:'Spectral', Georgia, 'Times New Roman', serif;
+  --font-mono:'Share Tech Mono', ui-monospace, 'Courier New', monospace;
+
+  /* Sizes — 1.25 ratio, floored at 12px for HUD chrome */
+  --text-2xs:11px;--text-xs:12px;--text-sm:14px;--text-base:16px;--text-md:18px;
+  --text-lg:22px;--text-xl:28px;--text-2xl:36px;--text-3xl:48px;--text-4xl:64px;--text-display:88px;
+
+  --leading-tight:1.05;--leading-snug:1.25;--leading-normal:1.5;--leading-loose:1.7;
+
+  --tracking-display:.02em;--tracking-banner:.14em;--tracking-label:.18em;--tracking-numeric:.04em;--tracking-body:0;
+
+  --weight-body:400;--weight-body-bold:600;--weight-heading:700;--weight-heading-black:900;
+
+  /* Composite roles */
+  --type-wordmark:400 var(--text-display)/var(--leading-tight) var(--font-display);
+  --type-title:400 var(--text-3xl)/var(--leading-tight) var(--font-display);
+  --type-banner:900 var(--text-lg)/var(--leading-snug) var(--font-heading);
+  --type-section:700 var(--text-md)/var(--leading-snug) var(--font-heading);
+  --type-label:700 var(--text-xs)/1.2 var(--font-heading);
+  --type-body:400 var(--text-base)/var(--leading-normal) var(--font-body);
+  --type-body-sm:400 var(--text-sm)/var(--leading-normal) var(--font-body);
+  --type-readout:400 var(--text-md)/1.1 var(--font-mono);
+  --type-readout-lg:400 var(--text-2xl)/1 var(--font-mono);
+  --type-readout-sm:400 var(--text-xs)/1.2 var(--font-mono);
+}
+/* Banner and label text is always upper-case with Norman letterspacing. */
+.ac-banner{font:var(--type-banner);letter-spacing:var(--tracking-banner);text-transform:uppercase}
+.ac-label{font:var(--type-label);letter-spacing:var(--tracking-label);text-transform:uppercase}
+.ac-readout{font:var(--type-readout);letter-spacing:var(--tracking-numeric);font-variant-numeric:tabular-nums}

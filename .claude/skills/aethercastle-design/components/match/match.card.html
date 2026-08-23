@@ -1,0 +1,38 @@
+<!-- @dsCard group="Components" viewport="1000x430" name="Match — Armory, lobby, standings" subtitle="Weapon cards, shop rows, lobby slots, room list, standings" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Match components</title>
+<link rel="stylesheet" href="../../styles.css">
+<style>body{background:var(--surface-world);margin:0;padding:16px;font:var(--type-body)}.cols{display:grid;grid-template-columns:560px 1fr;gap:18px;align-items:start}.cards{display:flex;gap:12px}.stack{display:flex;flex-direction:column;gap:8px}.sheet{background:var(--parchment);border:2px solid var(--brass-600);border-radius:var(--radius-sheet);overflow:hidden}</style>
+</head><body><div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script type="text/babel">
+const { WeaponCard, ShopRow, LobbySlot, RoomListRow, StandingsRow } = window.AethercastleDesignSystem_42f734;
+function Card(){return (<div className="cols">
+<div className="stack">
+<div className="cards">
+<WeaponCard name="Steam Mortar" sprite="steam-mortar" tier={1} family="Direct" cost={0} packSize={1} owned={Infinity} blast={30} damage={60} description="Boiler-fed shell. Free forever, and still ends careless commanders."/>
+<WeaponCard name="Void Bomb" sprite="void-bomb" tier={4} family="Exotic" cost={6000} packSize={1} blast={35} damage={70} affordable={false} description="Collapses a pocket of aether; terrain falls inward instead of out."/>
+</div>
+<div className="sheet">
+<ShopRow name="Tesla Coil Cannon" sprite="tesla-coil-cannon" tier={2} cost={2500} packSize={3} owned={1}/>
+<ShopRow name="Acid Rounds" sprite="acid-rounds" tier={2} cost={1500} packSize={4} owned={0}/>
+<ShopRow name="Aether-Strike Missile" sprite="aether-strike-missile" tier={3} cost={5000} packSize={1} owned={0} affordable={false}/>
+<ShopRow name="Hardened Shield" sprite="shield-dome" tier={3} cost={2500} packSize={1} owned={2}/>
+</div></div>
+<div className="stack">
+<LobbySlot index={1} name="Sir Aldric" color="var(--player-1)" kind="human" host you ready chassis="Clockwork Tank · Brass-plated" chassisSprite="clockwork-tank"/>
+<LobbySlot index={2} name="Dame Oriel" color="var(--player-2)" kind="human" chassis="Walker Mech · Aether-field" chassisSprite="walker-mech"/>
+<LobbySlot index={3} name="Magister Vane" color="var(--player-4)" kind="ai" ready chassis="Airship Platform · Cyborg" chassisSprite="airship-platform"/>
+<LobbySlot index={4} kind="empty" onInvite={()=>{}}/>
+<RoomListRow host="Dame Oriel" players={2} maxPlayers={4} biome="Plateau" rounds={5} onJoin={()=>{}}/>
+<RoomListRow host="Provost Kell" players={4} maxPlayers={4} biome="Mountains" rounds={3}/>
+<div>
+<StandingsRow rank={1} name="Sir Aldric" color="var(--player-1)" hp={74} kills={3} damage={412} cash={12400}/>
+<StandingsRow rank={2} name="Dame Oriel" color="var(--player-2)" hp={38} kills={2} damage={288} cash={8100}/>
+<StandingsRow rank={3} name="Magister Vane" color="var(--player-4)" hp={0} kills={1} damage={140} cash={3600} eliminated/>
+</div></div></div>);}
+ReactDOM.createRoot(document.getElementById('root')).render(<Card/>);
+</script></body></html>

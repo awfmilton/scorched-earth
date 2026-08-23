@@ -1,0 +1,93 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/triage-enforce.sh",
+            "timeout": 10,
+            "statusMessage": "Checking triage authorization..."
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__mcpm_tools__edit_file|mcp__mcpm_tools__write_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/triage-enforce.sh",
+            "timeout": 10,
+            "statusMessage": "Checking triage authorization..."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/cancel-wait-notify.sh",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/triage-stop-guard.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/stop-wait-notify.sh",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "rm -f .claude/triage.pending .claude/triage.lock",
+            "async": true
+          }
+        ]
+      }
+    ]
+  },
+  "mcpServers": {
+    "mysql-local": {
+      "type": "stdio",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@benborla29/mcp-server-mysql"
+      ],
+      "env": {
+        "MYSQL_HOST": "127.0.0.1",
+        "MYSQL_PORT": "3307",
+        "MYSQL_USER": "laughl6_wordpress_high",
+        "MYSQL_PASS": "kodex://vault/e206c6a77b349c97",
+        "MYSQL_DB": "laughl6_flagswag_ca",
+        "ALLOW_INSERT_OPERATION": "true",
+        "ALLOW_UPDATE_OPERATION": "true",
+        "ALLOW_DELETE_OPERATION": "false"
+      }
+    }
+  },
+  "allow": [
+    "ls",
+    "cat",
+    "grep",
+    "git status",
+    "git diff"
+  ]
+}

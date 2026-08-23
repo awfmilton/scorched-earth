@@ -1,0 +1,31 @@
+/* AETHERCASTLE — spacing, sizing, layout. 4px base; game chrome is dense. */
+:root{
+  --space-0:0;--space-px:1px;--space-1:2px;--space-2:4px;--space-3:6px;--space-4:8px;
+  --space-5:12px;--space-6:16px;--space-7:20px;--space-8:24px;--space-9:32px;
+  --space-10:40px;--space-11:48px;--space-12:64px;--space-13:80px;
+
+  --gutter-hud:12px;          /* gap between HUD readouts */
+  --gutter-panel:16px;        /* padding inside a plate panel */
+  --gutter-parchment:24px;    /* padding inside a parchment sheet */
+  --gutter-screen:32px;       /* screen edge inset */
+
+  --hud-height:56px;          /* battle HUD strip */
+  --banner-height:44px;       /* turn banner */
+  --row-height:44px;          /* shop / leaderboard row (44px min touch target) */
+  --slot-height:76px;         /* lobby slot */
+  --control-height:40px;      /* input, select, button */
+  --control-height-sm:30px;
+  --control-height-lg:52px;
+  --icon-16:16px;--icon-20:20px;--icon-24:24px;--icon-32:32px;--icon-48:48px;--icon-64:64px;
+
+  --measure-body:62ch; /* @kind other */        /* max line length for lore/prose */
+  --width-panel:420px;
+  --width-sheet:720px;        /* shop / standings sheet */
+  --world-w:1200px;--world-h:700px;  /* engine world units */
+  --z-world:0; /* @kind other */
+  --z-hud:20; /* @kind other */
+  --z-banner:30; /* @kind other */
+  --z-toast:50; /* @kind other */
+  --z-modal:90; /* @kind other */
+  --z-scrim:80; /* @kind other */
+}

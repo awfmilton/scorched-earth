@@ -1,0 +1,70 @@
+/* AETHERCASTLE — colour system.
+   Base ramps first, semantic aliases below. Five brand anchors come straight
+   off the concept sheets: Stone Gray #4A413C, Electric Magenta #D5007F,
+   Deep Violet #4B0082, Cyan/Blue Neon #00BFFF, Brass #B5A642. */
+:root{
+  /* --- Void / ink: the dark keep behind every surface --- */
+  --void-900:#08070A;--void-800:#0F0D14;--void-700:#171320;--void-600:#221B2E;
+  /* --- Stone: castle masonry, panel bodies --- */
+  --stone-800:#221E1A;--stone-700:#2E2823;--stone-600:#4A413C;--stone-500:#65594F;--stone-400:#8A7C70;--stone-300:#B0A49A;
+  /* --- Parchment: reading surfaces, shop sheets, scrolls --- */
+  --parchment-100:#F6E9C6;--parchment-200:#EEDCAC;--parchment-300:#DCC388;--parchment-400:#C1A469;--parchment-rule:#8A6E3E;
+  /* --- Brass: trim, frames, gilding, tier-1 --- */
+  --brass-700:#6E6320;--brass-600:#8E7F2F;--brass-500:#B5A642;--brass-400:#CDBE60;--brass-300:#E0D286;--brass-200:#F2E9B4;
+  /* --- Electric magenta: primary aether charge --- */
+  --magenta-700:#8A0052;--magenta-600:#D5007F;--magenta-500:#FF2D9B;--magenta-400:#FF6FBE;
+  /* --- Deep violet: void / late-tier ordnance --- */
+  --violet-800:#2A0049;--violet-700:#4B0082;--violet-600:#6A1FB0;--violet-500:#9B5DE0;
+  /* --- Cyan neon: clockwork telemetry, guidance, HUD lines --- */
+  --cyan-700:#00637F;--cyan-600:#00A0DC;--cyan-500:#00BFFF;--cyan-400:#7FE3FF;
+  /* --- Reactive alchemy: acid, phosphorus fire --- */
+  --acid-500:#8FD400;--acid-400:#B4F03A;--fire-600:#FF6A00;--fire-500:#FFA31A;--fire-400:#FFD166;
+  /* --- Blood: destruction, elimination --- */
+  --blood-600:#B3121B;--blood-500:#E23A2E;
+
+  /* ============ SEMANTIC ALIASES ============ */
+  --surface-world:var(--void-900);            /* behind everything; the stone hall */
+  --surface-panel:var(--stone-700);           /* riveted plate panel */
+  --surface-panel-raised:var(--stone-600);
+  --surface-inset:var(--void-800);            /* recessed wells, inputs, lists */
+  --surface-parchment:var(--parchment-200);   /* shop sheets, lore, briefs */
+  --surface-parchment-alt:var(--parchment-300);
+  --surface-scrim:rgba(8,7,10,.86);           /* modal backdrop */
+
+  --border-etch:var(--stone-500);             /* hairline division inside plate */
+  --border-brass:var(--brass-500);            /* the standard 2px frame */
+  --border-brass-dim:var(--brass-700);
+  --border-rule-ink:var(--parchment-rule);    /* rule on parchment */
+
+  --text-on-plate:var(--parchment-100);
+  --text-on-plate-muted:var(--stone-300);
+  --text-on-parchment:#2B2115;
+  --text-on-parchment-muted:#6B5636;
+  --text-inverse:var(--void-900);
+  --text-numeric:var(--cyan-400);             /* HUD readouts */
+  --text-link:var(--magenta-500);
+  --text-link-hover:var(--magenta-400);
+
+  --accent-primary:var(--magenta-600);        /* aether charge, primary action */
+  --accent-primary-hot:var(--magenta-500);
+  --accent-secondary:var(--cyan-500);         /* telemetry, secondary action */
+  --accent-tertiary:var(--violet-700);        /* void, exotic */
+  --accent-gild:var(--brass-500);             /* medieval trim, currency */
+
+  /* Match semantics */
+  --hp-full:var(--acid-500);--hp-mid:var(--fire-500);--hp-low:var(--blood-500);
+  --shield-charge:var(--cyan-500);--damage:var(--magenta-600);--heal:var(--acid-500);
+  --cash:var(--brass-300);--wind-marker:var(--cyan-400);
+
+  /* Weapon / cosmetic tiers */
+  --tier-1:var(--brass-500);--tier-2:var(--cyan-500);--tier-3:var(--magenta-600);--tier-4:var(--violet-600);
+
+  /* Player identity — 4 slots, chosen for hue separation at low saturation */
+  --player-1:#FF2D9B;--player-2:#00BFFF;--player-3:#E0C862;--player-4:#9B5DE0;
+
+  /* Biome terrain ramps (mirrors the engine's four seeded biomes) */
+  --biome-mountains-sky:#0B1B2E;--biome-mountains-crust:#8A8F98;--biome-mountains-core:#1C1E22;
+  --biome-plains-sky:#0A1C10;--biome-plains-crust:#3E7A33;--biome-plains-core:#0A2410;
+  --biome-plateau-sky:#2B1606;--biome-plateau-crust:#C98A46;--biome-plateau-core:#5A3A1C;
+  --biome-hills-sky:#0A0616;--biome-hills-crust:#6A4A30;--biome-hills-core:#1C1208;
+}

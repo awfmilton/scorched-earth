@@ -1,0 +1,8 @@
+/* AETHERCASTLE — minimal base layer. Tokens do the work; this only sets the
+   stone hall behind a screen and the default link colour. */
+html{color-scheme:dark}
+body{margin:0;background:var(--surface-world);color:var(--text-on-plate);font:var(--type-body);-webkit-font-smoothing:antialiased}
+a{color:var(--text-link);text-decoration:none;border-bottom:1px solid rgba(255,45,155,.35);transition:color var(--dur-fast) var(--ease-mech)}
+a:hover{color:var(--text-link-hover);border-bottom-color:var(--magenta-400);text-shadow:var(--glow-text-magenta)}
+::selection{background:var(--magenta-600);color:var(--parchment-100)}
+:focus-visible{outline:2px solid var(--cyan-500);outline-offset:2px}

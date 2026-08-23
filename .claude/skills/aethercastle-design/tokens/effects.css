@@ -1,0 +1,53 @@
+/* AETHERCASTLE — borders, radii, bevels, glows, textures.
+   Rule of the system: metal is beveled and square; aether is glowing;
+   parchment is soft-edged with an ink rule. Nothing is a rounded card. */
+:root{
+  --radius-0:0;
+  --radius-plate:2px;      /* riveted plate, buttons, inputs */
+  --radius-sheet:4px;      /* parchment sheet corners */
+  --radius-icon:3px;       /* sprite tile */
+  --radius-pill:999px;     /* share-code chip, ammo count */
+
+  --border-hair:1px;--border-plate:2px;--border-frame:3px;
+  --border-etch-line:1px solid var(--border-etch);
+  --border-brass-frame:2px solid var(--brass-500);
+  --border-brass-double:3px double var(--brass-500);
+  --border-ink-rule:1px solid var(--border-rule-ink);
+  --border-dashed-etch:1px dashed var(--stone-500);
+
+  /* Bevels: brass-lit top edge, void-shadowed bottom edge */
+  --bevel-raised:inset 0 1px 0 rgba(242,233,180,.28), inset 0 -1px 0 rgba(8,7,10,.7); /* @kind shadow */
+  --bevel-inset:inset 0 2px 4px rgba(8,7,10,.8), inset 0 -1px 0 rgba(181,166,66,.16); /* @kind shadow */
+  --bevel-rivet:inset 0 0 0 1px rgba(8,7,10,.55); /* @kind shadow */
+
+  /* Drop shadows */
+  --shadow-panel:0 2px 0 rgba(8,7,10,.9), 0 10px 26px rgba(8,7,10,.6);
+  --shadow-sheet:0 4px 0 rgba(43,33,21,.35), 0 18px 40px rgba(8,7,10,.7);
+  --shadow-modal:0 24px 70px rgba(8,7,10,.85);
+  --shadow-toast:0 6px 18px rgba(8,7,10,.7);
+
+  /* Aether glows — the only "light" in the system */
+  --glow-magenta:0 0 6px rgba(255,45,155,.75), 0 0 18px rgba(213,0,127,.45);
+  --glow-cyan:0 0 6px rgba(0,191,255,.75), 0 0 18px rgba(0,160,220,.4);
+  --glow-violet:0 0 8px rgba(155,93,224,.7), 0 0 22px rgba(75,0,130,.55);
+  --glow-brass:0 0 8px rgba(224,210,134,.45);
+  --glow-text-magenta:0 0 8px rgba(255,45,155,.85), 0 0 22px rgba(213,0,127,.5);
+  --glow-text-cyan:0 0 8px rgba(0,191,255,.8), 0 0 22px rgba(0,160,220,.45);
+
+  /* Composite treatments */
+  --plate:linear-gradient(180deg, var(--stone-600) 0%, var(--stone-700) 55%, var(--stone-800) 100%); /* @kind color */
+  --plate-dark:linear-gradient(180deg, var(--stone-700) 0%, var(--void-700) 100%); /* @kind color */
+  --parchment:linear-gradient(180deg, var(--parchment-100) 0%, var(--parchment-200) 60%, var(--parchment-300) 100%); /* @kind color */
+  --brass-rail:linear-gradient(180deg, var(--brass-300) 0%, var(--brass-500) 45%, var(--brass-700) 100%); /* @kind color */
+  --aether-rail:linear-gradient(90deg, var(--magenta-600) 0%, var(--violet-700) 50%, var(--cyan-500) 100%); /* @kind color */
+  --banner-fill:linear-gradient(180deg, var(--stone-700) 0%, var(--void-800) 100%); /* @kind color */
+
+  /* Textures — real brand illustration, windowed with background-position */
+  --sheet-core-loop:url("../assets/concept/sheet-01-core-loop.png"); /* @kind other */
+  --sheet-cataclysm:url("../assets/concept/sheet-02-drones-cataclysm.png"); /* @kind other */
+  --sheet-arsenal:url("../assets/concept/sheet-03-arsenal-defenses.png"); /* @kind other */
+
+  --scanline:repeating-linear-gradient(0deg, rgba(8,7,10,.16) 0 1px, transparent 1px 3px); /* @kind other */
+  --rivets:radial-gradient(circle at 6px 6px, rgba(224,210,134,.5) 0 1px, transparent 1.6px); /* @kind other */
+  --blur-glass:blur(6px); /* @kind other */
+}

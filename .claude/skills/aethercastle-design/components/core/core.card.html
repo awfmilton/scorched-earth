@@ -1,0 +1,22 @@
+<!-- @dsCard group="Components" viewport="700x360" name="Core — Buttons, fields, badges" subtitle="Actions, inputs, tier badges and sprite tiles" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Core components</title>
+<link rel="stylesheet" href="../../styles.css">
+<style>body{background:var(--surface-world);padding:16px;font:var(--type-body)}.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}</style>
+</head><body><div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script type="text/babel">
+const { Button, IconButton, Input, Select, RadioGroup, Switch, Badge, ShareCodeChip, IconTile, Panel } = window.AethercastleDesignSystem_42f734;
+function Card(){const [w,setW]=React.useState('all');const [ff,setFf]=React.useState(true);return (<div>
+<div className="row"><Button variant="primary">Fire</Button><Button variant="secondary">Join</Button><Button variant="gild" size="sm">Buy</Button><Button variant="plate">Loadout</Button><Button variant="ghost" size="sm">Refresh</Button><Button variant="danger" size="sm">Forfeit</Button><Button variant="primary" disabled>Locked</Button></div>
+<div className="row"><IconButton label="Mute" glyph={<span>♪</span>}/><IconButton label="Settings" glyph={<span>⚙</span>} active/><IconButton label="Prev weapon" glyph={<span>[</span>}/><IconButton label="Next weapon" glyph={<span>]</span>}/>
+<Badge tier={1}>Brass</Badge><Badge tier={2}>Clockwork</Badge><Badge tier={3}>Aether</Badge><Badge tier={4}>Void</Badge><Badge tone="acid" solid>Ready</Badge><Badge tone="stone" pill>Waiting</Badge></div>
+<div className="grid"><Input label="Commander" placeholder="Sir Aldric"/><Input label="Join code" code maxLength="4" placeholder="ABCD"/><Input label="Starting cash" mono defaultValue="10000"/><Select label="Wall type" options={[{value:'off',label:'Off (none)'},{value:'rubber',label:'Rubber (bouncing)'},{value:'concrete',label:'Concrete (solid)'}]}/></div>
+<div className="row"><RadioGroup label="Weapons" name="w" value={w} onChange={setW} options={[{value:'all',label:'All'},{value:'basic',label:'Basic'}]}/><Switch label="Friendly fire" checked={ff} onChange={setFf}/><ShareCodeChip code="VLTK"/></div>
+<div className="row"><IconTile sprite="steam-mortar" tier={1}/><IconTile sprite="lightning-lance" tier={2} glow="cyan"/><IconTile sprite="void-bomb" tier={4} glow="violet"/><IconTile sprite="acid-rounds" tier={2}/><IconTile sprite="clockwork-tank" size={56} fit="contain"/><IconTile sprite="norman-castle" size={56} fit="contain"/></div>
+</div>);}
+ReactDOM.createRoot(document.getElementById('root')).render(<Card/>);
+</script></body></html>

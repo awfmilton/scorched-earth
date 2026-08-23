@@ -1,0 +1,24 @@
+/* AETHERCASTLE — motion. Machines move in steps; aether pulses; nothing bounces. */
+:root{
+  --dur-instant:90ms; /* @kind other */
+  --dur-fast:140ms; /* @kind other */
+  --dur-base:220ms; /* @kind other */
+  --dur-slow:380ms; /* @kind other */
+  --dur-scene:620ms; /* @kind other */
+  --ease-mech:cubic-bezier(.2,.8,.2,1); /* @kind other */      /* default UI: quick out, settled */
+  --ease-ratchet:cubic-bezier(.9,0,.1,1); /* @kind other */    /* turn handoff, gear engagement */
+  --ease-fall:cubic-bezier(.4,0,1,1); /* @kind other */        /* terrain collapse, drops */
+  --ease-out-soft:cubic-bezier(0,0,.3,1); /* @kind other */
+  --step-gear:steps(6, end); /* @kind other */                 /* clockwork tick for spinners */
+  --transition-control:background var(--dur-fast) var(--ease-mech), box-shadow var(--dur-fast) var(--ease-mech), color var(--dur-fast) var(--ease-mech), transform var(--dur-instant) var(--ease-mech); /* @kind other */
+  --press-offset:translateY(1px); /* @kind other */
+  --hover-lift:translateY(-1px); /* @kind other */
+}
+@keyframes ac-aether-pulse{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes ac-turn-sweep{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+@keyframes ac-gear-spin{to{transform:rotate(360deg)}}
+@keyframes ac-toast-in{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
+@keyframes ac-charge{0%{background-position:0 0}100%{background-position:32px 0}}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}
+}

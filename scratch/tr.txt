@@ -1,0 +1,43 @@
+﻿▶ arming
+  ✔ is in the shop and spends one on fire (57.3918ms)
+  ✔ prefers the Proximity Fuse when a tank holds both, and spends only that (9.8149ms)
+  ✔ arms nothing, and spends nothing, when the tank holds none (14.8679ms)
+  ✔ the shell carries the armed trigger (8.2681ms)
+✔ arming (92.8182ms)
+▶ Contact Trigger overrides the delayed-detonation families
+  ✔ a Roller detonates where it lands instead of rolling downhill (43.8131ms)
+  ✔ a Sandhog detonates at the surface instead of tunnelling under it (102.5552ms)
+  ✔ a Digger detonates at the surface instead of digging (68.4786ms)
+✔ Contact Trigger overrides the delayed-detonation families (215.5638ms)
+▶ Contact-triggered LeapFrog still hops
+  ✔ produces the same number of detonations with and without the trigger (83.6053ms)
+✔ Contact-triggered LeapFrog still hops (84.1244ms)
+▶ Proximity Fuse
+  ✔ air-bursts on a near miss that would otherwise sail past (36.5745ms)
+  ✔ never trips on the shooter's own tank at the muzzle (114.4186ms)
+  ✔ ignores a dead tank (10.3796ms)
+  ✔ does not detonate a Tracer early — the trace is the point (20.363ms)
+✔ Proximity Fuse (182.9795ms)
+▶ determinism
+  ✔ Heavy Roller + no trigger replays identically (110.4206ms)
+  ✔ Heavy Roller + contact replays identically (51.7226ms)
+  ✔ Heavy Roller + proximity replays identically (116.4183ms)
+  ✔ Heavy Sandhog + no trigger replays identically (161.0887ms)
+  ✔ Heavy Sandhog + contact replays identically (49.52ms)
+  ✔ Heavy Sandhog + proximity replays identically (129.0693ms)
+  ✔ LeapFrog + no trigger replays identically (78.4904ms)
+  ✔ LeapFrog + contact replays identically (69.4667ms)
+  ✔ LeapFrog + proximity replays identically (69.0437ms)
+  ✔ Missile + no trigger replays identically (38.1964ms)
+  ✔ Missile + contact replays identically (49.0682ms)
+  ✔ Missile + proximity replays identically (43.2837ms)
+  ✔ a triggered shot actually differs from an untriggered one (56.9336ms)
+✔ determinism (1027.832ms)
+ℹ tests 25
+ℹ suites 5
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1833.4751
