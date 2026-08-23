@@ -284,6 +284,49 @@
               <option value="basic">Basic</option>
             </select>
           </div>
+          <div class="form-group">
+            <label for="solo-gravity">Gravity:</label>
+            <select id="solo-gravity">
+              <option value="150" selected>Normal</option>
+              <option value="50">Low</option>
+              <option value="300">High</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="solo-wind">Wind Variability:</label>
+            <select id="solo-wind">
+              <option value="changing-per-round" selected>Changing (per round)</option>
+              <option value="changing-mid-round">Changing (mid-round)</option>
+              <option value="constant">Constant</option>
+              <option value="none">None</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="solo-terrain-style">Terrain Style:</label>
+            <select id="solo-terrain-style">
+              <option value="random" selected>Random Biome</option>
+              <option value="mountains">Mountains</option>
+              <option value="plains">Plains</option>
+              <option value="hills">Hills</option>
+              <option value="plateau">Plateau</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="solo-terrain-hills">Hill Count:</label>
+            <select id="solo-terrain-hills">
+              <option value="normal" selected>Normal</option>
+              <option value="high">High</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="solo-terrain-flatness">Flatness:</label>
+            <select id="solo-terrain-flatness">
+              <option value="normal" selected>Normal</option>
+              <option value="high">High</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
         </div>
 
         <button id="btn-start-solo" style="width: 100%; padding: 15px; margin-top: 15px; font-weight: bold; font-size: 18px; background: #00ff00; color: #000; border: none; cursor: pointer;">START SOLO GAME</button>
@@ -328,6 +371,49 @@
                 Basic
               </label>
             </div>
+          </div>
+          <div class="form-group">
+            <label for="gravity">Gravity:</label>
+            <select id="gravity">
+              <option value="150" selected>Normal</option>
+              <option value="50">Low</option>
+              <option value="300">High</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="wind">Wind Variability:</label>
+            <select id="wind">
+              <option value="changing-per-round" selected>Changing (per round)</option>
+              <option value="changing-mid-round">Changing (mid-round)</option>
+              <option value="constant">Constant</option>
+              <option value="none">None</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="terrain-style">Terrain Style:</label>
+            <select id="terrain-style">
+              <option value="random" selected>Random Biome</option>
+              <option value="mountains">Mountains</option>
+              <option value="plains">Plains</option>
+              <option value="hills">Hills</option>
+              <option value="plateau">Plateau</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="terrain-hills">Hill Count:</label>
+            <select id="terrain-hills">
+              <option value="normal" selected>Normal</option>
+              <option value="high">High</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="terrain-flatness">Flatness:</label>
+            <select id="terrain-flatness">
+              <option value="normal" selected>Normal</option>
+              <option value="high">High</option>
+              <option value="low">Low</option>
+            </select>
           </div>
         </div>
 
@@ -673,6 +759,55 @@
             gain.connect(masterGain);
             osc.start();
             osc.stop(audioCtx.currentTime + 0.1);
+          } else if (name === 'hit') {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.15);
+          } else if (name === 'death') {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(80, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.5);
+            gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.5);
+          } else if (name === 'shieldHit') {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+          } else if (name === 'roundEnd') {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(400, audioCtx.currentTime + 0.2);
+            osc.frequency.setValueAtTime(500, audioCtx.currentTime + 0.4);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.6);
           } else if (name === 'explode') {
             try {
               const bufferSize = audioCtx.sampleRate * 0.5;
@@ -1704,6 +1839,7 @@
             if (this.explosions) {
               this.explosions.length = 0;
             }
+            this.damageNumbers = [];
           }
         }
 
@@ -2377,10 +2513,13 @@
           }
 
           // Shield damage absorption
+          let shieldAbsorbed = 0;
           if (tank.shield && tank.shield.hp > 0) {
             const shieldDmg = Math.min(tank.shield.hp, remaining);
             tank.shield.hp -= shieldDmg;
             remaining -= shieldDmg;
+            shieldAbsorbed = shieldDmg;
+            if (!this.headless && shieldDmg > 0 && typeof sfx === 'function') sfx('shieldHit');
             if (tank.shield.hp <= 0) {
               tank.shield = null;
               this.raiseAutoDefenseShield(tank);
@@ -2390,8 +2529,19 @@
           const prevHp = tank.hp;
           tank.hp = Math.max(0, tank.hp - remaining);
 
+          if (!this.headless && this.damageNumbers) {
+            if (shieldAbsorbed > 0) {
+              this.damageNumbers.push({ x: tank.x, y: tank.y - 15, text: shieldAbsorbed.toFixed(0), color: '#00ffff', life: 60 });
+            }
+            if (remaining > 0) {
+              this.damageNumbers.push({ x: tank.x, y: tank.y, text: remaining.toFixed(0), color: '#ff0000', life: 60 });
+              if (typeof sfx === 'function') sfx('hit');
+            }
+          }
+
           // Mark dead and credit kill
           if (prevHp > 0 && tank.hp <= 0) {
+            if (!this.headless && typeof sfx === 'function') sfx('death');
             if (shooter) {
               shooter.kills = (shooter.kills || 0) + 1;
             }
@@ -3325,6 +3475,17 @@
               }
             }
           }
+
+          if (!this.headless && this.damageNumbers) {
+            for (let i = this.damageNumbers.length - 1; i >= 0; i--) {
+              const dn = this.damageNumbers[i];
+              dn.life -= 1;
+              dn.y -= 0.5; // float up
+              if (dn.life <= 0) {
+                this.damageNumbers.splice(i, 1);
+              }
+            }
+          }
         }
 
         drawParticles(ctx) {
@@ -3437,6 +3598,7 @@
 
         handleRoundEnd() {
           this.roundOver = true;
+          if (!this.headless && typeof sfx === 'function') sfx('roundEnd');
 
           // 1. Calculate and apply payouts
           if (this.roster) {
@@ -4231,6 +4393,16 @@
       // Names and colours arrive over the wire from other players. The server
       // validates them, but this is the sink that actually executes, so it
       // escapes too: one hardened layer is a single point of failure.
+      // Gravity comes from a <select>, and a missing or empty control must not
+      // reach the simulation as NaN: `vy += NaN * dt` freezes every shell in
+      // mid-air, the turn never resolves and the match reads as a hard freeze
+      // rather than a bad setting. Every other setup control already falls back
+      // to a default; this one does too.
+      function readGravity(el) {
+        const parsed = el ? parseInt(el.value, 10) : NaN;
+        return Number.isFinite(parsed) ? parsed : CONST.GRAVITY;
+      }
+
       function escapeHtml(value) {
         return String(value === undefined || value === null ? '' : value)
           .replace(/&/g, '&amp;')
@@ -4458,6 +4630,11 @@
                 };
                 const wallEl = document.getElementById('solo-wall-type');
                 const weaponsEl = document.getElementById('solo-weapons');
+                const gravityEl = document.getElementById('solo-gravity');
+                const windEl = document.getElementById('solo-wind');
+                const terrainStyleEl = document.getElementById('solo-terrain-style');
+                const terrainHillsEl = document.getElementById('solo-terrain-hills');
+                const terrainFlatnessEl = document.getElementById('solo-terrain-flatness');
 
                 if (soloView) soloView.hidden = true;
 
@@ -4470,6 +4647,11 @@
                   startingCash: readInt('solo-cash', 10000, 0, 1000000),
                   wallType: (wallEl && wallEl.value) || 'off',
                   weaponsAvailability: (weaponsEl && weaponsEl.value) || 'all',
+                  gravity: readGravity(gravityEl),
+                  windVariability: (windEl && windEl.value) || 'changing-per-round',
+                  terrainStyle: (terrainStyleEl && terrainStyleEl.value) || 'random',
+                  hillCount: (terrainHillsEl && terrainHillsEl.value) || 'normal',
+                  flatness: (terrainFlatnessEl && terrainFlatnessEl.value) || 'normal',
                   seed: (Date.now() >>> 0)
                 });
               });
@@ -4636,13 +4818,23 @@
               const wallType = document.getElementById('wall-type').value;
               const weaponRadio = document.querySelector('input[name="weapon-availability"]:checked');
               const weaponsAvailability = weaponRadio ? weaponRadio.value : 'all';
+              const gravityEl = document.getElementById('gravity');
+              const windEl = document.getElementById('wind');
+              const terrainStyleEl = document.getElementById('terrain-style');
+              const terrainHillsEl = document.getElementById('terrain-hills');
+              const terrainFlatnessEl = document.getElementById('terrain-flatness');
 
               net.send('START_GAME', {
                 config: {
                   rounds,
                   startingCash,
                   wallType,
-                  weaponsAvailability
+                  weaponsAvailability,
+                  gravity: readGravity(gravityEl),
+                  windVariability: (windEl && windEl.value) || 'changing-per-round',
+                  terrainStyle: (terrainStyleEl && terrainStyleEl.value) || 'random',
+                  hillCount: (terrainHillsEl && terrainHillsEl.value) || 'normal',
+                  flatness: (terrainFlatnessEl && terrainFlatnessEl.value) || 'normal'
                 }
               });
             });
