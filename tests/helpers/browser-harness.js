@@ -12,6 +12,7 @@ const path = require('path');
 const vm = require('vm');
 const { WebSocket } = require('ws');
 const terrainLib = require('../../lib/terrain.js');
+const structuresLib = require('../../lib/structures.js');
 
 const html = fs.readFileSync(path.join(__dirname, '..', '..', 'index.html'), 'utf8');
 const code = html.match(/<script>([\s\S]*?)<\/script>/)[1];
@@ -145,6 +146,7 @@ function bootBrowser(port) {
     requestAnimationFrame: () => 1,
     performance: { now: () => Date.now() },
     Terrain: terrainLib,
+    Structures: structuresLib,
     WebSocket: TrackedWebSocket,
     location: { protocol: 'http:', host: `127.0.0.1:${port}` },
     navigator: { clipboard: { writeText: () => Promise.resolve() } },
@@ -200,6 +202,20 @@ function hashTerrain(game) {
 }
 
 const tanksOf = (game) => game.roster.map(t => `${t.slot}:${t.x}:${t.y}:${t.hp}`).join('|');
+
+/**
+ * A holding, flattened to a comparable string.
+ *
+ * Position is included alongside hp because the two failure modes are
+ * different: a differing hp means the clients disagree about damage, while a
+ * differing x or a differing LENGTH means they built different worlds. Array
+ * order is part of the comparison on purpose — structures are addressed by
+ * index during a round, so two clients holding the same set in a different
+ * order is still a desync.
+ */
+const structuresOf = (game) => (game.structures || [])
+  .map(s => `${s.key}@${s.owner}:${s.x.toFixed(4)}:${s.y.toFixed(4)}:${s.hp}`)
+  .join('|');
 
 const gameOf = (b) => b.ctx.globalThis.SCORCHED.gameInstance;
 
@@ -275,6 +291,7 @@ module.exports = {
   until,
   hashTerrain,
   tanksOf,
+  structuresOf,
   gameOf,
   startTestServer,
   setupMatch

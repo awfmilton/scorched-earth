@@ -18,6 +18,7 @@ function loadScorched() {
     setTimeout,
     clearTimeout,
     Terrain: require('../../lib/terrain.js'),
+    Structures: require('../../lib/structures.js'),
     document: {
       getElementById: () => null,
       addEventListener: () => {}
@@ -37,7 +38,14 @@ function loadScorched() {
 function newGame(opts) {
   opts = opts || {};
   const SCORCHED = loadScorched();
-  const game = new SCORCHED.Game({ headless: true, seed: opts.seed || 12345 });
+  // gameMode is the MATCH mode (aethercastle/classic), not local/online. It
+  // decides whether this world has a holding on it at all, so a test that
+  // wants the classic replica has to be able to ask for it.
+  const game = new SCORCHED.Game({
+    headless: true,
+    seed: opts.seed || 12345,
+    gameMode: opts.gameMode
+  });
 
   const impacts = [];
   game.start({

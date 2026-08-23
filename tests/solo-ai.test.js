@@ -18,6 +18,7 @@ function evaluateIndexHtml() {
     setTimeout,
     clearTimeout,
     Terrain: require('../lib/terrain.js'),
+    Structures: require('../lib/structures.js'),
     document: {
       getElementById: () => null,
       addEventListener: () => {}

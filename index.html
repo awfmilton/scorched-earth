@@ -723,6 +723,7 @@
   </div>
   <div id="shop" hidden></div>
   <script src="lib/terrain.js"></script>
+  <script src="lib/structures.js"></script>
   <script>
     (function() {
       'use strict';
@@ -1143,6 +1144,22 @@
       const gameplayRNG = createRngStream(1);
       const rng = gameplayRNG;
 
+      /**
+       * A THIRD simulation stream, consumed only by the structure layout.
+       *
+       * It would have been simpler to draw the holding jitter from gameplayRNG,
+       * but that stream is already consumed by wind and tank placement in a
+       * fixed order, and inserting draws ahead of them would move every tank in
+       * every existing seed. A separate stream, seeded from the same round seed
+       * through a fixed derivation, keeps the old sequence byte-identical while
+       * still being fully determined by what the server broadcast.
+       *
+       * The XOR constant is arbitrary but FIXED: it only has to be the same
+       * number on every client, which it is because there is one copy of it.
+       */
+      const structureRNG = createRngStream(1);
+      const STRUCTURE_SEED_SALT = 0x5CA57;
+
       // Isolated generator for visual-only non-gameplay deterministic randomness
       let visualState = 12345;
       const visualRNG = {
@@ -1418,6 +1435,22 @@
       } else {
         try {
           TerrainLib = require('./lib/terrain.js');
+        } catch (e) {
+          // Fallback if needed
+        }
+      }
+
+      // Structures resolve the same way terrain does — one shared table, not a
+      // mirrored copy, because a drifted structure field is a client
+      // disagreeing about whether a castle is still standing.
+      let StructuresLib;
+      if (typeof window !== 'undefined' && window.Structures) {
+        StructuresLib = window.Structures;
+      } else if (typeof globalThis !== 'undefined' && globalThis.Structures) {
+        StructuresLib = globalThis.Structures;
+      } else {
+        try {
+          StructuresLib = require('./lib/structures.js');
         } catch (e) {
           // Fallback if needed
         }
@@ -1930,11 +1963,23 @@
           this.headless = !!opts.headless;
           this.seed = opts.seed !== undefined ? opts.seed : 42;
           this.mode = opts.mode || 'local';
+          /**
+           * The MATCH mode — 'aethercastle' or 'classic' — as distinct from
+           * this.mode, which is 'local' or 'online'. It decides what the world
+           * contains (six chassis and a holding, or one tank and bare ground),
+           * so it is simulation state and lives on the instance rather than
+           * being read from the module-level activeMode at each call site.
+           *
+           * Online it is overwritten by ROUND_START.mode before the first
+           * shot; the module default only seeds solo play.
+           */
+          this.gameMode = normaliseMode(opts.gameMode || activeMode);
           this.roundState = {
             ticks: 0
           };
 
           this.projectiles = [];
+          this.structures = [];
           this.terrain = new Terrain();
           this.newRound(this.seed);
 
@@ -2064,7 +2109,11 @@
               this.net.send('FIRE', {
                 angle: activeTank.angle,
                 power: activeTank.power,
-                weapon
+                weapon,
+                // Declared, not spent — only this client can see its own
+                // fuse stock, so it has to tell the server which one is
+                // armed or the watchers will fuse the shell differently.
+                trigger: this.peekTrigger(activeTank)
               });
             }
             return;
@@ -2114,18 +2163,40 @@
           // late cannot fly the projectile through a different breeze.
           if (msg.wind !== undefined) this.wind = msg.wind;
 
-          let weapon = msg.weapon || 'Baby Missile';
-          let ammo = shooter.inventory[weapon];
-          if (ammo === undefined || (ammo <= 0 && ammo !== Infinity)) {
-            weapon = 'Baby Missile';
-            ammo = shooter.inventory[weapon];
-          }
+          /*
+           * The server's weapon is FINAL. It is not re-checked here, and that
+           * is the whole point.
+           *
+           * This used to downgrade to Baby Missile whenever the shooter's
+           * local inventory did not show stock of msg.weapon — which read as a
+           * sensible safety net and was in fact a guaranteed desync. A client
+           * replicates its OWN inventory and nobody else's: every remote
+           * tank is built with just { 'Baby Missile': Infinity, Fuel } and
+           * purchases are tracked only on the buyer's machine. So for any shot
+           * that was not a Baby Missile, the shooter kept its weapon and every
+           * WATCHER silently downgraded — a Nuke on one screen and a Baby
+           * Missile on the others, with different blast, damage and carve.
+           *
+           * Ownership is the server's job (it already clamps the weapon to the
+           * room's tier in lib/room-manager.js). A client's only job is to
+           * simulate what it is told.
+           */
+          const weapon = msg.weapon || 'Baby Missile';
+
+          // Spend ammo only where it is actually tracked: the shooter's own
+          // machine. On every other client the entry is undefined and there is
+          // nothing to decrement.
+          const ammo = shooter.inventory[weapon];
           if (ammo !== undefined && ammo !== Infinity) {
             shooter.inventory[weapon]--;
           }
-          // Armed locally, from the inventory every client already replicates —
-          // the same reason the ammo decrement above is safe to do client-side.
-          const trigger = this.armTrigger(shooter);
+
+          // The detonator comes off the wire for the same reason the weapon
+          // does. armTrigger() reads the shooter's inventory, which only the
+          // shooter has, so running it here made the shooter fuse a shell
+          // differently from everyone watching it.
+          const trigger = msg.trigger || null;
+          this.spendTrigger(shooter, trigger);
           shooter.selectedWeapon = weapon;
 
           // angle is used ONLY to place the barrel tip, and goes through the
@@ -2166,6 +2237,9 @@
           // this is the one place every client advances a turn, so applying
           // the drift here keeps all of them on the same pixel.
           this.applyChassisTurnDrift();
+          // Same turn boundary, same order on every client: drift, then the
+          // holding's auras and turrets.
+          this.applyStructureTurnEffects();
           this.setActiveSlot(msg.activeSlot);
           this.raiseShieldForActivePlayer();
           this.updateHUD();
@@ -2304,6 +2378,9 @@
             tank.x = gameplayRNG.range(minX, maxX);
           });
           this.snapTanksToTerrain();
+          // Identical call order to start(): roster placed, then the holding.
+          this.rebuildStructures();
+          this.applyStructureRoundStart();
 
           this.activeShotId = null;
           this.reportedShotId = null;
@@ -2374,6 +2451,9 @@
           this.roundOver = false;
           this.terrain.generate(roundSeed);
           gameplayRNG.seed(roundSeed);
+          // Derived from the same server seed, but on its own stream so the
+          // holding layout cannot shift wind or tank placement.
+          structureRNG.seed((roundSeed ^ STRUCTURE_SEED_SALT) >>> 0);
           this.persistentTracers = [];
           // Regenerate wind: signed horizontal acceleration, let's say between -150 and 150
           this.wind = gameplayRNG.range(-150, 150);
@@ -2420,6 +2500,232 @@
           } else {
             tank.shield.hp += spec.fieldRegen;
           }
+        }
+
+        /* ── Structures ────────────────────────────────────────────────────
+         *
+         * A holding is rebuilt from (round seed, roster) at the top of every
+         * round and mutated afterwards only by replicated events. There is no
+         * STRUCTURE_* wire message and there must not be one: every client
+         * derives the same array from the same ROUND_START, then damages it
+         * from the same FIRE_SYNC stream, in the same order.
+         *
+         * Every pass below walks this.structures by INDEX. None of them draws
+         * from an RNG after layout, so a turn's structure effects are pure
+         * arithmetic over replicated state.
+         */
+
+        rebuildStructures() {
+          if (!StructuresLib) { this.structures = []; return; }
+          this.structures = StructuresLib.layoutStructures(
+            structureRNG,
+            this.gameMode,
+            this.roster,
+            this.terrain && this.terrain.heights,
+            CONST.WORLD_W,
+            CONST.WORLD_H
+          );
+        }
+
+        // Re-seat the holding on the ground after terrain has moved under it.
+        // Buildings do not fall; they sit on whatever is left, which is what
+        // stops a shelled castle hanging in mid-air over its own crater.
+        reSeatStructures() {
+          if (!this.structures || !StructuresLib) return;
+          for (let i = 0; i < this.structures.length; i++) {
+            const s = this.structures[i];
+            const spec = StructuresLib.specOf(s);
+            if (!spec) continue;
+            s.y = StructuresLib.groundUnder(
+              this.terrain.heights, s.x, spec.w, CONST.WORLD_W, CONST.WORLD_H
+            );
+          }
+        }
+
+        // Top of a round: forges pay out, turrets come off cooldown.
+        applyStructureRoundStart() {
+          if (!this.structures || !this.roster || !StructuresLib) return;
+          for (let i = 0; i < this.structures.length; i++) {
+            const s = this.structures[i];
+            s.cooldown = 0;
+            if (!StructuresLib.isStanding(s)) continue;
+            const spec = StructuresLib.specOf(s);
+            if (!spec || !spec.income) continue;
+            const owner = this.roster[s.ownerIdx];
+            if (owner && owner.hp > 0) {
+              owner.cash = (owner.cash || 0) + spec.income;
+            }
+          }
+        }
+
+        /**
+         * Turn boundary: auras heal and shield, then turrets fire.
+         *
+         * Called from exactly the two places a turn advances (applyTurnSync
+         * online, nextTurn local), alongside applyChassisTurnDrift, so the pass
+         * runs the same number of times on every client.
+         *
+         * Auras run BEFORE turrets on purpose: a repair bay should top up a
+         * hull before the enemy scorpion shoots at it, and fixing the order is
+         * what stops two clients disagreeing about whether a tank survived.
+         */
+        applyStructureTurnEffects() {
+          if (!this.structures || !this.roster || !StructuresLib) return;
+
+          // Pass 1 — auras, in structure order, over the roster in slot order.
+          for (let i = 0; i < this.structures.length; i++) {
+            const s = this.structures[i];
+            if (!StructuresLib.isStanding(s)) continue;
+            const spec = StructuresLib.specOf(s);
+            if (!spec || !spec.aura) continue;
+
+            for (let t = 0; t < this.roster.length; t++) {
+              const tank = this.roster[t];
+              if (!tank || tank.hp <= 0) continue;
+              // A holding only tends its own house.
+              if (tank.slot !== s.owner && t !== s.ownerIdx) continue;
+              const dx = tank.x - s.x;
+              const dy = tank.y - s.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist > spec.aura.radius) continue;
+
+              if (spec.aura.repair) {
+                const maxHp = tank.maxHp || chassisOf(tank).hp;
+                tank.hp = Math.min(maxHp, tank.hp + spec.aura.repair);
+              }
+              if (spec.aura.shield) {
+                // Tops up to a FLOOR rather than stacking, so two domes are
+                // not twice as good as one and the value stays bounded.
+                if (!tank.shield || tank.shield.hp <= 0) {
+                  tank.shield = { type: 'Shield', hp: spec.aura.shield };
+                } else if (tank.shield.hp < spec.aura.shield) {
+                  tank.shield.hp = spec.aura.shield;
+                }
+              }
+            }
+          }
+
+          // Pass 2 — turrets.
+          for (let i = 0; i < this.structures.length; i++) {
+            const s = this.structures[i];
+            if (!StructuresLib.isStanding(s)) continue;
+            const spec = StructuresLib.specOf(s);
+            if (!spec || !spec.turret) continue;
+
+            if (s.cooldown > 0) { s.cooldown--; continue; }
+
+            const target = this.nearestEnemyTank(s);
+            if (!target) continue;
+            const dx = target.x - s.x;
+            const dy = target.y - s.y;
+            if (Math.sqrt(dx * dx + dy * dy) > spec.turret.range) continue;
+
+            s.cooldown = spec.turret.cooldown;
+            // Credited to the owner so kills and damage-dealt still add up.
+            this.explosion(
+              target.x, target.y - 3,
+              spec.turret.radius, spec.turret.damage,
+              s.ownerIdx,
+              { carve: spec.turret.carve !== true ? false : true, fromStructure: true }
+            );
+          }
+        }
+
+        /**
+         * Nearest living tank not belonging to the structure's owner.
+         *
+         * Ties break on the LOWER roster index, never on iteration accident:
+         * two equidistant targets must resolve to the same one everywhere.
+         */
+        nearestEnemyTank(s) {
+          let best = null;
+          let bestDist = Infinity;
+          for (let t = 0; t < this.roster.length; t++) {
+            const tank = this.roster[t];
+            if (!tank || tank.hp <= 0) continue;
+            if (t === s.ownerIdx || tank.slot === s.owner) continue;
+            const dx = tank.x - s.x;
+            const dy = tank.y - s.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < bestDist) { bestDist = dist; best = tank; }
+          }
+          return best;
+        }
+
+        /**
+         * Blast damage against the holding, run from explosion().
+         *
+         * Kept out of explosion()'s tank loop so the two orders stay separate
+         * and obvious: tanks first, then structures, then breaches. A breach is
+         * queued rather than detonated inline, because detonating inside the
+         * loop would re-enter explosion() and damage structures the outer loop
+         * had not visited yet — the classic order-dependent desync.
+         */
+        damageStructures(x, y, radius, damage, shooterIdx) {
+          if (!this.structures || !StructuresLib || damage <= 0) return;
+
+          const breaches = [];
+          for (let i = 0; i < this.structures.length; i++) {
+            const s = this.structures[i];
+            if (!StructuresLib.isStanding(s)) continue;
+            const spec = StructuresLib.specOf(s);
+            if (!spec) continue;
+
+            // Distance to the footprint, not to its centre: a wide castle
+            // should be hit when its wall is clipped, not only its middle.
+            const halfW = spec.w / 2;
+            const dx = Math.max(0, Math.abs(x - s.x) - halfW);
+            const dy = Math.max(0, (s.y - spec.h / 2) - y);
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist >= radius) continue;
+
+            const falloff = damage * (1 - dist / radius);
+            const warded = falloff * StructuresLib.wardMultiplier(this.structures, s);
+            const dealt = Math.max(0, Math.round(warded));
+            if (dealt <= 0) continue;
+
+            s.hp = Math.max(0, s.hp - dealt);
+
+            if (s.hp <= 0 && !s.breached) {
+              s.breached = true;
+              breaches.push({ s: s, spec: spec });
+              // An anchor going down pays whoever cracked it.
+              if (spec.bounty && shooterIdx !== undefined && shooterIdx !== null) {
+                const shooter = this.roster && this.roster[shooterIdx];
+                if (shooter) shooter.cash = (shooter.cash || 0) + spec.bounty;
+              }
+            }
+          }
+
+          // Breaches resolve after the whole sweep, in the order they were
+          // found, which is structure-array order on every client.
+          for (let b = 0; b < breaches.length; b++) {
+            const spec = breaches[b].spec;
+            const s = breaches[b].s;
+            if (!spec.breach) continue;
+            this.explosion(
+              s.x, s.y - spec.h / 2,
+              spec.breach.radius, spec.breach.damage,
+              shooterIdx,
+              { carve: spec.breach.carve !== false, fromStructure: true }
+            );
+          }
+        }
+
+        // Does the owner of this tank still hold a standing radar? Used to
+        // tighten AI aim scatter — it scales a draw that already comes from
+        // the shared stream, so it changes the value but not the draw count.
+        radarAssistFor(tank) {
+          if (!this.structures || !StructuresLib || !tank) return 0;
+          let best = 0;
+          for (let i = 0; i < this.structures.length; i++) {
+            const s = this.structures[i];
+            if (!StructuresLib.isStanding(s)) continue;
+            if (s.owner !== tank.slot && this.roster[s.ownerIdx] !== tank) continue;
+            const spec = StructuresLib.specOf(s);
+            if (spec && spec.aimAssist > best) best = spec.aimAssist;
+          }
+          return best;
         }
 
         /**
@@ -2494,6 +2800,16 @@
           for (let i = 0; i < steps; i++) {
             const nextX = tank.x + dir * stride;
             if (nextX < minX || nextX > maxX) break;
+
+            // Masonry stops a hull before terrain is even consulted. Checked
+            // for EVERY locomotion including aerial: an airship is above the
+            // ground, but a castle keep is tall enough to matter, and making
+            // the rule uniform is what keeps it from becoming a per-chassis
+            // judgement call that two clients could resolve differently.
+            if (StructuresLib &&
+                StructuresLib.blocksMovement(this.structures, tank.x, nextX)) {
+              break;
+            }
 
             if (spec.locomotion === 'aerial') {
               // An airship is never stopped by ground: it is already above it.
@@ -2886,6 +3202,12 @@
           });
 
           this.snapTanksToTerrain();
+          // The holding is laid out AFTER the roster exists and is placed,
+          // because it is divided into one zone per player. Same call order in
+          // applyServerRoundStart, so both paths consume structureRNG
+          // identically.
+          this.rebuildStructures();
+          this.applyStructureRoundStart();
           // Online, the first shooter is turnOrder[0] (a slot), not roster
           // index 0 — those differ whenever lobby churn leaves the roster in a
           // different order from the slot numbering, and every client keying
@@ -2961,6 +3283,7 @@
           // Local play advances its own turn, so the drift is applied here
           // instead — same call, same point in the turn.
           this.applyChassisTurnDrift();
+          this.applyStructureTurnEffects();
 
           let nextIdx = this.activePlayerIdx;
           for (let i = 0; i < this.roster.length; i++) {
@@ -3173,6 +3496,33 @@
           return null;
         }
 
+        // Which trigger WOULD arm, without spending it.
+        //
+        // Online the shooter has to declare its detonator when it sends FIRE,
+        // but the shot may still be rejected, and the stock should only be
+        // spent once the server echoes the shot back. So the send path peeks
+        // and applyFireSync does the spending — exactly how ammo behaves.
+        peekTrigger(tank) {
+          if (!tank || !tank.inventory) return null;
+          for (const t of TRIGGER_PRIORITY) {
+            if (tank.inventory[t.item] > 0) return t.trigger;
+          }
+          return null;
+        }
+
+        // Spend the item backing an armed trigger, on the one client that
+        // actually tracks it. Everywhere else the entry is undefined.
+        spendTrigger(tank, trigger) {
+          if (!tank || !tank.inventory || !trigger) return;
+          for (const t of TRIGGER_PRIORITY) {
+            if (t.trigger !== trigger) continue;
+            if (typeof tank.inventory[t.item] === 'number' && tank.inventory[t.item] > 0) {
+              tank.inventory[t.item]--;
+            }
+            return;
+          }
+        }
+
         // Single entry point for damaging a tank. Every damage source must route
         // through here so shield absorption, Auto Defense and score accounting stay
         // consistent. Returns true if this hit is what killed the tank.
@@ -3291,8 +3641,16 @@
           deadTanksToExplode.forEach(item => {
             this.explosion(item.tank.x, item.tank.y - 3, 35, 50, shooterIdx);
           });
-          
+
+          // 5. The holding takes the same blast, after the tanks and after the
+          // chain reactions, so the order is the same on every client. A
+          // breach detonates from inside here and can damage further
+          // structures; the `breached` latch is what stops that recursing.
+          this.damageStructures(x, y, radius, damage, shooterIdx);
+
           this.terrain.settle();
+          // Buildings sit on whatever ground is left once the dirt has moved.
+          this.reSeatStructures();
         }
 
         reSeatTanks() {
@@ -5519,6 +5877,11 @@
                // here, which is the whole point: both clients have to be
                // simulating the same game before the first shell flies.
                applyMode(msg.mode);
+               // applyMode only repaints. The SIMULATION reads gameMode, and
+               // it is what decides whether this round has a holding on the
+               // field at all — so the server's value has to land on the
+               // instance before any round-start path builds the world.
+               gameInstance.gameMode = normaliseMode(msg.mode);
 
                // If the client just reconnected and is already in this round, do not reset the board.
                if (gameInstance.roster && gameInstance.currentRound === msg.round) {
@@ -5643,6 +6006,10 @@
         SHIELD_PRIORITY,
         PROXIMITY_FUSE_RADIUS,
         BASIC_WEAPON_IDS,
+        STRUCTURES: StructuresLib && StructuresLib.STRUCTURES,
+        STRUCTURE_IDS: StructuresLib && StructuresLib.STRUCTURE_IDS,
+        HOLDING_TEMPLATE: StructuresLib && StructuresLib.HOLDING_TEMPLATE,
+        StructuresLib,
         NetClient,
         // The live client, not just its class: it owns a socket and a
         // reconnect timer, so a harness needs the instance to shut it down.

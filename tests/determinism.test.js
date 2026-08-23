@@ -47,7 +47,8 @@ describe('Terrain Generation Determinism Tests', () => {
         console,
         setTimeout,
         clearTimeout,
-        Terrain: require('../lib/terrain.js')
+        Terrain: require('../lib/terrain.js'),
+      Structures: require('../lib/structures.js')
       };
       context.globalThis = context;
       vm.createContext(context);
@@ -88,7 +89,8 @@ describe('Deterministic Trig Helpers & Source Guard Tests', () => {
       console,
       setTimeout,
       clearTimeout,
-      Terrain: require('../lib/terrain.js')
+      Terrain: require('../lib/terrain.js'),
+      Structures: require('../lib/structures.js')
     };
     context.globalThis = context;
     vm.createContext(context);
