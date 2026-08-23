@@ -79,8 +79,8 @@ built but unwired.
 
 | Feature | Status | Justification |
 |---|---|---|
-| Cash, per-round payouts | **DONE (local only)** | Damage + 500/kill + survival bonus, `handleRoundEnd:2789-2801`. |
-| Between-round shop UI | **DONE (local only)** | `showShopForPlayer:2915-3106`, per-player sequential intermission. |
+| Cash, per-round payouts | **DONE** | Damage + 500/kill + survival bonus, `handleRoundEnd:2789-2801`. |
+| Between-round shop UI | **DONE** | `showShopForPlayer:2915-3106`, per-player sequential intermission. |
 | Buying | **DONE** | `buy:2866-2889`, pack sizes, affordability gating. |
 | **Selling** | **DONE** | Selling functionality has been implemented. (Commit: 263d71c). |
 | **Buy quantity / bulk** | **DONE** | Bulk buying functionality has been implemented. (Commit: 263d71c). |
