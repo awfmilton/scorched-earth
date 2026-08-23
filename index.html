@@ -4864,6 +4864,9 @@
         PROXIMITY_FUSE_RADIUS,
         BASIC_WEAPON_IDS,
         NetClient,
+        // The live client, not just its class: it owns a socket and a
+        // reconnect timer, so a harness needs the instance to shut it down.
+        netInstance: net,
         detSin,
         detCos,
         detTan

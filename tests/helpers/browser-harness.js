@@ -101,10 +101,43 @@ function createBrowserDom() {
 // location pointing at the test server, then fire DOMContentLoaded.
 function bootBrowser(port) {
   const dom = createBrowserDom();
+
+  // Every socket the page opens is tracked, because nothing else can close
+  // them. An established ws client keeps the event loop alive on its own:
+  // server.close() only stops accepting, and wss.close() does not hang up
+  // existing peers. Without close() below, a test file passes and then never
+  // exits -- which reads as "still running" and eats a CI slot until the
+  // watchdog kills it.
+  const sockets = [];
+  class TrackedWebSocket extends WebSocket {
+    constructor(...args) {
+      super(...args);
+      sockets.push(this);
+      // unref the underlying TCP socket so a page that is still connected
+      // cannot by itself hold the process open. This is the safety net: an
+      // explicit close() below is still the correct teardown, but a test file
+      // that forgets one must not hang, only leak until exit.
+      const unref = () => { try { this._socket.unref(); } catch { /* not up yet */ } };
+      this.on('open', unref);
+      this.on('upgrade', unref);
+      unref();
+    }
+  }
+
+  // Same reasoning for timers. The page reconnects on a backoff timer, so a
+  // ref'd timer keeps the loop alive forever once the server goes away. The
+  // timer still fires normally while anything else keeps the loop running,
+  // which during a test is the test runner itself.
+  const unrefTimeout = (fn, ms, ...rest) => {
+    const t = setTimeout(fn, ms, ...rest);
+    if (t && typeof t.unref === 'function') t.unref();
+    return t;
+  };
+
   const ctx = {
     globalThis: {},
     Math, Float32Array, console, JSON, Date,
-    setTimeout, clearTimeout,
+    setTimeout: unrefTimeout, clearTimeout,
     setInterval: () => 1,
     clearInterval: () => {},
     sessionStorage: { getItem: () => null, setItem() {}, removeItem() {} },
@@ -112,7 +145,7 @@ function bootBrowser(port) {
     requestAnimationFrame: () => 1,
     performance: { now: () => Date.now() },
     Terrain: terrainLib,
-    WebSocket,
+    WebSocket: TrackedWebSocket,
     location: { protocol: 'http:', host: `127.0.0.1:${port}` },
     navigator: { clipboard: { writeText: () => Promise.resolve() } },
     document: dom.document,
@@ -125,7 +158,26 @@ function bootBrowser(port) {
   vm.createContext(ctx);
   vm.runInContext(code, ctx);
   dom.fire();
-  return { ctx, dom, el: (id) => dom.document.getElementById(id) };
+  return {
+    ctx,
+    dom,
+    el: (id) => dom.document.getElementById(id),
+    // Shut the page's network client down through its own API first. Killing
+    // the socket on its own does not work: onclose fires scheduleReconnect(),
+    // which opens a fresh socket on a timer, so the page heals itself right
+    // back into keeping the loop alive. disconnect() clears shouldReconnect
+    // and the pending timer, which is what actually stops the cycle.
+    close() {
+      const S = ctx.globalThis.SCORCHED;
+      try { S && S.netInstance && S.netInstance.disconnect(); } catch { /* never booted */ }
+      // Belt and braces for anything disconnect() did not own. Safe now that
+      // shouldReconnect is false, so these closes cannot schedule a retry.
+      for (const s of sockets) {
+        try { s.terminate(); } catch { /* already gone */ }
+      }
+      sockets.length = 0;
+    }
+  };
 }
 
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
@@ -167,7 +219,21 @@ async function startTestServer() {
     server,
     wss,
     port: server.address().port,
-    close() { wss.close(); server.close(); }
+    // Hang up every peer before shutting down. wss.close()/server.close() stop
+    // new connections but leave established ones open, and one open server-side
+    // socket is enough to keep node from exiting.
+    //
+    // attachWebSocketServer returns a wrapper whose `clients` is a
+    // Map<connectionId, ws>, NOT a ws Set -- iterating it directly yields
+    // [id, ws] pairs whose .terminate is undefined, which is how an earlier
+    // version of this teardown silently did nothing at all.
+    close() {
+      for (const ws of wss.clients.values()) {
+        ws.terminate();
+      }
+      wss.close();
+      server.close();
+    }
   };
 }
 
