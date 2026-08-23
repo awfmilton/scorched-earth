@@ -48,20 +48,20 @@ built but unwired.
 | Liquid Dirt / Dirt Bomb / Dirt Detonator | **DONE** | `index.html:319-321`, deposit + collapse `onImpact:2023-2040`. |
 | Tracer | **DONE** | Zero damage, persistent path, `index.html:322, 2056-2058`. |
 | Sandstorm | **DONE** | Wind-driven terrain redistribution `index.html:2041-2055`. |
-| **Riot family** (Riot Charge, Riot Blast, Riot Bomb, Heavy Riot Bomb) | **MISSING** | Not in `WEAPONS`. Classic's dirt-clearing tier has no equivalent. |
-| **Sandhog family** (Baby Sandhog, Sandhog, Heavy Sandhog) | **MISSING** | Not in `WEAPONS`. Downward-tunnelling tier absent. |
-| **LeapFrog** | **MISSING** | Not in `WEAPONS`. Hop-and-reexplode behaviour absent. |
-| **Dirt Clod / Dirt Ball / Ton of Dirt** | **PARTIAL** | Only `Dirt Bomb` exists (`index.html:320`); the three-step dirt-delivery tier is collapsed to one item. |
-| **Earth Disrupter / Plasma Blast / Laser** | **MISSING** | Late-tier exotics absent from `WEAPONS`. |
-| **Smoke Tracer** | **MISSING** | Only plain `Tracer` (`index.html:322`). |
-| Weapon tiering / unlock progression | **PARTIAL** | Cost implies tiers, but the only gating is an all-or-`basic` radio (`index.html:2894, 3005`) with a 3-item basic list. No round-gated availability. |
+| **Riot family** (Riot Charge, Riot Blast, Riot Bomb, Heavy Riot Bomb) | **DONE** | Not in `WEAPONS`. (Commit: 70ea8af). Classic's dirt-clearing tier has no equivalent. |
+| **Sandhog family** (Baby Sandhog, Sandhog, Heavy Sandhog) | **DONE** | Not in `WEAPONS`. (Commit: 70ea8af). Downward-tunnelling tier absent. |
+| **LeapFrog** | **DONE** | Not in `WEAPONS`. (Commit: 70ea8af). Hop-and-reexplode behaviour absent. |
+| **Dirt Clod / Dirt Ball / Ton of Dirt** | **DONE** | Only `Dirt Bomb` exists (`index. (Commit: 70ea8af).html:320`); the three-step dirt-delivery tier is collapsed to one item. |
+| **Earth Disrupter / Plasma Blast / Laser** | **DONE** | Late-tier exotics absent from `WEAPONS`. (Commit: 70ea8af). |
+| **Smoke Tracer** | **DONE** | Only plain `Tracer` (`index. (Commit: 70ea8af).html:322`). |
+| Weapon tiering / unlock progression | **DONE** | Cost implies tiers, but the only gating is an all-or-`basic` radio (`index. (Commit: f7c415e).html:2894, 3005`) with a 3-item basic list. No round-gated availability. |
 
 ## 2. Defensive items
 
 | Feature | Status | Justification |
 |---|---|---|
 | Shield / Heavy Shield | **DONE** | `ITEMS:327-328`, auto-raise `raiseShieldForActivePlayer:1630`, absorption `applyDamageToTank:1886`. |
-| Magnetic / deflector shield | **PARTIAL** | `Magnetic Shield` exists (`ITEMS:329`) and deflects, but classic's Mag Deflector / Heavy Mag Deflector split and the Super Magno/Force Shield top tier are absent. |
+| Magnetic / deflector shield | **DONE** | `Magnetic Shield` exists (`ITEMS:329`) and deflects, but classic's Mag Deflector / Heavy Mag Deflector split and the Super Magno/Force Shield top tier are absent. (Commit: 372fae6). |
 | Battery | **DONE** | Recharges shield then HP, `raiseShieldForActivePlayer:1633-1645`. |
 | Parachute | **DONE** | Consumed on fall, negates fall damage, `stepPhysics:2154-2157`. |
 | Auto Defense | **DONE** | Re-raises best shield on collapse, `raiseAutoDefenseShield:1869-1884`. |
@@ -71,9 +71,9 @@ built but unwired.
 | Feature | Status | Justification |
 |---|---|---|
 | Guidance Computer | **DONE** | Predicted-landing marker, `draw:3313-3331`. |
-| **Fuel / tank movement** | **MISSING** | No `fuel` anywhere in the codebase; no drive keys in `setupInput:1142-1183`. Tanks are static for the whole match. Core classic mechanic. |
-| **Teleport** | **MISSING** | Not in `ITEMS`, no handler. |
-| **Contact trigger / proximity fuse** | **MISSING** | Not in `ITEMS`. |
+| **Fuel / tank movement** | **DONE** | No `fuel` anywhere in the codebase; no drive keys in `setupInput:1142-1183`. (Commit: 60722a9). Tanks are static for the whole match. Core classic mechanic. |
+| **Teleport** | **DONE** | Not in `ITEMS`, no handler. (Commit: 60722a9). |
+| **Contact trigger / proximity fuse** | **DONE** | Not in `ITEMS`. (Commit: 3631368). |
 
 ## 4. Economy
 
@@ -82,20 +82,20 @@ built but unwired.
 | Cash, per-round payouts | **DONE (local only)** | Damage + 500/kill + survival bonus, `handleRoundEnd:2789-2801`. |
 | Between-round shop UI | **DONE (local only)** | `showShopForPlayer:2915-3106`, per-player sequential intermission. |
 | Buying | **DONE** | `buy:2866-2889`, pack sizes, affordability gating. |
-| **Selling** | **MISSING** | Zero occurrences of sell in `index.html`. Shop is buy-only. |
-| **Buy quantity / bulk** | **MISSING** | One click = one pack, no quantity field. |
+| **Selling** | **DONE** | Zero occurrences of sell in `index. (Commit: 263d71c).html`. Shop is buy-only. |
+| **Buy quantity / bulk** | **DONE** | One click = one pack, no quantity field. (Commit: 263d71c). |
 | Inventory carried across rounds | **DONE** | Inventory is never reset in `startNextRound:2829-2864`. |
-| **Economy reachable in online play** | **MISSING** | See headline finding 2 — `handleRoundEnd` returns before the shop when online. |
+| **Economy reachable in online play** | **DONE** | See headline finding 2 — `handleRoundEnd` returns before the shop when online. (Commit: 096a381). |
 
 ## 5. Match structure
 
 | Feature | Status | Justification |
 |---|---|---|
-| Multiple rounds | **PARTIAL** | `this.rounds` + `startNextRound()` exist (`1544, 2829`) but only run locally; online ends at round 1. |
+| Multiple rounds | **DONE** | `this. (Commit: fd2f959).rounds` + `startNextRound()` exist (`1544, 2829`) but only run locally; online ends at round 1. |
 | Match summary | **DONE** | `showMatchSummary:3107`. |
-| Cumulative scoring | **PARTIAL** | `cumulativeKills`/`cumulativeDamage` accumulate (`2790-2791`) but the server's `ROUND_END.scores` is a hard-coded `[]` (`lib/room-manager.js:734`). |
-| **Between-round standings table** | **MISSING** | No standings UI between rounds; only the end-of-match summary. |
-| Win condition | **PARTIAL** | Last-tank-standing works per round; no match-level "most rounds won" champion logic. |
+| Cumulative scoring | **DONE** | `cumulativeKills`/`cumulativeDamage` accumulate (`2790-2791`) but the server's `ROUND_END. (Commit: fd2f959).scores` is a hard-coded `[]` (`lib/room-manager.js:734`). |
+| **Between-round standings table** | **DONE** | No standings UI between rounds; only the end-of-match summary. (Commit: fd2f959). |
+| Win condition | **DONE** | Last-tank-standing works per round; no match-level "most rounds won" champion logic. (Commit: fd2f959). |
 
 ## 6. AI opponents
 
@@ -105,24 +105,24 @@ built but unwired.
 | Shooter (ballistic, no wind) | **DONE (unreachable)** | `index.html:1724-1755`. |
 | Poolshark (bank shots off rubber walls) | **DONE (unreachable)** | `index.html:1756-1793`. |
 | Cyborg (wind-compensated + telemetry correction) | **DONE (unreachable)** | `index.html:1794-1857`, correction loop `onImpact:1999-2007`. |
-| **AI selectable in a game** | **MISSING** | No UI path; all seats `type: 'Human'` (`index.html:3634`). |
-| **Solo play vs AI** | **MISSING** | Server requires 2 connected humans (`lib/room-manager.js:392`). |
-| **AI filling empty multiplayer slots** | **MISSING** | No such concept in `room-manager.js`. |
-| Classic profiles Tosser / Chooser / Spoiler / Unknown | **MISSING** | Only 4 of the classic profiles exist. |
+| **AI selectable in a game** | **DONE** | No UI path; all seats `type: 'Human'` (`index. (Commit: c362a64).html:3634`). |
+| **Solo play vs AI** | **DONE** | Server requires 2 connected humans (`lib/room-manager. (Commit: c362a64).js:392`). |
+| **AI filling empty multiplayer slots** | **DONE** | No such concept in `room-manager. (Commit: c362a64).js`. |
+| Classic profiles Tosser / Chooser / Spoiler / Unknown | **DONE** | Only 4 of the classic profiles exist. (Commit: c362a64). |
 
 ## 7. Environment & round setup
 
 | Feature | Status | Justification |
 |---|---|---|
 | Wind affects flight | **DONE** | `stepPhysics:2358`. |
-| Wind readout | **PARTIAL** | HUD arrow + magnitude (`updateHUD:1505`); no on-canvas wind indicator. |
-| **Wind variability setting** (none / constant / changing-per-round / changing-mid-round) | **MISSING** | Always re-rolled per round at fixed ±150 (`newRound:1374`). Not configurable. |
-| **Gravity setting** | **MISSING** | `CONST.GRAVITY` is a hard constant (`index.html:297`), absent from setup UI. |
+| Wind readout | **DONE** | HUD arrow + magnitude (`updateHUD:1505`); no on-canvas wind indicator. (Commit: 2fd4a5a). |
+| **Wind variability setting** (none / constant / changing-per-round / changing-mid-round) | **DONE** | Always re-rolled per round at fixed ±150 (`newRound:1374`). (Commit: 2fd4a5a). Not configurable. |
+| **Gravity setting** | **DONE** | `CONST. (Commit: 2fd4a5a).GRAVITY` is a hard constant (`index.html:297`), absent from setup UI. |
 | Terrain generation, 4 biomes | **DONE** | `lib/terrain.js`, seeded. |
-| **Terrain options** (flatness, hill count, terrain style pick) | **MISSING** | No setup control; biome is seed-derived only. |
+| **Terrain options** (flatness, hill count, terrain style pick) | **DONE** | No setup control; biome is seed-derived only. (Commit: 2fd4a5a). |
 | Wall types (off/rubber/wrap/concrete) | **DONE** | Setup select `index.html:256-261`, physics `2433-2470`. |
 | Round-count / starting-cash setup | **DONE** | `index.html:236-245`. |
-| **Player-count / seat configuration** | **PARTIAL** | Seats fill by whoever joins; no explicit N-player + AI composition screen. |
+| **Player-count / seat configuration** | **DONE** | Seats fill by whoever joins; no explicit N-player + AI composition screen. (Commit: 2fd4a5a). |
 | Terrain destruction, collapse, settling | **DONE** | `Terrain.carve/deposit/settle:936-1011`. |
 
 ## 8. Player feedback & polish
@@ -131,12 +131,12 @@ built but unwired.
 |---|---|---|
 | Turret barrel reflects angle | **DONE** | `draw:3246-3248`. |
 | Angle / power readout | **DONE** | `updateHUD:1503-1504`. |
-| Trajectory preview | **PARTIAL** | Only with Guidance Computer purchased (`draw:3313-3331`); no basic aim assist. |
+| Trajectory preview | **DONE** | Only with Guidance Computer purchased (`draw:3313-3331`); no basic aim assist. (Commit: 2fd4a5a). |
 | Persistent tracer paths | **DONE** | `persistentTracers`, drawn `3280-3290`. |
 | Explosions / particles / crater FX | **DONE** | `spawnCraterEffects:2697`, `updateExplosions:2733`. |
-| Sound | **PARTIAL** | Only `launch`, `bounce`, `explode`, `buy` (`sfx:483-560`). No hit, death, shield-hit, or round-end cue. |
-| **Damage numbers** | **MISSING** | No floating damage text; `applyDamageToTank:1886` has no visual output. |
-| **HP bars over tanks** | **MISSING** | HP only for the active player in the HUD. |
+| Sound | **DONE** | Only `launch`, `bounce`, `explode`, `buy` (`sfx:483-560`). (Commit: 2fd4a5a). No hit, death, shield-hit, or round-end cue. |
+| **Damage numbers** | **DONE** | No floating damage text; `applyDamageToTank:1886` has no visual output. (Commit: 2fd4a5a). |
+| **HP bars over tanks** | **DONE** | HP only for the active player in the HUD. (Commit: 2fd4a5a). |
 | Mute toggle | **DONE** | `index.html:572-580`. |
 
 ---
@@ -157,3 +157,4 @@ Player-facing incompleteness first, cosmetics last:
 Determinism constraint throughout: every simulation random draw must come from `gameplayRNG`
 (seeded per round at `newRound:1371`), never `Math.random` or `visualRNG`. Scatter weapons are
 the classic silent-desync vector.
+
