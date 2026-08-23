@@ -105,7 +105,7 @@ describe('the online shop actually renders', () => {
       game.config = { weaponsAvailability: 'basic', isMultiplayer: true };
       game.mySlot = 0;
       game.roster = [{
-        slot: 0, name: 'Player 1', type: 'Human', color: '#ff00ff', cash: 10000,
+        slot: 0, name: 'Player 1', type: 'Human', color: '#ff2d9b', cash: 10000,
         inventory: { 'Baby Missile': Infinity, 'Missile': 10 }, hp: 100, alive: true
       }];
       game.standings = [{ slot: 0, name: 'Player 1', roundsWon: 1 }];

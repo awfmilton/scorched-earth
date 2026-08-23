@@ -41,7 +41,7 @@ function runSoloMatch({ seed = 4242, rounds = 1, types = ['Shooter', 'Cyborg'], 
   const SCORCHED = evaluateIndexHtml();
   const game = new SCORCHED.Game({ headless: true, seed });
 
-  const colours = ['#ff00ff', '#00ffff', '#ff2222', '#22ff22', '#ffff00'];
+  const colours = ['#ff2d9b', '#00bfff', '#e23a2e', '#8fd400', '#e0c862'];
   game.start({
     rounds,
     startingCash: 10000,

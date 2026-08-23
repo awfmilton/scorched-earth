@@ -134,7 +134,7 @@ class MockElement {
 
       const colorSelect = new MockElement('select');
       colorSelect.className = 'player-color';
-      colorSelect.value = '#ff00ff'; // default
+      colorSelect.value = '#ff2d9b'; // default
 
       this.children.push(nameInput, typeSelect, colorSelect);
     }
@@ -320,8 +320,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
       const browserGame = new ctx.globalThis.SCORCHED.Game({ headless: false, seed: 100 });
       browserGame.start({
         players: [
-          { name: 'P1', type: 'Human', color: '#ff00ff' },
-          { name: 'P2', type: 'Human', color: '#00ffff' }
+          { name: 'P1', type: 'Human', color: '#ff2d9b' },
+          { name: 'P2', type: 'Human', color: '#00bfff' }
         ],
         rounds: 1,
         startingCash: 10000,
@@ -339,8 +339,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
       const game = SCORCHED.createHeadlessGame({ seed: 12345 });
       game.start({
         players: [
-          { name: 'P1', type: 'Human', color: '#ff00ff' },
-          { name: 'P2', type: 'Human', color: '#00ffff' }
+          { name: 'P1', type: 'Human', color: '#ff2d9b' },
+          { name: 'P2', type: 'Human', color: '#00bfff' }
         ],
         rounds: 1,
         startingCash: 10000,
@@ -376,8 +376,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
       const game = SCORCHED.createHeadlessGame({ seed: 12345 });
       game.start({
         players: [
-          { name: 'P1', type: 'Human', color: '#ff00ff' },
-          { name: 'P2', type: 'Human', color: '#00ffff' }
+          { name: 'P1', type: 'Human', color: '#ff2d9b' },
+          { name: 'P2', type: 'Human', color: '#00bfff' }
         ],
         rounds: 1,
         startingCash: 10000,
@@ -396,8 +396,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
       const game = SCORCHED.createHeadlessGame({ seed: 12345 });
       game.start({
         players: [
-          { name: 'P1', type: 'Human', color: '#ff00ff' },
-          { name: 'P2', type: 'Human', color: '#00ffff' }
+          { name: 'P1', type: 'Human', color: '#ff2d9b' },
+          { name: 'P2', type: 'Human', color: '#00bfff' }
         ],
         rounds: 1,
         startingCash: 10000,
@@ -447,10 +447,10 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
 
       const testConfig = {
         players: [
-          { name: 'Alice', type: 'Human', color: '#ff00ff' },
-          { name: 'Bob', type: 'Shooter', color: '#00ffff' },
-          { name: 'Charlie', type: 'Cyborg', color: '#ff2222' },
-          { name: 'Diana', type: 'Poolshark', color: '#22ff22' }
+          { name: 'Alice', type: 'Human', color: '#ff2d9b' },
+          { name: 'Bob', type: 'Shooter', color: '#00bfff' },
+          { name: 'Charlie', type: 'Cyborg', color: '#e23a2e' },
+          { name: 'Diana', type: 'Poolshark', color: '#8fd400' }
         ],
         rounds: 10,
         startingCash: 15000,
@@ -504,8 +504,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
           assert.strictEqual(playerSlotsContainer.children.length, 2, "Should render 2 player slots after count change");
 
           const rows = playerSlotsContainer.children;
-          rows[0].querySelector('.player-color').value = '#ff00ff';
-          rows[1].querySelector('.player-color').value = '#ff00ff';
+          rows[0].querySelector('.player-color').value = '#ff2d9b';
+          rows[1].querySelector('.player-color').value = '#ff2d9b';
 
           const startBtn = elements['start-btn'];
           startBtn.dispatchEvent('click');
@@ -513,7 +513,7 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
           const errorMsgDiv = elements['error-msg'];
           assert.ok(errorMsgDiv.textContent.includes('Error'), "Should show duplicate color error");
 
-          rows[1].querySelector('.player-color').value = '#00ffff';
+          rows[1].querySelector('.player-color').value = '#00bfff';
           errorMsgDiv.textContent = '';
 
           startBtn.dispatchEvent('click');
@@ -621,8 +621,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
 
           const playerSlotsContainer = elements['player-slots'];
           const rows = playerSlotsContainer.children;
-          rows[0].querySelector('.player-color').value = '#ff00ff';
-          rows[1].querySelector('.player-color').value = '#00ffff';
+          rows[0].querySelector('.player-color').value = '#ff2d9b';
+          rows[1].querySelector('.player-color').value = '#00bfff';
 
           elements['start-btn'].dispatchEvent('click');
 
@@ -676,8 +676,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
         const game = SCORCHED.createHeadlessGame({ seed: 100 });
         game.start({
           players: [
-            { name: 'P1', type: 'Human', color: '#ff00ff' },
-            { name: 'P2', type: 'Human', color: '#00ffff' }
+            { name: 'P1', type: 'Human', color: '#ff2d9b' },
+            { name: 'P2', type: 'Human', color: '#00bfff' }
           ],
           rounds: 5,
           startingCash: 10000,
@@ -725,8 +725,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
         const game = SCORCHED.createHeadlessGame({ seed: 100 });
         game.start({
           players: [
-            { name: 'P1', type: 'Human', color: '#ff00ff' },
-            { name: 'P2', type: 'Human', color: '#00ffff' }
+            { name: 'P1', type: 'Human', color: '#ff2d9b' },
+            { name: 'P2', type: 'Human', color: '#00bfff' }
           ],
           rounds: 5,
           startingCash: 10000,
@@ -779,8 +779,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
           const wallGame = SCORCHED.createHeadlessGame({ seed: 200 });
           wallGame.start({
             players: [
-              { name: 'P1', type: 'Human', color: '#ff00ff' },
-              { name: 'P2', type: 'Human', color: '#00ffff' }
+              { name: 'P1', type: 'Human', color: '#ff2d9b' },
+              { name: 'P2', type: 'Human', color: '#00bfff' }
             ],
             rounds: 5,
             startingCash: 10000,
@@ -840,9 +840,9 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
         const turnGame = SCORCHED.createHeadlessGame({ seed: 300 });
         turnGame.start({
           players: [
-            { name: 'P1', type: 'Human', color: '#ff00ff' },
-            { name: 'P2', type: 'Human', color: '#00ffff' },
-            { name: 'P3', type: 'Human', color: '#ff2222' }
+            { name: 'P1', type: 'Human', color: '#ff2d9b' },
+            { name: 'P2', type: 'Human', color: '#00bfff' },
+            { name: 'P3', type: 'Human', color: '#e23a2e' }
           ],
           rounds: 5,
           startingCash: 10000,
@@ -863,8 +863,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
         const aiGame = SCORCHED.createHeadlessGame({ seed: 400 });
         aiGame.start({
           players: [
-            { name: 'AI_1', type: 'Moron', color: '#ff00ff' },
-            { name: 'AI_2', type: 'Shooter', color: '#00ffff' }
+            { name: 'AI_1', type: 'Moron', color: '#ff2d9b' },
+            { name: 'AI_2', type: 'Shooter', color: '#00bfff' }
           ],
           rounds: 5,
           startingCash: 10000,
@@ -897,8 +897,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
         const impactGame = SCORCHED.createHeadlessGame({ seed: 500 });
         impactGame.start({
           players: [
-            { name: 'P1', type: 'Human', color: '#ff00ff' },
-            { name: 'P2', type: 'Human', color: '#00ffff' }
+            { name: 'P1', type: 'Human', color: '#ff2d9b' },
+            { name: 'P2', type: 'Human', color: '#00bfff' }
           ],
           rounds: 5,
           startingCash: 10000,
@@ -927,8 +927,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
         const fallGame = SCORCHED.createHeadlessGame({ seed: 600 });
         fallGame.start({
           players: [
-            { name: 'P1', type: 'Human', color: '#ff00ff' },
-            { name: 'P2', type: 'Human', color: '#00ffff' }
+            { name: 'P1', type: 'Human', color: '#ff2d9b' },
+            { name: 'P2', type: 'Human', color: '#00bfff' }
           ],
           rounds: 5,
           startingCash: 10000,
@@ -961,8 +961,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
         const parachuteGame = SCORCHED.createHeadlessGame({ seed: 700 });
         parachuteGame.start({
           players: [
-            { name: 'P1', type: 'Human', color: '#ff00ff' },
-            { name: 'P2', type: 'Human', color: '#00ffff' }
+            { name: 'P1', type: 'Human', color: '#ff2d9b' },
+            { name: 'P2', type: 'Human', color: '#00bfff' }
           ],
           rounds: 5,
           startingCash: 10000,
@@ -1002,8 +1002,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
         const visualGame = new visualCtx.globalThis.SCORCHED.Game({ headless: false, seed: 800 });
         visualGame.start({
           players: [
-            { name: 'P1', type: 'Human', color: '#ff00ff' },
-            { name: 'P2', type: 'Human', color: '#00ffff' }
+            { name: 'P1', type: 'Human', color: '#ff2d9b' },
+            { name: 'P2', type: 'Human', color: '#00bfff' }
           ],
           rounds: 5,
           startingCash: 10000,
@@ -1024,8 +1024,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
         const killGame = SCORCHED.createHeadlessGame({ seed: 900 });
         killGame.start({
           players: [
-            { name: 'P1', type: 'Human', color: '#ff00ff' },
-            { name: 'P2', type: 'Human', color: '#00ffff' },
+            { name: 'P1', type: 'Human', color: '#ff2d9b' },
+            { name: 'P2', type: 'Human', color: '#00bfff' },
             { name: 'P3', type: 'Human', color: '#ff0000' }
           ],
           rounds: 5,
@@ -1061,8 +1061,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
         const g = SCORCHED.createHeadlessGame({ seed });
         g.start({
           players: [
-            { name: 'P1', type: 'Human', color: '#ff00ff' },
-            { name: 'P2', type: 'Human', color: '#00ffff' }
+            { name: 'P1', type: 'Human', color: '#ff2d9b' },
+            { name: 'P2', type: 'Human', color: '#00bfff' }
           ],
           rounds: 5,
           startingCash: 10000,
@@ -1227,8 +1227,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
         const payoutGame = SCORCHED.createHeadlessGame({ seed: 2000 });
         payoutGame.start({
           players: [
-            { name: 'P1', type: 'Human', color: '#ff00ff' },
-            { name: 'P2', type: 'Human', color: '#00ffff' }
+            { name: 'P1', type: 'Human', color: '#ff2d9b' },
+            { name: 'P2', type: 'Human', color: '#00bfff' }
           ],
           rounds: 3,
           startingCash: 1000,
@@ -1261,7 +1261,7 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
         const buyGame = SCORCHED.createHeadlessGame({ seed: 2100 });
         buyGame.start({
           players: [
-            { name: 'P1', type: 'Human', color: '#ff00ff' }
+            { name: 'P1', type: 'Human', color: '#ff2d9b' }
           ],
           rounds: 2,
           startingCash: 2000,
@@ -1289,7 +1289,7 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
       it('Test 7.3: Verify basic-only toggle filters non-basic weapons', () => {
         const basicGame = SCORCHED.createHeadlessGame({ seed: 2200 });
         basicGame.start({
-          players: [{ name: 'P1', type: 'Human', color: '#ff00ff' }],
+          players: [{ name: 'P1', type: 'Human', color: '#ff2d9b' }],
           rounds: 2,
           startingCash: 2000,
           wallType: 'off',
@@ -1320,10 +1320,10 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
       const matchGame = SCORCHED.createHeadlessGame({ seed: 123 });
       matchGame.start({
         players: [
-          { name: 'AI_Moron', type: 'Moron', color: '#ff00ff' },
-          { name: 'AI_Shooter', type: 'Shooter', color: '#00ffff' },
-          { name: 'AI_Poolshark', type: 'Poolshark', color: '#ff2222' },
-          { name: 'AI_Cyborg', type: 'Cyborg', color: '#22ff22' }
+          { name: 'AI_Moron', type: 'Moron', color: '#ff2d9b' },
+          { name: 'AI_Shooter', type: 'Shooter', color: '#00bfff' },
+          { name: 'AI_Poolshark', type: 'Poolshark', color: '#e23a2e' },
+          { name: 'AI_Cyborg', type: 'Cyborg', color: '#8fd400' }
         ],
         rounds: 3,
         startingCash: 15000,
@@ -1343,8 +1343,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
       const cyborgGame = SCORCHED.createHeadlessGame({ seed: 777 });
       cyborgGame.start({
         players: [
-          { name: 'Cyborg_P1', type: 'Cyborg', color: '#ff00ff' },
-          { name: 'Dummy_P2', type: 'Human', color: '#00ffff' }
+          { name: 'Cyborg_P1', type: 'Cyborg', color: '#ff2d9b' },
+          { name: 'Dummy_P2', type: 'Human', color: '#00bfff' }
         ],
         rounds: 2,
         startingCash: 10000,
@@ -1402,8 +1402,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
       const bounceGame = SCORCHED.createHeadlessGame({ seed: 999 });
       bounceGame.start({
         players: [
-          { name: 'Poolshark', type: 'Poolshark', color: '#ff00ff' },
-          { name: 'Dummy', type: 'Human', color: '#00ffff' }
+          { name: 'Poolshark', type: 'Poolshark', color: '#ff2d9b' },
+          { name: 'Dummy', type: 'Human', color: '#00bfff' }
         ],
         rounds: 1,
         startingCash: 10000,
@@ -1443,8 +1443,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
         const g = SCORCHED.createHeadlessGame({ seed });
         g.start({
           players: [
-            { name: 'AI_1', type: 'Moron', color: '#ff00ff' },
-            { name: 'AI_2', type: 'Shooter', color: '#00ffff' }
+            { name: 'AI_1', type: 'Moron', color: '#ff2d9b' },
+            { name: 'AI_2', type: 'Shooter', color: '#00bfff' }
           ],
           rounds: 1,
           startingCash: 10000,
@@ -1468,8 +1468,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
       const leaveGame = SCORCHED.createHeadlessGame({ seed: 555 });
       leaveGame.start({
         players: [
-          { name: 'AI_1', type: 'Moron', color: '#ff00ff' },
-          { name: 'AI_2', type: 'Moron', color: '#00ffff' }
+          { name: 'AI_1', type: 'Moron', color: '#ff2d9b' },
+          { name: 'AI_2', type: 'Moron', color: '#00bfff' }
         ],
         rounds: 1,
         startingCash: 10000,
@@ -1498,8 +1498,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
       const test13Game = SCORCHED.createHeadlessGame({ seed: 777 });
       test13Game.start({
         players: [
-          { name: 'P1', type: 'Human', color: '#ff00ff' },
-          { name: 'P2', type: 'Human', color: '#00ffff' }
+          { name: 'P1', type: 'Human', color: '#ff2d9b' },
+          { name: 'P2', type: 'Human', color: '#00bfff' }
         ],
         rounds: 1,
         startingCash: 10000,
@@ -1556,8 +1556,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
       const game = SCORCHED.createHeadlessGame({ seed: 777 });
       game.start({
         players: [
-          { name: 'P1', type: 'Human', color: '#ff00ff' },
-          { name: 'P2', type: 'Human', color: '#00ffff' }
+          { name: 'P1', type: 'Human', color: '#ff2d9b' },
+          { name: 'P2', type: 'Human', color: '#00bfff' }
         ],
         rounds: 1,
         startingCash: 10000,
@@ -1869,8 +1869,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
         game.mode = 'online';
         game.start({
           players: [
-            { name: 'P1', type: 'Human', color: '#ff00ff' },
-            { name: 'P2', type: 'Human', color: '#00ffff' }
+            { name: 'P1', type: 'Human', color: '#ff2d9b' },
+            { name: 'P2', type: 'Human', color: '#00bfff' }
           ],
           rounds: 1,
           startingCash: 1000
@@ -1908,8 +1908,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
         game.mode = 'online';
         game.start({
           players: [
-            { name: 'P1', type: 'Human', color: '#ff00ff' },
-            { name: 'P2', type: 'Human', color: '#00ffff' }
+            { name: 'P1', type: 'Human', color: '#ff2d9b' },
+            { name: 'P2', type: 'Human', color: '#00bfff' }
           ],
           rounds: 5,
           startingCash: 1000
@@ -1939,8 +1939,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
         game.mode = 'local';
         game.start({
           players: [
-            { name: 'P1', type: 'Human', color: '#ff00ff' },
-            { name: 'P2', type: 'Human', color: '#00ffff' }
+            { name: 'P1', type: 'Human', color: '#ff2d9b' },
+            { name: 'P2', type: 'Human', color: '#00bfff' }
           ],
           rounds: 2,
           startingCash: 1000

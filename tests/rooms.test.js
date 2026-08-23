@@ -81,10 +81,10 @@ describe('RoomManager Lifecycle & State Machine Tests', () => {
     const code = rm.getRoomByConnection('conn_1').code;
     rm.join('conn_2', code);
 
-    // conn_1 is Magenta (#ff00ff) by default, conn_2 is Cyan (#00ffff).
+    // conn_1 is Magenta (#ff2d9b) by default, conn_2 is Cyan (#00bfff).
     // Let's verify conn_2 cannot change to Magenta.
     assert.throws(() => {
-      rm.setProfile('conn_2', { name: 'Player 2 New', colour: '#ff00ff' });
+      rm.setProfile('conn_2', { name: 'Player 2 New', colour: '#ff2d9b' });
     }, (err) => {
       return err.message === 'COLOUR_TAKEN' || err.code === 'COLOUR_TAKEN';
     });
@@ -156,7 +156,7 @@ describe('RoomManager wire-contract conformance', () => {
     const created = rm.createRoom('conn_1');
     const code = rm.getRoomByConnection('conn_1').code;
     const joined = rm.join('conn_2', code);
-    const profiled = rm.setProfile('conn_2', { name: 'Bee', colour: '#00ffff' });
+    const profiled = rm.setProfile('conn_2', { name: 'Bee', colour: '#00bfff' });
     const started = rm.start('conn_1');
 
     const frames = [created, joined, profiled, started]

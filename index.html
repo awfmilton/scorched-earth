@@ -3,8 +3,116 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scorched Earth</title>
+  <title>Æthercastle: Armored Alchemists</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <style>
+    /* AETHERCASTLE webfonts. Uncial Antiqua = neon uncial wordmark,
+       Cinzel = Norman inscriptional banner caps, Spectral = body/lore,
+       Share Tech Mono = every number the player reads. */
+    @import url("https://fonts.googleapis.com/css2?family=Uncial+Antiqua&family=Cinzel:wght@400..900&family=Spectral:ital,wght@0,300;0,400;0,600;0,800;1,400&family=Share+Tech+Mono&display=swap");
+
+    /* ==================== AETHERCASTLE TOKENS ====================
+       Five brand anchors: Stone Gray #4A413C, Electric Magenta #D5007F,
+       Deep Violet #4B0082, Cyan Neon #00BFFF, Brass #B5A642.
+       Doctrine: metal is beveled and square; aether glows; the two never
+       mix on one element. Nothing is a rounded card — 2px is the ceiling. */
+    :root {
+      /* Void / ink */
+      --void-900:#08070A; --void-800:#0F0D14; --void-700:#171320; --void-600:#221B2E;
+      /* Stone — castle masonry, panel bodies */
+      --stone-800:#221E1A; --stone-700:#2E2823; --stone-600:#4A413C;
+      --stone-500:#65594F; --stone-400:#8A7C70; --stone-300:#B0A49A;
+      /* Parchment — reading surfaces */
+      --parchment-100:#F6E9C6; --parchment-200:#EEDCAC; --parchment-300:#DCC388;
+      --parchment-400:#C1A469; --parchment-rule:#8A6E3E;
+      /* Brass — trim, frames, gilding */
+      --brass-700:#6E6320; --brass-600:#8E7F2F; --brass-500:#B5A642;
+      --brass-400:#CDBE60; --brass-300:#E0D286; --brass-200:#F2E9B4;
+      /* Electric magenta — primary aether charge */
+      --magenta-700:#8A0052; --magenta-600:#D5007F; --magenta-500:#FF2D9B; --magenta-400:#FF6FBE;
+      /* Deep violet — void / late-tier ordnance */
+      --violet-800:#2A0049; --violet-700:#4B0082; --violet-600:#6A1FB0; --violet-500:#9B5DE0;
+      /* Cyan neon — clockwork telemetry, HUD lines */
+      --cyan-700:#00637F; --cyan-600:#00A0DC; --cyan-500:#00BFFF; --cyan-400:#7FE3FF;
+      /* Reactive alchemy */
+      --acid-500:#8FD400; --acid-400:#B4F03A;
+      --fire-600:#FF6A00; --fire-500:#FFA31A; --fire-400:#FFD166;
+      /* Blood — destruction, elimination */
+      --blood-600:#B3121B; --blood-500:#E23A2E;
+
+      /* Semantic aliases */
+      --surface-world:var(--void-900);
+      --surface-panel:var(--stone-700);
+      --surface-panel-raised:var(--stone-600);
+      --surface-inset:var(--void-800);
+      --surface-parchment:var(--parchment-200);
+      --surface-scrim:rgba(8,7,10,.86);
+      --border-etch:var(--stone-500);
+      --border-brass:var(--brass-500);
+      --border-brass-dim:var(--brass-700);
+      --text-on-plate:var(--parchment-100);
+      --text-on-plate-muted:var(--stone-300);
+      --text-on-parchment:#2B2115;
+      --text-numeric:var(--cyan-400);
+      --text-link:var(--magenta-500);
+      --accent-primary:var(--magenta-600);
+      --accent-secondary:var(--cyan-500);
+      --accent-tertiary:var(--violet-700);
+      --accent-gild:var(--brass-500);
+      --hp-full:var(--acid-500); --hp-mid:var(--fire-500); --hp-low:var(--blood-500);
+      --shield-charge:var(--cyan-500); --damage:var(--magenta-600);
+      --cash:var(--brass-300); --wind-marker:var(--cyan-400);
+      --tier-1:var(--brass-500); --tier-2:var(--cyan-500);
+      --tier-3:var(--magenta-600); --tier-4:var(--violet-600);
+
+      /* Typography — four voices */
+      --font-display:'Uncial Antiqua','Papyrus',serif;
+      --font-heading:'Cinzel','Trajan Pro',Georgia,serif;
+      --font-body:'Spectral',Georgia,'Times New Roman',serif;
+      --font-mono:'Share Tech Mono',ui-monospace,'Courier New',monospace;
+      --text-2xs:11px; --text-xs:12px; --text-sm:14px; --text-base:16px;
+      --text-md:18px; --text-lg:22px; --text-xl:28px; --text-2xl:36px; --text-3xl:48px;
+      --leading-tight:1.05; --leading-snug:1.25; --leading-normal:1.5;
+      --tracking-banner:.14em; --tracking-label:.18em; --tracking-numeric:.04em;
+      --type-title:400 var(--text-3xl)/var(--leading-tight) var(--font-display);
+      --type-banner:900 var(--text-lg)/var(--leading-snug) var(--font-heading);
+      --type-section:700 var(--text-md)/var(--leading-snug) var(--font-heading);
+      --type-label:700 var(--text-xs)/1.2 var(--font-heading);
+      --type-body:400 var(--text-base)/var(--leading-normal) var(--font-body);
+      --type-readout:400 var(--text-md)/1.1 var(--font-mono);
+      --type-readout-sm:400 var(--text-xs)/1.2 var(--font-mono);
+
+      /* Spacing — 4px base, dense game chrome */
+      --space-1:2px; --space-2:4px; --space-3:6px; --space-4:8px; --space-5:12px;
+      --space-6:16px; --space-7:20px; --space-8:24px; --space-9:32px; --space-10:40px;
+      --gutter-hud:12px; --gutter-panel:16px; --gutter-parchment:24px;
+      --hud-height:56px; --control-height:40px; --control-height-sm:30px;
+
+      /* Effects — 2px radius ceiling */
+      --radius-plate:2px; --radius-sheet:4px; --radius-icon:3px;
+      --border-hair:1px; --border-plate:2px; --border-frame:3px;
+      /* Bevels are for metal only */
+      --bevel-raised:inset 0 1px 0 rgba(242,233,180,.28), inset 0 -1px 0 rgba(8,7,10,.7);
+      --bevel-inset:inset 0 2px 4px rgba(8,7,10,.8), inset 0 -1px 0 rgba(181,166,66,.16);
+      --shadow-panel:0 2px 0 rgba(8,7,10,.9), 0 10px 26px rgba(8,7,10,.6);
+      --shadow-modal:0 24px 70px rgba(8,7,10,.85);
+      /* Glows are for aether only */
+      --glow-magenta:0 0 6px rgba(255,45,155,.75), 0 0 18px rgba(213,0,127,.45);
+      --glow-cyan:0 0 6px rgba(0,191,255,.75), 0 0 18px rgba(0,160,220,.4);
+      --glow-violet:0 0 8px rgba(155,93,224,.7), 0 0 22px rgba(75,0,130,.55);
+      --glow-text-magenta:0 0 8px rgba(255,45,155,.85), 0 0 22px rgba(213,0,127,.5);
+      --glow-text-cyan:0 0 8px rgba(0,191,255,.8), 0 0 22px rgba(0,160,220,.45);
+      /* Composites */
+      --plate:linear-gradient(180deg, var(--stone-600) 0%, var(--stone-700) 55%, var(--stone-800) 100%);
+      --plate-dark:linear-gradient(180deg, var(--stone-700) 0%, var(--void-700) 100%);
+      --brass-rail:linear-gradient(180deg, var(--brass-300) 0%, var(--brass-500) 45%, var(--brass-700) 100%);
+      --aether-rail:linear-gradient(90deg, var(--magenta-600) 0%, var(--violet-700) 50%, var(--cyan-500) 100%);
+      /* The only texture in the system */
+      --scanline:repeating-linear-gradient(0deg, rgba(8,7,10,.16) 0 1px, transparent 1px 3px);
+    }
+
+    /* ==================== BASE ==================== */
     * {
       box-sizing: border-box;
     }
@@ -14,28 +122,77 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background-color: #0c0c0c;
-      color: #00ff00;
-      font-family: 'Courier New', Courier, monospace;
+      background-color: var(--surface-world);
+      color: var(--text-on-plate);
+      font: var(--type-body);
+      -webkit-font-smoothing: antialiased;
     }
     body {
       display: flex;
       flex-direction: column;
     }
+    ::selection { background: var(--magenta-600); color: var(--parchment-100); }
+    :focus-visible { outline: 2px solid var(--cyan-500); outline-offset: 2px; }
+
+    /* Norman banner caps and etched labels */
+    .ac-banner {
+      font: var(--type-banner);
+      letter-spacing: var(--tracking-banner);
+      text-transform: uppercase;
+    }
+    .ac-label {
+      font: var(--type-label);
+      letter-spacing: var(--tracking-label);
+      text-transform: uppercase;
+    }
+    /* Every number the player reads is mono with tabular figures, so digits
+       never reflow as values change. */
+    .ac-readout {
+      font: var(--type-readout);
+      letter-spacing: var(--tracking-numeric);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ==================== BATTLE HUD ==================== */
     #hud {
       flex: 0 0 auto;
-      height: 40px;
-      background: #141414;
-      border-bottom: 2px solid #333;
+      height: var(--hud-height);
+      background: var(--plate);
+      background-image: var(--scanline), var(--plate);
+      border-bottom: var(--border-plate) solid var(--border-brass);
+      box-shadow: var(--bevel-raised);
       display: flex;
       align-items: center;
-      padding: 0 10px;
+      padding: 0 var(--gutter-panel);
+      gap: var(--gutter-hud);
+      color: var(--text-on-plate);
+    }
+    /* Readouts: mono, tabular, cyan telemetry. */
+    #hud .hud-hp, #hud .hud-angle, #hud .hud-power,
+    #hud .hud-weapon, #hud .hud-cash, #hud .hud-fuel,
+    #hud .hud-wind, #hud .hud-net {
+      font: var(--type-readout-sm);
+      letter-spacing: var(--tracking-numeric);
+      font-variant-numeric: tabular-nums;
+      color: var(--text-numeric);
+    }
+    #hud .hud-name {
+      font: var(--type-banner);
+      letter-spacing: var(--tracking-banner);
+      text-transform: uppercase;
+    }
+    #hud .hud-cash { color: var(--cash); }
+    #hud .hud-wind { color: var(--wind-marker); }
+    #hud .hud-legend {
+      font: var(--type-readout-sm);
+      letter-spacing: var(--tracking-numeric);
+      color: var(--text-on-plate-muted);
     }
     #game {
       flex: 1 1 auto;
       display: block;
       width: 100%;
-      height: calc(100% - 40px);
+      height: calc(100% - var(--hud-height));
     }
     /* Setup Modal styling */
     #setup {
@@ -44,7 +201,7 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(12, 12, 12, 0.9);
+      background: var(--surface-scrim);
       display: flex;
       justify-content: center;
       align-items: center;
@@ -53,59 +210,77 @@
     #setup[hidden] {
       display: none !important;
     }
+    /* A riveted plate panel: beveled metal, brass frame, square corners. */
     .setup-container {
-      background: #181818;
-      border: 3px double #00ff00;
-      padding: 20px;
+      background: var(--plate);
+      background-image: var(--scanline), var(--plate);
+      border: var(--border-plate) solid var(--border-brass);
+      border-radius: var(--radius-plate);
+      padding: var(--gutter-parchment);
       width: 90%;
       max-width: 650px;
-      box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+      box-shadow: var(--bevel-raised), var(--shadow-modal);
       max-height: 95vh;
       overflow-y: auto;
     }
+    /* The wordmark voice — uncial display, aether-lit. Glow lives here, not
+       on the plate around it. */
     .setup-container h2 {
       margin-top: 0;
       text-align: center;
-      color: #00ff00;
-      border-bottom: 2px solid #00ff00;
-      padding-bottom: 10px;
-      letter-spacing: 2px;
+      font: var(--type-title);
+      font-size: var(--text-2xl);
+      color: var(--magenta-500);
+      text-shadow: var(--glow-text-magenta);
+      border-bottom: var(--border-plate) solid var(--border-brass);
+      padding-bottom: var(--space-5);
+      letter-spacing: .02em;
     }
     .form-group {
-      margin-bottom: 15px;
+      margin-bottom: var(--space-5);
       display: flex;
       align-items: center;
+      gap: var(--space-4);
     }
     .form-group label {
       width: 150px;
-      color: #00ff00;
-      font-weight: bold;
+      font: var(--type-label);
+      letter-spacing: var(--tracking-label);
+      text-transform: uppercase;
+      color: var(--brass-300);
     }
+    /* Inputs are recessed wells — inset bevel, never a glow. */
     .form-group input[type="text"],
     .form-group input[type="number"],
     .form-group select {
       flex: 1;
-      background: #000;
-      border: 1px solid #00ff00;
-      color: #00ff00;
-      padding: 6px 10px;
-      font-family: inherit;
-      font-size: 14px;
+      background: var(--surface-inset);
+      border: var(--border-hair) solid var(--border-etch);
+      border-radius: var(--radius-plate);
+      color: var(--text-numeric);
+      padding: 0 var(--space-5);
+      height: var(--control-height);
+      font: var(--type-readout);
+      font-size: var(--text-sm);
+      font-variant-numeric: tabular-nums;
+      box-shadow: var(--bevel-inset);
       outline: none;
     }
     .form-group select option {
-      background: #000;
-      color: #00ff00;
+      background: var(--void-800);
+      color: var(--text-numeric);
     }
     .form-group input:focus,
     .form-group select:focus {
-      box-shadow: 0 0 5px #00ff00;
+      border-color: var(--cyan-500);
+      box-shadow: var(--bevel-inset), var(--glow-cyan);
     }
     .player-row {
-      border: 1px dashed #333;
-      padding: 10px;
-      margin-bottom: 15px;
-      background: #111;
+      border: var(--border-hair) dashed var(--stone-500);
+      border-radius: var(--radius-plate);
+      padding: var(--space-5);
+      margin-bottom: var(--space-5);
+      background: var(--plate-dark);
     }
     .player-row .form-group {
       margin-bottom: 8px;
@@ -116,10 +291,10 @@
     .settings-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 15px;
-      border-top: 2px solid #333;
-      padding-top: 15px;
-      margin-top: 15px;
+      gap: var(--space-5);
+      border-top: var(--border-plate) solid var(--border-brass-dim);
+      padding-top: var(--space-5);
+      margin-top: var(--space-5);
     }
     .settings-grid .form-group {
       flex-direction: column;
@@ -136,15 +311,18 @@
     }
     .checkbox-group .radio-options {
       display: flex;
-      gap: 15px;
+      gap: var(--space-5);
       width: 100%;
-      margin-top: 5px;
+      margin-top: var(--space-2);
     }
     .checkbox-group .radio-options label {
       display: flex;
       align-items: center;
-      gap: 5px;
-      font-weight: normal;
+      gap: var(--space-2);
+      font: var(--type-label);
+      letter-spacing: var(--tracking-label);
+      text-transform: uppercase;
+      color: var(--text-on-plate);
       cursor: pointer;
       width: auto;
     }
@@ -153,45 +331,62 @@
       -webkit-appearance: none;
       width: 14px;
       height: 14px;
-      border: 1px solid #00ff00;
-      background: #000;
+      border: var(--border-hair) solid var(--brass-500);
+      border-radius: var(--radius-plate);
+      background: var(--surface-inset);
+      box-shadow: var(--bevel-inset);
       display: inline-block;
       position: relative;
       cursor: pointer;
       outline: none;
     }
+    /* Selection is an aether charge — this is the one place the dot glows. */
+    .checkbox-group input[type="radio"]:checked {
+      border-color: var(--magenta-600);
+    }
     .checkbox-group input[type="radio"]:checked::after {
       content: '';
       position: absolute;
-      top: 3px;
-      left: 3px;
-      width: 6px;
-      height: 6px;
-      background: #00ff00;
+      top: 2px;
+      left: 2px;
+      width: 8px;
+      height: 8px;
+      background: var(--magenta-500);
+      box-shadow: var(--glow-magenta);
     }
     .error-msg {
-      color: #ff5555;
+      color: var(--blood-500);
       text-align: center;
-      font-weight: bold;
-      margin: 15px 0;
+      font: var(--type-label);
+      font-size: var(--text-sm);
+      letter-spacing: var(--tracking-label);
+      text-transform: uppercase;
+      margin: var(--space-5) 0;
       min-height: 20px;
     }
+    /* Primary action is a brass rail: beveled metal, square, no glow. */
     #start-btn {
       display: block;
       width: 100%;
-      background: #00ff00;
-      color: #000;
-      border: none;
-      padding: 12px;
-      font-family: inherit;
-      font-weight: bold;
-      font-size: 16px;
+      background: var(--brass-rail);
+      color: var(--void-900);
+      border: var(--border-hair) solid var(--brass-700);
+      border-radius: var(--radius-plate);
+      padding: 0;
+      height: var(--control-height);
+      font: var(--type-banner);
+      font-size: var(--text-base);
+      letter-spacing: var(--tracking-banner);
+      text-transform: uppercase;
+      box-shadow: var(--bevel-raised);
       cursor: pointer;
-      transition: background 0.2s;
+      transition: filter .12s cubic-bezier(.2,.8,.2,1);
     }
     #start-btn:hover {
-      background: #33ff33;
-      box-shadow: 0 0 10px #33ff33;
+      filter: brightness(1.15);
+    }
+    #start-btn:active {
+      box-shadow: var(--bevel-inset);
     }
     #shop {
       position: absolute;
@@ -199,7 +394,7 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(12, 12, 12, 0.95);
+      background: var(--surface-scrim);
       display: flex;
       justify-content: center;
       align-items: center;
@@ -218,23 +413,23 @@
       <h2 id="setup-title">SCORCHED EARTH MULTIPLAYER</h2>
       
       <div id="landing-view">
-        <button id="btn-create-match" style="width: 100%; padding: 15px; margin-bottom: 10px; font-weight: bold; font-size: 18px; background: #00ff00; color: #000; border: none; cursor: pointer;">CREATE PRIVATE MATCH</button>
+        <button id="btn-create-match" style="width: 100%; padding: 15px; margin-bottom: 10px; font-weight: bold; font-size: 18px; background: var(--brass-rail); color: var(--void-900); border: 1px solid var(--brass-700); cursor: pointer;">CREATE PRIVATE MATCH</button>
         <button id="btn-create-public" style="width: 100%; padding: 15px; margin-bottom: 20px; font-weight: bold; font-size: 18px; background: #ffff00; color: #000; border: none; cursor: pointer;">CREATE PUBLIC MATCH</button>
         
         <div style="text-align: center; margin-bottom: 20px;">OR</div>
         <div style="display: flex; gap: 10px; margin-bottom: 20px;">
           <input type="text" id="join-code" placeholder="Enter 4-letter code" maxlength="4" style="flex: 1; text-transform: uppercase; text-align: center; font-size: 18px; letter-spacing: 5px;">
-          <button id="btn-join-match" style="padding: 15px 30px; font-weight: bold; background: #0088ff; color: #fff; border: none; cursor: pointer;">JOIN</button>
+          <button id="btn-join-match" style="padding: 15px 30px; font-weight: bold; background: var(--cyan-600); color: var(--void-900); border: 1px solid var(--cyan-700); cursor: pointer;">JOIN</button>
         </div>
 
-        <div style="text-align: center; margin-bottom: 10px; color: #00ff00; border-bottom: 1px solid #333; padding-bottom: 5px;">PUBLIC SESSIONS</div>
-        <button id="btn-refresh-rooms" style="width: 100%; padding: 10px; margin-bottom: 10px; background: #333; color: #00ff00; border: 1px solid #00ff00; cursor: pointer;">REFRESH LIST</button>
-        <div id="room-list" style="max-height: 150px; overflow-y: auto; background: #111; padding: 10px; border: 1px solid #333; margin-bottom: 20px;">
-          <div style="text-align: center; color: #777;">Click REFRESH LIST to see public matches...</div>
+        <div style="text-align: center; margin-bottom: 10px; color: var(--brass-300); border-bottom: 1px solid var(--border-etch); padding-bottom: 5px;">PUBLIC SESSIONS</div>
+        <button id="btn-refresh-rooms" style="width: 100%; padding: 10px; margin-bottom: 10px; background: var(--plate-dark); color: var(--brass-300); border: 1px solid var(--border-brass); cursor: pointer;">REFRESH LIST</button>
+        <div id="room-list" style="max-height: 150px; overflow-y: auto; background: var(--surface-inset); padding: 10px; border: 1px solid var(--border-etch); box-shadow: var(--bevel-inset); margin-bottom: 20px;">
+          <div style="text-align: center; color: var(--text-on-plate-muted);">Click REFRESH LIST to see public matches...</div>
         </div>
 
-        <div style="text-align: center; margin-bottom: 10px; color: #888; border-top: 1px solid #333; padding-top: 15px;">NO ONE AROUND?</div>
-        <button id="btn-play-solo" style="width: 100%; padding: 15px; font-weight: bold; font-size: 18px; background: #ff8800; color: #000; border: none; cursor: pointer;">PLAY SOLO vs AI</button>
+        <div style="text-align: center; margin-bottom: 10px; color: var(--text-on-plate-muted); border-top: 1px solid var(--border-etch); padding-top: 15px;">NO ONE AROUND?</div>
+        <button id="btn-play-solo" style="width: 100%; padding: 15px; font-weight: bold; font-size: 18px; background: var(--brass-rail); color: var(--void-900); border: 1px solid var(--brass-700); cursor: pointer;">PLAY SOLO vs AI</button>
       </div>
 
       <div id="solo-view" hidden>
@@ -255,10 +450,10 @@
           </div>
         </div>
 
-        <div style="color: #00ff00; border-bottom: 1px solid #333; padding-bottom: 5px; margin: 15px 0 10px;">OPPONENTS</div>
+        <div style="color: var(--brass-300); border-bottom: 1px solid var(--border-etch); padding-bottom: 5px; margin: 15px 0 10px;">OPPONENTS</div>
         <div id="solo-ai-list" style="margin-bottom: 15px;"></div>
 
-        <div style="color: #00ff00; border-bottom: 1px solid #333; padding-bottom: 5px; margin: 15px 0 10px;">MATCH SETTINGS</div>
+        <div style="color: var(--brass-300); border-bottom: 1px solid var(--border-etch); padding-bottom: 5px; margin: 15px 0 10px;">MATCH SETTINGS</div>
         <div class="settings-grid">
           <div class="form-group">
             <label for="solo-rounds">Rounds (1-20):</label>
@@ -329,14 +524,14 @@
           </div>
         </div>
 
-        <button id="btn-start-solo" style="width: 100%; padding: 15px; margin-top: 15px; font-weight: bold; font-size: 18px; background: #00ff00; color: #000; border: none; cursor: pointer;">START SOLO GAME</button>
+        <button id="btn-start-solo" style="width: 100%; padding: 15px; margin-top: 15px; font-weight: bold; font-size: 18px; background: var(--brass-rail); color: var(--void-900); border: 1px solid var(--brass-700); cursor: pointer;">START SOLO GAME</button>
         <button id="btn-solo-back" style="width: 100%; padding: 10px; margin-top: 10px; background: #333; color: #aaa; border: 1px solid #555; cursor: pointer;">BACK</button>
       </div>
 
       <div id="lobby-view" hidden>
-        <div style="text-align: center; margin-bottom: 20px; padding: 10px; background: #222; border: 1px dashed #00ff00;">
+        <div style="text-align: center; margin-bottom: 20px; padding: 10px; background: var(--surface-inset); border: 1px dashed var(--border-brass); box-shadow: var(--bevel-inset);">
           <span style="font-size: 14px; color: #aaa;">SHARE CODE</span><br>
-          <strong id="display-share-code" style="font-size: 32px; letter-spacing: 5px; color: #00ff00;"></strong>
+          <strong id="display-share-code" style="font-size: 32px; letter-spacing: 5px; color: var(--magenta-500); font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-shadow: var(--glow-text-magenta);"></strong>
         </div>
 
         <div id="multiplayer-slots"></div>
@@ -452,6 +647,56 @@
         FUEL_PER_ROUND: 100,
         // Half-width of the shaft a Sandhog bores on its way down.
         SANDHOG_SHAFT_RADIUS: 9
+      };
+
+      /**
+       * Aethercastle palette for the CANVAS layer.
+       *
+       * The DOM reads its colours from the CSS custom properties in <style>;
+       * a 2D context cannot resolve var(), so the same anchors are mirrored
+       * here as literals. These two lists are the same design tokens and must
+       * be changed together.
+       *
+       * Doctrine: metal is beveled and square, aether glows. On canvas that
+       * means brass/stone shapes are drawn with a lit top edge and a shadowed
+       * bottom edge, while magenta/violet/cyan are drawn with shadowBlur. The
+       * two treatments are never applied to the same shape.
+       */
+      const THEME = {
+        // Brand anchors
+        stone: '#4a413c', magenta: '#d5007f', violet: '#4b0082',
+        cyan: '#00bfff', brass: '#b5a642',
+        // Ramps
+        void900: '#08070a', void800: '#0f0d14', void700: '#171320',
+        stone800: '#221e1a', stone700: '#2e2823', stone600: '#4a413c',
+        stone500: '#65594f', stone400: '#8a7c70', stone300: '#b0a49a',
+        parchment100: '#f6e9c6', parchment200: '#eedcac', parchment300: '#dcc388',
+        brass700: '#6e6320', brass600: '#8e7f2f', brass500: '#b5a642',
+        brass400: '#cdbe60', brass300: '#e0d286', brass200: '#f2e9b4',
+        magenta700: '#8a0052', magenta600: '#d5007f', magenta500: '#ff2d9b', magenta400: '#ff6fbe',
+        violet800: '#2a0049', violet700: '#4b0082', violet600: '#6a1fb0', violet500: '#9b5de0',
+        cyan700: '#00637f', cyan600: '#00a0dc', cyan500: '#00bfff', cyan400: '#7fe3ff',
+        acid500: '#8fd400', acid400: '#b4f03a',
+        fire600: '#ff6a00', fire500: '#ffa31a', fire400: '#ffd166',
+        blood600: '#b3121b', blood500: '#e23a2e',
+        // Match semantics
+        hpFull: '#8fd400', hpMid: '#ffa31a', hpLow: '#e23a2e',
+        shieldCharge: '#00bfff', damage: '#d5007f', cash: '#e0d286',
+        // Type roles for canvas text. Every number a player reads is mono.
+        fontMono: "'Share Tech Mono', ui-monospace, 'Courier New', monospace",
+        fontHeading: "'Cinzel', Georgia, serif",
+        fontDisplay: "'Uncial Antiqua', serif"
+      };
+
+      /**
+       * Per-biome terrain ramp: sky gradient, lit crust band and dark core.
+       * Mirrors --biome-*-{sky,crust,core} in the design tokens.
+       */
+      const BIOME_RAMPS = {
+        mountains: { sky: '#0b1b2e', skyLow: '#1d3550', crust: '#8a8f98', core: '#1c1e22' },
+        plains:    { sky: '#0a1c10', skyLow: '#16351f', crust: '#3e7a33', core: '#0a2410' },
+        plateau:   { sky: '#2b1606', skyLow: '#5a2f10', crust: '#c98a46', core: '#5a3a1c' },
+        hills:     { sky: '#0a0616', skyLow: '#1a1030', crust: '#6a4a30', core: '#1c1208' }
       };
 
       const WEAPONS = [
@@ -1714,12 +1959,12 @@
 
           const box = document.createElement('div');
           box.style.background = '#181818';
-          box.style.border = '3px double #00ff00';
+          box.style.border = 'var(--border-plate) solid var(--border-brass)';
           box.style.padding = '30px';
           box.style.maxWidth = '500px';
           box.style.margin = '80px auto';
           box.style.textAlign = 'center';
-          box.style.color = '#00ff00';
+          box.style.color = 'var(--brass-300)';
           box.style.letterSpacing = '2px';
           box.textContent = 'WAITING FOR OTHER PLAYERS…';
           shopEl.appendChild(box);
@@ -2119,7 +2364,7 @@
               netSpan.style.display = '';
               let stateColor = '#ff0000';
               const netState = this.net ? this.net.state : 'lost';
-              if (netState === 'live') stateColor = '#00ff00';
+              if (netState === 'live') stateColor = 'var(--acid-500)';
               else if (netState === 'connecting' || netState === 'reconnecting') stateColor = '#ffff00';
               netSpan.textContent = `NET: ${netState.toUpperCase()}`;
               netSpan.style.color = stateColor;
@@ -3822,7 +4067,7 @@
 
           const info = document.createElement('div');
           info.style.textAlign = 'right';
-          info.style.color = '#00ff00';
+          info.style.color = 'var(--brass-300)';
           info.innerHTML = `
             <div style="font-weight: bold; font-size: 18px;">CASH: $${player.cash}</div>
             <div style="font-size: 14px; color: #888;">Round ${this.currentRound} of ${this.rounds}</div>
@@ -3947,7 +4192,7 @@
             // Cost
             const costDiv = document.createElement('div');
             costDiv.textContent = `$${itemConf.cost}`;
-            costDiv.style.color = '#00ff00';
+            costDiv.style.color = 'var(--cash)';
 
             // Pack Size
             const sizeDiv = document.createElement('div');
@@ -4084,7 +4329,7 @@
           const container = document.createElement('div');
           container.className = 'summary-container';
           container.style.background = '#181818';
-          container.style.border = '3px double #00ff00';
+          container.style.border = 'var(--border-plate) solid var(--border-brass)';
           container.style.padding = '20px';
           container.style.width = '90%';
           container.style.maxWidth = '650px';
@@ -4094,8 +4339,8 @@
 
           const title = document.createElement('h2');
           title.textContent = 'FINAL MATCH SUMMARY';
-          title.style.color = '#00ff00';
-          title.style.borderBottom = '2px solid #00ff00';
+          title.style.color = 'var(--magenta-500)';
+          title.style.borderBottom = 'var(--border-plate) solid var(--border-brass)';
           title.style.paddingBottom = '10px';
           title.style.letterSpacing = '2px';
           container.appendChild(title);
@@ -4144,7 +4389,7 @@
           restartBtn.style.fontWeight = 'bold';
           restartBtn.style.padding = '12px';
           restartBtn.style.width = '100%';
-          restartBtn.style.background = '#00ff00';
+          restartBtn.style.background = 'var(--brass-rail)';
           restartBtn.style.color = '#000';
           restartBtn.style.border = 'none';
           restartBtn.style.cursor = 'pointer';
@@ -4375,15 +4620,18 @@
         { type: 'Cyborg', label: 'CYBORG — wind-corrected, learns from misses' }
       ];
 
+      // Mirrors RETRO_COLORS in lib/constants.js. Slot order is a wire
+      // contract: index N is the default colour of room slot N, so these two
+      // lists must stay identical in both value and position.
       const RETRO_COLORS = [
-        { value: '#ff00ff', name: 'Magenta' },
-        { value: '#00ffff', name: 'Cyan' },
-        { value: '#ff2222', name: 'Red' },
-        { value: '#22ff22', name: 'Green' },
-        { value: '#ffff00', name: 'Yellow' },
-        { value: '#2222ff', name: 'Blue' },
-        { value: '#ff8800', name: 'Orange' },
-        { value: '#ffffff', name: 'White' }
+        { value: '#ff2d9b', name: 'Aether Magenta' },
+        { value: '#00bfff', name: 'Clockwork Cyan' },
+        { value: '#e23a2e', name: 'Blood Iron' },
+        { value: '#8fd400', name: 'Acid Green' },
+        { value: '#e0c862', name: 'Guild Brass' },
+        { value: '#9b5de0', name: 'Void Violet' },
+        { value: '#ffa31a', name: 'Phosphor Fire' },
+        { value: '#f6e9c6', name: 'Parchment' }
       ];
 
       const net = new NetClient();
@@ -4665,7 +4913,7 @@
             net.register('ROOM_LIST', (msg) => {
               roomListDiv.innerHTML = '';
               if (!msg.rooms || msg.rooms.length === 0) {
-                roomListDiv.innerHTML = '<div style="text-align: center; color: #777;">No public matches found.</div>';
+                roomListDiv.innerHTML = '<div style="text-align: center; color: var(--text-on-plate-muted);">No public matches found.</div>';
                 return;
               }
               msg.rooms.forEach(r => {
@@ -4677,7 +4925,7 @@
                 
                 const joinBtn = document.createElement('button');
                 joinBtn.textContent = 'JOIN';
-                joinBtn.style.cssText = 'padding: 5px 15px; background: #0088ff; color: #fff; border: none; cursor: pointer;';
+                joinBtn.style.cssText = 'padding: 5px 15px; background: var(--cyan-600); color: var(--void-900); border: 1px solid var(--cyan-700); cursor: pointer;';
                 joinBtn.onclick = () => {
                   errorMsg.textContent = '';
                   net.send('JOIN_ROOM', { code: r.code });

@@ -159,7 +159,7 @@ describe('Multiplayer Flow', () => {
     assert.strictEqual(createMsg.code.length, 4);
     assert.strictEqual(createMsg.phase, 'lobby');
 
-    c1.send({ type: C2S.SET_PROFILE, name: 'P1', colour: '#ff2222' });
+    c1.send({ type: C2S.SET_PROFILE, name: 'P1', colour: '#e23a2e' });
     await c1.waitFor(S2C.ROOM_STATE);
 
     c2.send({ type: C2S.JOIN_ROOM, code: createMsg.code });
@@ -215,11 +215,11 @@ describe('Multiplayer Flow', () => {
     c1.send({ type: C2S.CREATE_ROOM });
     const s1 = await c1.waitFor(S2C.ROOM_STATE);
     const code = s1.code;
-    c1.send({ type: C2S.SET_PROFILE, name: 'P1', colour: '#ff2222' });
+    c1.send({ type: C2S.SET_PROFILE, name: 'P1', colour: '#e23a2e' });
 
     c2.send({ type: C2S.JOIN_ROOM, code });
     await c2.waitFor(S2C.ROOM_STATE);
-    c2.send({ type: C2S.SET_PROFILE, name: 'P2', colour: '#22ff22' });
+    c2.send({ type: C2S.SET_PROFILE, name: 'P2', colour: '#8fd400' });
 
     await new Promise(r => setTimeout(r, 50));
     c1.messages.length = 0;
