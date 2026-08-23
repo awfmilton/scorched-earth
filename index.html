@@ -110,6 +110,105 @@
       --aether-rail:linear-gradient(90deg, var(--magenta-600) 0%, var(--violet-700) 50%, var(--cyan-500) 100%);
       /* The only texture in the system */
       --scanline:repeating-linear-gradient(0deg, rgba(8,7,10,.16) 0 1px, transparent 1px 3px);
+      --selection-bg:var(--magenta-600); --selection-fg:var(--parchment-100);
+      --focus-ring:var(--cyan-500);
+    }
+
+    /* ==================== CLASSIC THEME ====================
+       The original DOS-era Scorched Earth replica, preserved as a first-class
+       token set rather than left in git history. Æthercastle is built ON TOP
+       of this game, so the original has to stay reachable and look exactly as
+       it did: green-on-black, Courier, square corners, no bevels, no brand
+       colour anywhere.
+
+       This block deliberately remaps the RAW RAMPS as well as the semantic
+       aliases. A handful of inline styles in the markup reference ramp
+       variables directly (var(--brass-rail), var(--void-900)); overriding only
+       the semantics would leave those elements Æthercastle-brass while the
+       rest of the screen went green. Remapping the ramp catches them all.
+
+       Selected by <html data-theme="classic">, which beats the bare :root
+       above on specificity. No data-theme at all means Æthercastle. */
+    :root[data-theme="classic"] {
+      /* Ramps remapped onto the DOS palette */
+      --void-900:#0c0c0c; --void-800:#111111; --void-700:#141414; --void-600:#181818;
+      --stone-800:#111111; --stone-700:#181818; --stone-600:#141414;
+      --stone-500:#333333; --stone-400:#555555; --stone-300:#2d8a2d;
+      --parchment-100:#00ff00; --parchment-200:#000000; --parchment-300:#33ff33;
+      --parchment-400:#2d8a2d; --parchment-rule:#333333;
+      --brass-700:#2d8a2d; --brass-600:#00cc00; --brass-500:#00ff00;
+      --brass-400:#33ff33; --brass-300:#33ff33; --brass-200:#66ff66;
+      --magenta-700:#2d8a2d; --magenta-600:#00ff00; --magenta-500:#33ff33; --magenta-400:#66ff66;
+      --violet-800:#111111; --violet-700:#008800; --violet-600:#00aa00; --violet-500:#33ff33;
+      --cyan-700:#008888; --cyan-600:#00cccc; --cyan-500:#00ffff; --cyan-400:#00ffff;
+      --acid-500:#00ff00; --acid-400:#33ff33;
+      --fire-600:#ff6600; --fire-500:#ffaa00; --fire-400:#ffff00;
+      --blood-600:#cc0000; --blood-500:#ff0000;
+
+      /* Semantics — the values the original stylesheet used literally */
+      --surface-world:#0c0c0c;
+      --surface-panel:#181818;
+      --surface-panel-raised:#141414;
+      --surface-inset:#111111;
+      --surface-parchment:#000000;
+      --surface-scrim:rgba(12,12,12,.9);
+      --border-etch:#333333;
+      --border-brass:#00ff00;
+      --border-brass-dim:#2d8a2d;
+      --text-on-plate:#00ff00;
+      --text-on-plate-muted:#2d8a2d;
+      --text-on-parchment:#00ff00;
+      --text-numeric:#00ff00;
+      --text-link:#33ff33;
+      --accent-primary:#00ff00;
+      --accent-secondary:#33ff33;
+      --accent-tertiary:#00ff00;
+      --accent-gild:#00ff00;
+      --hp-full:#00ff00; --hp-mid:#ffff00; --hp-low:#ff0000;
+      --shield-charge:#00ffff; --damage:#ff4444;
+      --cash:#ffff00; --wind-marker:#00ffff;
+      --tier-1:#00ff00; --tier-2:#ffff00; --tier-3:#ffaa00; --tier-4:#ff0000;
+      --selection-bg:#00ff00; --selection-fg:#000000;
+      --focus-ring:#00ff00;
+
+      /* One voice, not four. Courier for everything, including the numbers. */
+      --font-display:'Courier New',Courier,monospace;
+      --font-heading:'Courier New',Courier,monospace;
+      --font-body:'Courier New',Courier,monospace;
+      --font-mono:'Courier New',Courier,monospace;
+      --text-base:14px;
+      --tracking-banner:.08em; --tracking-label:.08em; --tracking-numeric:0;
+      --type-title:700 var(--text-2xl)/1.1 var(--font-mono);
+      --type-banner:700 var(--text-lg)/1.25 var(--font-mono);
+      --type-section:700 var(--text-md)/1.25 var(--font-mono);
+      --type-label:700 var(--text-xs)/1.2 var(--font-mono);
+      --type-body:400 var(--text-sm)/1.5 var(--font-mono);
+      --type-readout:400 var(--text-md)/1.1 var(--font-mono);
+      --type-readout-sm:400 var(--text-xs)/1.2 var(--font-mono);
+
+      /* The original HUD was 40px. WORLD_W/WORLD_H drive the simulation, so
+         this is pure viewport chrome and cannot move a shell. */
+      --hud-height:40px; --control-height:32px; --control-height-sm:26px;
+
+      /* Square, flat, unbeveled. The only lighting the original had was a
+         green bloom on focus and button hover, so the glows stay (green) and
+         the bevels go to none. */
+      --radius-plate:0; --radius-sheet:0; --radius-icon:0;
+      --bevel-raised:none;
+      --bevel-inset:none;
+      --shadow-panel:none;
+      --shadow-modal:none;
+      --glow-magenta:0 0 5px #00ff00;
+      --glow-cyan:0 0 5px #00ff00;
+      --glow-violet:0 0 5px #00ff00;
+      --glow-text-magenta:none;
+      --glow-text-cyan:none;
+      --plate:#181818;
+      --plate-dark:#111111;
+      --brass-rail:#00ff00;
+      --aether-rail:#00ff00;
+      /* No CRT overlay: the original drew none. */
+      --scanline:none;
     }
 
     /* ==================== BASE ==================== */
@@ -131,8 +230,8 @@
       display: flex;
       flex-direction: column;
     }
-    ::selection { background: var(--magenta-600); color: var(--parchment-100); }
-    :focus-visible { outline: 2px solid var(--cyan-500); outline-offset: 2px; }
+    ::selection { background: var(--selection-bg); color: var(--selection-fg); }
+    :focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 
     /* Norman banner caps and etched labels */
     .ac-banner {
@@ -662,7 +761,21 @@
        * bottom edge, while magenta/violet/cyan are drawn with shadowBlur. The
        * two treatments are never applied to the same shape.
        */
-      const THEME = {
+      /**
+       * Canvas palettes, one per mode.
+       *
+       * The CSS custom properties above cannot be read by a 2D context, so the
+       * canvas needs the same two token sets as literal hex. THEMES.classic
+       * mirrors :root[data-theme="classic"]; THEMES.aethercastle mirrors the
+       * bare :root. tests/theme-tokens.test.js fails if either side grows a key
+       * the other does not have, which is how a half-themed classic screen gets
+       * caught before a fan sees it.
+       *
+       * Read through the live THEME binding below, never THEMES.x directly,
+       * except where the value is deliberately Æthercastle-only content.
+       */
+      const THEMES = {};
+      THEMES.aethercastle = {
         // Brand anchors
         stone: '#4a413c', magenta: '#d5007f', violet: '#4b0082',
         cyan: '#00bfff', brass: '#b5a642',
@@ -687,6 +800,181 @@
         fontHeading: "'Cinzel', Georgia, serif",
         fontDisplay: "'Uncial Antiqua', serif"
       };
+
+      // The original canvas palette. These are the literal values the game
+      // drew with before the re-skin, recovered so classic mode renders the
+      // DOS-era screen rather than a green-tinted Aethercastle one.
+      THEMES.classic = {
+        stone: '#888888', magenta: '#ff00ff', violet: '#00aa00',
+        cyan: '#00ffff', brass: '#00ff00',
+        void900: '#0c0c0c', void800: '#111111', void700: '#141414',
+        stone800: '#111111', stone700: '#181818', stone600: '#141414',
+        stone500: '#333333', stone400: '#555555', stone300: '#888888',
+        parchment100: '#00ff00', parchment200: '#000000', parchment300: '#33ff33',
+        brass700: '#2d8a2d', brass600: '#00cc00', brass500: '#00ff00',
+        brass400: '#33ff33', brass300: '#33ff33', brass200: '#66ff66',
+        magenta700: '#2d8a2d', magenta600: '#00ff00', magenta500: '#33ff33', magenta400: '#66ff66',
+        violet800: '#111111', violet700: '#008800', violet600: '#00aa00', violet500: '#33ff33',
+        cyan700: '#008888', cyan600: '#00cccc', cyan500: '#00ffff', cyan400: '#00ffff',
+        acid500: '#00ff00', acid400: '#33ff33',
+        fire600: '#ff6600', fire500: '#ffaa00', fire400: '#ffff00',
+        blood600: '#cc0000', blood500: '#ff0000',
+        hpFull: '#00ff00', hpMid: '#ffff00', hpLow: '#ff0000',
+        shieldCharge: '#00ffff', damage: '#ff4444', cash: '#ffff00',
+        fontMono: "'Courier New', Courier, monospace",
+        fontHeading: "'Courier New', Courier, monospace",
+        fontDisplay: "'Courier New', Courier, monospace"
+      };
+
+      /**
+       * The live palette. Reassigned by applyTheme() when a match starts, so
+       * every draw call after ROUND_START uses the mode the SERVER chose.
+       * Never a per-client preference once a match is live.
+       */
+      let THEME = THEMES.aethercastle;
+
+      const GAME_MODES = ['aethercastle', 'classic'];
+      const DEFAULT_MODE = 'aethercastle';
+      const normaliseMode = (m) => (GAME_MODES.includes(m) ? m : DEFAULT_MODE);
+
+      /**
+       * The mode the CURRENT MATCH is running in. Starts at the default and is
+       * only ever written by applyMode(), which in an online match is driven by
+       * ROUND_START.mode — the server's value, not this client's preference.
+       */
+      let activeMode = DEFAULT_MODE;
+
+      /**
+       * Point the whole presentation layer at one mode.
+       *
+       * Two things have to move together: the CSS custom properties (via the
+       * data-theme attribute the stylesheet keys off) and the canvas palette,
+       * which cannot read var(). Anything that reads THEME after this call
+       * draws in the new mode.
+       *
+       * This is presentation ONLY. It must never be the thing that decides how
+       * the simulation behaves — read activeMode for that, and only after the
+       * server has set it.
+       */
+      function applyMode(mode) {
+        activeMode = normaliseMode(mode);
+        THEME = THEMES[activeMode];
+        if (typeof document !== 'undefined' && document.documentElement) {
+          // Absent attribute means Aethercastle, which is the bare :root set.
+          if (activeMode === 'classic') {
+            document.documentElement.setAttribute('data-theme', 'classic');
+          } else {
+            document.documentElement.removeAttribute('data-theme');
+          }
+
+          // The wordmark is part of the mode, not decoration around it. A fan
+          // who found the easter egg should be looking at the original name.
+          const wordmark = activeMode === 'classic'
+            ? 'SCORCHED EARTH'
+            : 'ÆTHERCASTLE: ARMORED ALCHEMISTS';
+          document.title = activeMode === 'classic'
+            ? 'Scorched Earth'
+            : 'Æthercastle: Armored Alchemists';
+          const titleEl = document.getElementById('setup-title');
+          if (titleEl) titleEl.textContent = wordmark;
+        }
+        return activeMode;
+      }
+
+      /**
+       * The classic replica's front door.
+       *
+       * Fans reach the original with ?mode=classic (also accepted: ?classic),
+       * which is a real URL and therefore survives a deploy, can be
+       * bookmarked, and can be handed to someone else. A player who does not
+       * know it exists never sees a hint of it.
+       *
+       * This is a REQUEST, not a decision. It selects the mode for rooms this
+       * client CREATES and for solo play; in an online match the room's mode
+       * always wins, because the room's mode is the one every other client is
+       * already simulating.
+       */
+      function requestedModeFromUrl() {
+        if (typeof window === 'undefined' || !window.location) return DEFAULT_MODE;
+        let params;
+        try {
+          params = new URLSearchParams(window.location.search || '');
+        } catch {
+          return DEFAULT_MODE;
+        }
+        if (params.has('classic')) return 'classic';
+        return normaliseMode(params.get('mode'));
+      }
+
+      let requestedMode = requestedModeFromUrl();
+
+      // Theme the landing screen to the request, so a fan arriving on the
+      // classic URL lands on the green screen rather than being re-skinned a
+      // few clicks later. An online match may still overrule this at
+      // ROUND_START if they join someone else's room.
+      applyMode(requestedMode);
+
+      /**
+       * Vehicle chassis registry — the client half.
+       *
+       * Mirrors CHASSIS in lib/constants.js and adds the draw data the server
+       * has no use for. The simulation fields (hp, armour, driveStep,
+       * maxClimb, fuel, fuelPerStep, locomotion) MUST stay identical to the
+       * server table: they decide where a tank ends up after a MOVE_SYNC, and
+       * two clients disagreeing about a chassis is a silent desync.
+       * tests/chassis-registry.test.js fails if the two drift apart.
+       */
+      const CHASSIS = {
+        'clockwork-tank': {
+          id: 'clockwork-tank', name: 'Clockwork Tank', locomotion: 'tracked',
+          hp: 100, armour: 1.00, driveStep: 4, maxClimb: 10, fuel: 100, fuelPerStep: 1,
+          blurb: 'Balanced brass-and-cog hull. Climbs a fair slope, dies at a fair rate.',
+          accent: THEMES.aethercastle.brass500, hullW: 16, hullH: 6, tier: 1
+        },
+        'walker-mech': {
+          id: 'walker-mech', name: 'Walker Mech', locomotion: 'legged',
+          hp: 120, armour: 0.85, driveStep: 7, maxClimb: 34, fuel: 70, fuelPerStep: 2,
+          strideClearance: true,
+          blurb: 'Steps over craters and scarps that stop a hull dead. Thirsty legs.',
+          accent: THEMES.aethercastle.brass300, hullW: 14, hullH: 8, tier: 2
+        },
+        'airship-platform': {
+          id: 'airship-platform', name: 'Airship Platform', locomotion: 'aerial',
+          hp: 80, armour: 1.15, driveStep: 5, maxClimb: Infinity, fuel: 110, fuelPerStep: 1,
+          cruiseAltitude: 140, windDrift: 0.05,
+          blurb: 'Ignores the ground entirely. The wind does not ignore it.',
+          accent: THEMES.aethercastle.cyan400, hullW: 22, hullH: 7, tier: 3
+        },
+        'brass-plated-tank': {
+          id: 'brass-plated-tank', name: 'Brass-Plated Tank', locomotion: 'tracked',
+          hp: 140, armour: 0.65, driveStep: 3, maxClimb: 6, fuel: 80, fuelPerStep: 1,
+          blurb: 'Walks off a direct hit. Cannot walk up anything much.',
+          accent: THEMES.aethercastle.brass600, hullW: 20, hullH: 8, tier: 2
+        },
+        'aether-field-tank': {
+          id: 'aether-field-tank', name: 'Aether-Field Tank', locomotion: 'tracked',
+          hp: 85, armour: 1.00, driveStep: 4, maxClimb: 12, fuel: 90, fuelPerStep: 1,
+          fieldRegen: 25,
+          blurb: 'Thin hull, but it relights its own field at the top of every round.',
+          accent: THEMES.aethercastle.magenta500, hullW: 16, hullH: 6, tier: 3
+        },
+        'scout-drone': {
+          id: 'scout-drone', name: 'Scout Drone', locomotion: 'hover',
+          hp: 60, armour: 1.35, driveStep: 8, maxClimb: 22, fuel: 160, fuelPerStep: 1,
+          hoverClearance: 18,
+          blurb: 'Crosses the map in a turn. Loses an argument with any direct hit.',
+          accent: THEMES.aethercastle.violet500, hullW: 12, hullH: 5, tier: 4
+        }
+      };
+
+      const CHASSIS_IDS = Object.keys(CHASSIS);
+      const DEFAULT_CHASSIS = 'clockwork-tank';
+
+      // Never index CHASSIS directly with a value off the wire.
+      function chassisOf(tank) {
+        const id = tank && tank.chassis;
+        return (id && CHASSIS[id]) || CHASSIS[DEFAULT_CHASSIS];
+      }
 
       /**
        * Per-biome terrain ramp: sky gradient, lit crust band and dark core.
@@ -759,13 +1047,15 @@
       // three separate copies of the same ternary. The shop entries below are
       // generated from this, so a shield can never cost one thing and absorb
       // another.
+      // Shields are aether, so they read as the aether ramp: cyan for plain
+      // absorbers, magenta and violet for the deflectors, brass at the top.
       const SHIELD_TYPES = {
-        'Shield':              { cost: 1000,  strength: 100, deflects: false, colour: 'rgba(0, 255, 0, 0.5)' },
-        'Heavy Shield':        { cost: 2500,  strength: 200, deflects: false, colour: 'rgba(0, 0, 255, 0.5)' },
-        'Mag Deflector':       { cost: 4000,  strength: 150, deflects: true,  colour: 'rgba(0, 255, 255, 0.5)' },
-        'Heavy Mag Deflector': { cost: 6000,  strength: 250, deflects: true,  colour: 'rgba(0, 200, 255, 0.5)' },
-        'Super Magno Shield':  { cost: 8000,  strength: 400, deflects: true,  colour: 'rgba(180, 0, 255, 0.5)' },
-        'Force Shield':        { cost: 10000, strength: 500, deflects: false, colour: 'rgba(255, 255, 255, 0.6)' }
+        'Shield':              { cost: 1000,  strength: 100, deflects: false, colour: 'rgba(0, 191, 255, 0.5)' },
+        'Heavy Shield':        { cost: 2500,  strength: 200, deflects: false, colour: 'rgba(0, 160, 220, 0.6)' },
+        'Mag Deflector':       { cost: 4000,  strength: 150, deflects: true,  colour: 'rgba(255, 45, 155, 0.5)' },
+        'Heavy Mag Deflector': { cost: 6000,  strength: 250, deflects: true,  colour: 'rgba(213, 0, 127, 0.6)' },
+        'Super Magno Shield':  { cost: 8000,  strength: 400, deflects: true,  colour: 'rgba(155, 93, 224, 0.6)' },
+        'Force Shield':        { cost: 10000, strength: 500, deflects: false, colour: 'rgba(242, 233, 180, 0.6)' }
       };
 
       // Strongest first: the order a tank raises what it owns.
@@ -1824,8 +2114,12 @@
           // late cannot fly the projectile through a different breeze.
           if (msg.wind !== undefined) this.wind = msg.wind;
 
-          const weapon = msg.weapon || 'Baby Missile';
-          const ammo = shooter.inventory[weapon];
+          let weapon = msg.weapon || 'Baby Missile';
+          let ammo = shooter.inventory[weapon];
+          if (ammo === undefined || (ammo <= 0 && ammo !== Infinity)) {
+            weapon = 'Baby Missile';
+            ammo = shooter.inventory[weapon];
+          }
           if (ammo !== undefined && ammo !== Infinity) {
             shooter.inventory[weapon]--;
           }
@@ -1868,6 +2162,10 @@
           this.turnNumber = msg.turnNumber;
           this.activeShotId = null;
           this.reportedShotId = null;
+          // Wind moves the airships before the new shooter takes aim. Online
+          // this is the one place every client advances a turn, so applying
+          // the drift here keeps all of them on the same pixel.
+          this.applyChassisTurnDrift();
           this.setActiveSlot(msg.activeSlot);
           this.raiseShieldForActivePlayer();
           this.updateHUD();
@@ -1991,13 +2289,16 @@
           const zoneW = CONST.WORLD_W / N;
           const margin = 40;
           this.roster.forEach((tank, i) => {
-            tank.hp = 100;
+            // A chassis decides how much hull there is to lose.
+            tank.maxHp = chassisOf(tank).hp;
+            tank.hp = tank.maxHp;
             tank.shield = null;
             tank.alive = true;
             tank.reportedDead = false;
             tank.damageDealt = 0;
             tank.kills = 0;
             this.grantRoundFuel(tank);
+            this.applyChassisRoundStart(tank);
             const minX = zoneW * i + margin;
             const maxX = zoneW * (i + 1) - margin;
             tank.x = gameplayRNG.range(minX, maxX);
@@ -2088,18 +2389,37 @@
           }
         }
 
+        // Each chassis settles at its own altitude — an airship parks in the
+        // air, a drone hovers, a hull sits on the dirt.
         snapTanksToTerrain() {
           if (!this.roster) return;
           this.roster.forEach(tank => {
-            tank.y = CONST.WORLD_H - this.terrain.heightAt(tank.x);
+            tank.y = this.restingY(tank, tank.x);
           });
         }
 
-        // Every round starts with at least a tank of fuel so repositioning is
+        // Every round starts with at least a full tank so repositioning is
         // never gated behind a shop visit; anything bought on top carries.
+        // The size of "full" is a chassis stat: legs are thirsty, a drone
+        // carries a lot because it burns it fast.
         grantRoundFuel(tank) {
           const held = tank.inventory['Fuel'] || 0;
-          tank.inventory['Fuel'] = Math.max(held, CONST.FUEL_PER_ROUND);
+          tank.inventory['Fuel'] = Math.max(held, chassisOf(tank).fuel);
+        }
+
+        // An aether-field hull relights its own field at the top of a round.
+        // Pure function of the chassis table and the tank's own state, so it
+        // needs no lockstep traffic — every client runs it and agrees.
+        // Uses the stock 'Shield' type rather than inventing one, so the
+        // shop's shield list and SHIELD_PRIORITY stay a single source of truth.
+        applyChassisRoundStart(tank) {
+          const spec = chassisOf(tank);
+          if (!spec.fieldRegen) return;
+          if (!tank.shield || tank.shield.hp <= 0) {
+            tank.shield = { type: 'Shield', hp: spec.fieldRegen };
+          } else {
+            tank.shield.hp += spec.fieldRegen;
+          }
         }
 
         /**
@@ -2114,32 +2434,131 @@
          * The fuel check belongs at the input site, before the MOVE is sent;
          * this function only spends what it can see.
          */
+        /**
+         * The altitude a chassis rests at once it is over column x.
+         *
+         * Aerial hulls hold station above the tallest ground in a window
+         * around them, so an airship crossing a ridge rises over it instead of
+         * clipping through. Hover hulls sit a fixed clearance above the
+         * surface. Everything else sits ON the surface.
+         *
+         * Arithmetic and terrain reads only — no RNG — so every client that
+         * applies the same MOVE_SYNC lands on the same pixel.
+         */
+        restingY(tank, x) {
+          const spec = chassisOf(tank);
+          if (spec.locomotion === 'aerial') {
+            // Scan a fixed window so the result depends only on x and the
+            // terrain, never on the path taken to get here.
+            let peak = 0;
+            const half = 60;
+            for (let c = x - half; c <= x + half; c += 4) {
+              const h = this.terrain.heightAt(c);
+              if (h > peak) peak = h;
+            }
+            const y = CONST.WORLD_H - peak - spec.cruiseAltitude;
+            // Never leave the top of the world.
+            return Math.max(24, y);
+          }
+          if (spec.locomotion === 'hover') {
+            return CONST.WORLD_H - this.terrain.heightAt(x) - spec.hoverClearance;
+          }
+          return CONST.WORLD_H - this.terrain.heightAt(x);
+        }
+
+        /**
+         * Drive a tank horizontally under its chassis's movement model.
+         * Deterministic by construction: terrain heights and arithmetic only.
+         *
+         * Fuel is deliberately NOT a precondition here. Online, a client only
+         * knows its own inventory — every remote tank's Fuel entry is undefined
+         * on this machine — so gating the movement on fuel would stop remote
+         * tanks moving on every screen but their owner's, which is a desync.
+         * The fuel check belongs at the input site, before the MOVE is sent;
+         * this function only spends what it can see.
+         *
+         * Four branches, one per locomotion type:
+         *   aerial  — terrain cannot block it at all
+         *   legged  — clears the ground between footfalls
+         *   hover   — surface-following, but forgiving about slope
+         *   tracked — surface-following, refuses anything over maxClimb
+         */
         driveTank(tank, dir, steps) {
           if (!tank || tank.hp <= 0) return 0;
+          const spec = chassisOf(tank);
           const minX = CONST.TANK_MARGIN;
           const maxX = CONST.WORLD_W - CONST.TANK_MARGIN;
+          const stride = spec.driveStep;
 
           let taken = 0;
           for (let i = 0; i < steps; i++) {
-            const nextX = tank.x + dir * CONST.DRIVE_STEP;
+            const nextX = tank.x + dir * stride;
             if (nextX < minX || nextX > maxX) break;
+
+            if (spec.locomotion === 'aerial') {
+              // An airship is never stopped by ground: it is already above it.
+              tank.x = nextX;
+              tank.y = this.restingY(tank, nextX);
+              taken++;
+              continue;
+            }
 
             const currentHeight = this.terrain.heightAt(tank.x);
             const nextHeight = this.terrain.heightAt(nextX);
-            // Uphill only to a point. Downhill of any depth is fine — the tank
-            // settles onto the new column rather than toppling, which keeps
-            // this independent of the falling/parachute physics.
-            if (nextHeight - currentHeight > CONST.MAX_CLIMB) break;
+
+            if (spec.locomotion === 'legged') {
+              // A stride is a single footfall: only the destination column has
+              // to be reachable, and whatever sits between the two feet —
+              // a crater, a spire, a trench — is simply stepped over. This is
+              // the whole point of legs, and it is why a mech crosses ground a
+              // tracked hull has to go around.
+              if (nextHeight - currentHeight > spec.maxClimb) break;
+            } else if (spec.locomotion === 'hover') {
+              // Rotors care about the surface, but a lot less than tracks do.
+              if (nextHeight - currentHeight > spec.maxClimb) break;
+            } else {
+              // Tracked: every column must be climbable. Uphill only to a
+              // point; downhill of any depth is fine, because the hull settles
+              // onto the new column rather than toppling, which keeps this
+              // independent of the falling/parachute physics.
+              if (nextHeight - currentHeight > spec.maxClimb) break;
+            }
 
             tank.x = nextX;
-            tank.y = CONST.WORLD_H - nextHeight;
+            tank.y = this.restingY(tank, nextX);
             taken++;
           }
 
           if (taken > 0 && typeof tank.inventory['Fuel'] === 'number') {
-            tank.inventory['Fuel'] = Math.max(0, tank.inventory['Fuel'] - taken);
+            const spent = taken * spec.fuelPerStep;
+            tank.inventory['Fuel'] = Math.max(0, tank.inventory['Fuel'] - spent);
           }
           return taken;
+        }
+
+        /**
+         * An airship holds no ground: every turn it is airborne, the same wind
+         * that bends the shells slides it downwind.
+         *
+         * Runs off this.wind, which is already server-authoritative and
+         * identical on every client, and is called from exactly the two places
+         * every client advances a turn (applyTurnSync online, nextTurn local).
+         * No RNG, so the drift is the same pixel everywhere.
+         */
+        applyChassisTurnDrift() {
+          if (!this.roster) return;
+          const wind = this.wind || 0;
+          this.roster.forEach(tank => {
+            if (tank.hp <= 0) return;
+            const spec = chassisOf(tank);
+            if (spec.locomotion !== 'aerial' || !spec.windDrift) return;
+            const drifted = tank.x + wind * spec.windDrift;
+            tank.x = Math.min(
+              CONST.WORLD_W - CONST.TANK_MARGIN,
+              Math.max(CONST.TANK_MARGIN, drifted)
+            );
+            tank.y = this.restingY(tank, tank.x);
+          });
         }
 
         teleportTank(tank, x) {
@@ -2149,7 +2568,7 @@
             Math.max(CONST.TANK_MARGIN, x)
           );
           tank.x = clamped;
-          tank.y = CONST.WORLD_H - this.terrain.heightAt(clamped);
+          tank.y = this.restingY(tank, clamped);
           return true;
         }
 
@@ -2445,11 +2864,18 @@
               // roster array index, which can differ from slot order.
               slot: Number.isInteger(p.slot) ? p.slot : i,
               connected: true,
-              hp: 100,
+              // Chassis is chosen in the lobby and echoed by the server in
+              // ROUND_START.tanks, so every client builds the same vehicle.
+              chassis: (p.chassis && CHASSIS[p.chassis]) ? p.chassis : DEFAULT_CHASSIS,
+              hp: ((p.chassis && CHASSIS[p.chassis]) || CHASSIS[DEFAULT_CHASSIS]).hp,
+              maxHp: ((p.chassis && CHASSIS[p.chassis]) || CHASSIS[DEFAULT_CHASSIS]).hp,
               angle: 45,
               power: 500,
               cash: this.startingCash,
-              inventory: { 'Baby Missile': Infinity, 'Fuel': CONST.FUEL_PER_ROUND },
+              inventory: {
+                'Baby Missile': Infinity,
+                'Fuel': ((p.chassis && CHASSIS[p.chassis]) || CHASSIS[DEFAULT_CHASSIS]).fuel
+              },
               selectedWeapon: 'Baby Missile',
               shield: null,
               x: x,
@@ -2531,6 +2957,10 @@
             this.reportShotResolved();
             return;
           }
+
+          // Local play advances its own turn, so the drift is applied here
+          // instead — same call, same point in the turn.
+          this.applyChassisTurnDrift();
 
           let nextIdx = this.activePlayerIdx;
           for (let i = 0; i < this.roster.length; i++) {
@@ -2749,7 +3179,13 @@
         applyDamageToTank(tank, amount, shooter) {
           if (!tank || tank.hp <= 0) return false;
 
-          let remaining = Math.max(0, amount);
+          // Armour is the other half of a chassis's trade-off: a brass-plated
+          // hull takes 0.65x, a scout drone 1.35x. Rounded to a whole point so
+          // hp stays an integer everywhere — the HUD, the elimination check and
+          // the tests all read it, and a fractional hp would drift into a
+          // different rounding on a different client.
+          const armour = chassisOf(tank).armour;
+          let remaining = Math.max(0, Math.round(Math.max(0, amount) * armour));
           if (remaining <= 0) return false;
 
           // Damage dealt counts the full hit, including whatever the shield eats
@@ -2776,10 +3212,10 @@
 
           if (!this.headless && this.damageNumbers) {
             if (shieldAbsorbed > 0) {
-              this.damageNumbers.push({ x: tank.x, y: tank.y - 15, text: shieldAbsorbed.toFixed(0), color: '#00ffff', life: 60 });
+              this.damageNumbers.push({ x: tank.x, y: tank.y - 15, text: shieldAbsorbed.toFixed(0), color: THEME.shieldCharge, life: 60 });
             }
             if (remaining > 0) {
-              this.damageNumbers.push({ x: tank.x, y: tank.y, text: remaining.toFixed(0), color: '#ff0000', life: 60 });
+              this.damageNumbers.push({ x: tank.x, y: tank.y, text: remaining.toFixed(0), color: THEME.damage, life: 60 });
               if (typeof sfx === 'function') sfx('hit');
             }
           }
@@ -4620,10 +5056,11 @@
         { type: 'Cyborg', label: 'CYBORG — wind-corrected, learns from misses' }
       ];
 
-      // Mirrors RETRO_COLORS in lib/constants.js. Slot order is a wire
-      // contract: index N is the default colour of room slot N, so these two
-      // lists must stay identical in both value and position.
-      const RETRO_COLORS = [
+      // Mirrors AETHERCASTLE_COLORS / CLASSIC_COLORS in lib/constants.js. Slot
+      // order is a wire contract: index N is the default colour of room slot
+      // N, so each list must stay identical to its server twin in both value
+      // and position. tests/mode-contract.test.js fails if they drift.
+      const AETHERCASTLE_COLORS = [
         { value: '#ff2d9b', name: 'Aether Magenta' },
         { value: '#00bfff', name: 'Clockwork Cyan' },
         { value: '#e23a2e', name: 'Blood Iron' },
@@ -4633,6 +5070,30 @@
         { value: '#ffa31a', name: 'Phosphor Fire' },
         { value: '#f6e9c6', name: 'Parchment' }
       ];
+
+      // The original CGA/EGA names and values, restored for classic mode.
+      const CLASSIC_COLORS = [
+        { value: '#ff00ff', name: 'Magenta' },
+        { value: '#00ffff', name: 'Cyan' },
+        { value: '#ff2222', name: 'Red' },
+        { value: '#22ff22', name: 'Green' },
+        { value: '#ffff00', name: 'Yellow' },
+        { value: '#2222ff', name: 'Blue' },
+        { value: '#ff8800', name: 'Orange' },
+        { value: '#ffffff', name: 'White' }
+      ];
+
+      const PALETTES = {
+        aethercastle: AETHERCASTLE_COLORS,
+        classic: CLASSIC_COLORS
+      };
+
+      function paletteFor(mode) {
+        return PALETTES[normaliseMode(mode)];
+      }
+
+      // Back-compatible alias for the call sites that predate modes.
+      const RETRO_COLORS = AETHERCASTLE_COLORS;
 
       const net = new NetClient();
       let myPlayerToken = null;
@@ -4663,7 +5124,12 @@
       // A colour is interpolated into a style="..." attribute, where escaping
       // alone is not enough — CSS has its own injection surface. Only palette
       // values are allowed through; anything else falls back to white.
-      const PALETTE_VALUES = new Set(RETRO_COLORS.map(c => c.value));
+      // Both palettes, matching ALLOWED_COLOURS on the server. A classic-mode
+      // player's colour still has to render in an Aethercastle client's lobby
+      // listing, so the sink cannot be narrowed to the active mode.
+      const PALETTE_VALUES = new Set(
+        [...AETHERCASTLE_COLORS, ...CLASSIC_COLORS].map(c => c.value)
+      );
       function safeColour(value) {
         return PALETTE_VALUES.has(value) ? value : '#ffffff';
       }
@@ -4687,7 +5153,7 @@
 
           if (player) {
             if (isMe) {
-              const colorOptionsHtml = RETRO_COLORS.map(c =>
+              const colorOptionsHtml = paletteFor(activeMode).map(c =>
                 `<option value="${c.value}" ${c.value === player.colour ? 'selected' : ''} style="color: ${safeColour(c.value)}; background: #000;">${escapeHtml(c.name)}</option>`
               ).join('');
 
@@ -4770,6 +5236,57 @@
             const clientWaiting = document.getElementById('client-waiting');
             const displayShareCode = document.getElementById('display-share-code');
 
+            /**
+             * The easter egg's discovery mechanism.
+             *
+             * Typing CLASSIC anywhere on the setup screen (outside a text
+             * field, so it never eats a player name) flips this client into
+             * the original replica and back. It is deliberately unadvertised:
+             * a fan who wants the DOS game finds it, and a player who does not
+             * know it exists sees nothing.
+             *
+             * The durable form is the URL — ?mode=classic — which is what
+             * survives a deploy and can be bookmarked or shared. This just
+             * writes the same request, and rewrites the address bar to match
+             * so a discovered mode can be copied out of it.
+             *
+             * Both are only ever a REQUEST. In an online match ROUND_START.mode
+             * overrules whatever was typed here.
+             */
+            const CLASSIC_CODE = 'CLASSIC';
+            let classicBuffer = '';
+            document.addEventListener('keydown', (e) => {
+              const setupEl = document.getElementById('setup');
+              if (!setupEl || setupEl.hidden) { classicBuffer = ''; return; }
+              const tag = e.target && e.target.tagName;
+              if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+              if (!/^[a-zA-Z]$/.test(e.key)) { classicBuffer = ''; return; }
+
+              classicBuffer = (classicBuffer + e.key.toUpperCase()).slice(-CLASSIC_CODE.length);
+              if (classicBuffer !== CLASSIC_CODE) return;
+              classicBuffer = '';
+
+              requestedMode = requestedMode === 'classic' ? 'aethercastle' : 'classic';
+              applyMode(requestedMode);
+
+              try {
+                const url = new URL(window.location.href);
+                if (requestedMode === 'classic') {
+                  url.searchParams.set('mode', 'classic');
+                } else {
+                  url.searchParams.delete('mode');
+                  url.searchParams.delete('classic');
+                }
+                window.history.replaceState({}, '', url);
+              } catch { /* address bar is cosmetic; the mode already applied */ }
+
+              if (errorMsg) {
+                errorMsg.textContent = requestedMode === 'classic'
+                  ? 'CLASSIC MODE — Scorched Earth, as it was.'
+                  : 'ÆTHERCASTLE MODE';
+              }
+            });
+
             // --- Solo play vs AI -------------------------------------------------
             // Local mode: no socket, no lockstep, no server round-trip. This is the
             // only entry point that reaches Game.checkAIShot(), the local shop
@@ -4797,7 +5314,7 @@
                 const swatch = document.createElement('span');
                 // Slot 0 is the human, so AI i takes colour i+1.
                 swatch.textContent = '■';
-                swatch.style.color = RETRO_COLORS[(i + 1) % RETRO_COLORS.length].value;
+                swatch.style.color = paletteFor(activeMode)[(i + 1) % paletteFor(activeMode).length].value;
 
                 const label = document.createElement('label');
                 label.textContent = 'CPU ' + (i + 1);
@@ -4849,6 +5366,10 @@
             if (btnStartSolo) {
               btnStartSolo.addEventListener('click', () => {
                 if (errorMsg) errorMsg.textContent = '';
+                // Solo has no peer to agree with, so the local request IS the
+                // decision here. Applied before the roster is built so the
+                // players get the right palette.
+                applyMode(requestedMode);
                 const nameEl = document.getElementById('solo-name');
                 const humanName = (nameEl && nameEl.value.trim()) || 'PLAYER';
                 const count = soloAiCount ? (parseInt(soloAiCount.value, 10) || 2) : 2;
@@ -4856,7 +5377,7 @@
                 const players = [{
                   name: humanName.toUpperCase().slice(0, 12),
                   type: 'Human',
-                  color: RETRO_COLORS[0].value,
+                  color: paletteFor(activeMode)[0].value,
                   slot: 0
                 }];
                 for (let i = 0; i < count; i++) {
@@ -4865,7 +5386,7 @@
                   players.push({
                     name: 'CPU ' + (i + 1) + ' (' + type.toUpperCase() + ')',
                     type,
-                    color: RETRO_COLORS[(i + 1) % RETRO_COLORS.length].value,
+                    color: paletteFor(activeMode)[(i + 1) % paletteFor(activeMode).length].value,
                     slot: i + 1
                   });
                 }
@@ -4993,6 +5514,12 @@
                document.getElementById('setup').hidden = true;
                mySlot = msg.yourSlot; // Now we know it!
 
+               // The room's mode, not this client's. A player who arrived on
+               // ?mode=classic but joined an Aethercastle room gets switched
+               // here, which is the whole point: both clients have to be
+               // simulating the same game before the first shell flies.
+               applyMode(msg.mode);
+
                // Round 2+ is a new round of the SAME match. Re-running start()
                // would rebuild the roster and reset every player's cash and
                // inventory to the starting values, silently undoing the shop.
@@ -5028,7 +5555,7 @@
 
             btnCreate.addEventListener('click', () => {
               errorMsg.textContent = '';
-              net.send('CREATE_ROOM', { isPublic: false });
+              net.send('CREATE_ROOM', { isPublic: false, mode: requestedMode });
               hostSettings.hidden = false;
               startBtn.hidden = false;
               clientWaiting.hidden = true;
@@ -5036,7 +5563,7 @@
 
             btnCreatePublic.addEventListener('click', () => {
               errorMsg.textContent = '';
-              net.send('CREATE_ROOM', { isPublic: true });
+              net.send('CREATE_ROOM', { isPublic: true, mode: requestedMode });
               hostSettings.hidden = false;
               startBtn.hidden = false;
               clientWaiting.hidden = true;
