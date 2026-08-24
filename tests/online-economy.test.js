@@ -12,9 +12,27 @@ const assert = require('node:assert');
 
 const { createServer, attachWebSocketServer, createRoomManagerHandlers } = require('../server.js');
 const RoomManager = require('../lib/room-manager.js');
+const StructuresLib = require('../lib/structures.js');
 const { bootBrowser, until, hashTerrain } = require('./helpers/browser-harness.js');
 
 const gameOf = (b) => b.ctx.globalThis.SCORCHED.gameInstance;
+
+// Æthercastle pays a standing Aether Forge out at the top of every round, so
+// the expected cash after a round boundary is "what you carried" plus "what
+// your forges earned" -- not a flat carry-over. Derived from the live holding
+// rather than hardcoded, so this stays honest if the forge's income changes.
+function forgeIncomeFor(game, slot) {
+  const idx = game.roster.findIndex(t => t.slot === slot);
+  if (idx < 0 || !Array.isArray(game.structures)) return 0;
+  let income = 0;
+  for (const s of game.structures) {
+    if (s.ownerIdx !== idx) continue;
+    if (!StructuresLib.isStanding(s)) continue;
+    const spec = StructuresLib.specOf(s);
+    if (spec && spec.income) income += spec.income;
+  }
+  return income;
+}
 
 // Walk the stand-in DOM for a button by its label.
 function findButton(el, text) {
@@ -173,7 +191,17 @@ describe('Online economy across rounds', () => {
     // The progression survived the round boundary. Re-running start() here
     // instead of applyServerRoundStart() would reset both of these.
     const myTankR2 = gameOf(host).roster.find(t => t.slot === gameOf(host).mySlot);
-    assert.strictEqual(myTankR2.cash, cashAfterBuy, 'cash must carry into the new round');
+    // Round 2 rebuilds the holding and then pays forge income, so the balance
+    // is the carried cash plus that income. Asserting the exact sum still
+    // catches the original bug -- a reset would land on startingCash (10000),
+    // not on this -- while allowing the Aethercastle economy to pay out.
+    const income = forgeIncomeFor(gameOf(host), gameOf(host).mySlot);
+    assert.strictEqual(
+      myTankR2.cash,
+      cashAfterBuy + income,
+      'cash must carry into the new round (plus forge income), not reset'
+    );
+    assert.notStrictEqual(myTankR2.cash, 10000, 'cash must not be reset to the starting balance');
     assert.strictEqual(myTankR2.inventory['Missile'], ownedAfterBuy, 'inventory must carry into the new round');
 
     // A new round is a new world, and both clients must agree on it.

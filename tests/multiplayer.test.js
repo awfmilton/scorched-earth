@@ -60,13 +60,44 @@ function snapshotTanks(game) {
 const openClients = new Set();
 
 function createClient(port) {
-  const ws = new WebSocket(`ws://localhost:${port}`);
+  // Dial 127.0.0.1, NOT "localhost". Every server in this suite binds IPv4-only
+  // (`server.listen(0, '127.0.0.1')`), but "localhost" resolves to ::1 first on
+  // Windows, so the socket only lands via the Happy-Eyeballs IPv6->IPv4 fallback.
+  // That fallback is timing-dependent, and under full-suite parallel load it is
+  // what left this file waiting on an 'open' that never came.
+  const ws = new WebSocket(`ws://127.0.0.1:${port}`);
   const messages = [];
+  let socketError = null;
   ws.on('message', (data) => messages.push(JSON.parse(data.toString())));
+  // Without this listener a connection failure is an unhandled 'error' event.
+  // With it, the failure is captured and reported by waitOpen below.
+  ws.on('error', (err) => { socketError = err; });
 
   const client = {
     ws,
     messages,
+    // Bounded, error-aware replacement for `new Promise(r => ws.on('open', r))`.
+    // That form never settles if the socket errors or is simply never accepted,
+    // which reads as "still running" and silently eats the whole suite.
+    waitOpen: (timeout = 10000) => new Promise((resolve, reject) => {
+      if (ws.readyState === WebSocket.OPEN) return resolve(client);
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(new Error(
+          `WebSocket to 127.0.0.1:${port} did not open within ${timeout}ms` +
+          (socketError ? ` (last socket error: ${socketError.code || socketError.message})` : '')
+        ));
+      }, timeout);
+      const onOpen = () => { cleanup(); resolve(client); };
+      const onErr = (err) => { cleanup(); reject(new Error(`WebSocket to 127.0.0.1:${port} failed: ${err.code || err.message}`)); };
+      function cleanup() {
+        clearTimeout(timer);
+        ws.off('open', onOpen);
+        ws.off('error', onErr);
+      }
+      ws.on('open', onOpen);
+      ws.on('error', onErr);
+    }),
     waitFor: async (type, timeout = 10000) => {
       const start = Date.now();
       while (Date.now() - start < timeout) {
@@ -151,8 +182,8 @@ describe('Multiplayer Flow', () => {
     const c1 = createClient(port);
     const c2 = createClient(port);
 
-    await new Promise(r => c1.ws.on('open', r));
-    await new Promise(r => c2.ws.on('open', r));
+    await c1.waitOpen();
+    await c2.waitOpen();
 
     c1.send({ type: C2S.CREATE_ROOM });
     const createMsg = await c1.waitFor(S2C.ROOM_STATE);
@@ -173,7 +204,7 @@ describe('Multiplayer Flow', () => {
 
   it('handles bad code and full match', async () => {
     const c1 = createClient(port);
-    await new Promise(r => c1.ws.on('open', r));
+    await c1.waitOpen();
 
     c1.send({ type: C2S.JOIN_ROOM, code: 'XXXX' });
     const errMsg = await c1.waitFor(S2C.ERROR);
@@ -188,13 +219,13 @@ describe('Multiplayer Flow', () => {
     for (let i = 0; i < 3; i++) {
       const c = createClient(port);
       clients.push(c);
-      await new Promise(r => c.ws.on('open', r));
+      await c.waitOpen();
       c.send({ type: C2S.JOIN_ROOM, code });
       await c.waitFor(S2C.ROOM_STATE);
     }
 
     const fullC = createClient(port);
-    await new Promise(r => fullC.ws.on('open', r));
+    await fullC.waitOpen();
     fullC.send({ type: C2S.JOIN_ROOM, code });
     const fullErr = await fullC.waitFor(S2C.ERROR);
     assert.strictEqual(fullErr.code, ERRORS.ROOM_FULL);
@@ -209,8 +240,8 @@ describe('Multiplayer Flow', () => {
   it('two clients stay byte-identical across a real shot', async () => {
     const c1 = createClient(port);
     const c2 = createClient(port);
-    await new Promise(r => c1.ws.on('open', r));
-    await new Promise(r => c2.ws.on('open', r));
+    await c1.waitOpen();
+    await c2.waitOpen();
 
     c1.send({ type: C2S.CREATE_ROOM });
     const s1 = await c1.waitFor(S2C.ROOM_STATE);
@@ -322,8 +353,8 @@ describe('Multiplayer Flow', () => {
   it('rejects an out-of-turn shot rather than desyncing', async () => {
     const c1 = createClient(port);
     const c2 = createClient(port);
-    await new Promise(r => c1.ws.on('open', r));
-    await new Promise(r => c2.ws.on('open', r));
+    await c1.waitOpen();
+    await c2.waitOpen();
 
     c1.send({ type: C2S.CREATE_ROOM });
     const s1 = await c1.waitFor(S2C.ROOM_STATE);
@@ -350,8 +381,8 @@ describe('Multiplayer Flow', () => {
   it('handles disconnect and reconnect mid-game', async () => {
     const c1 = createClient(port);
     const c2 = createClient(port);
-    await new Promise(r => c1.ws.on('open', r));
-    await new Promise(r => c2.ws.on('open', r));
+    await c1.waitOpen();
+    await c2.waitOpen();
 
     c1.send({ type: C2S.CREATE_ROOM });
     const s1 = await c1.waitFor(S2C.ROOM_STATE);
@@ -379,7 +410,7 @@ describe('Multiplayer Flow', () => {
 
     // Player 2 comes back with the token and is restored to the same slot.
     const c3 = createClient(port);
-    await new Promise(r => c3.ws.on('open', r));
+    await c3.waitOpen();
     c3.send({ type: C2S.REJOIN, code, playerToken: token2 });
     const rejoined = await c3.waitFor(S2C.ROOM_STATE);
     assert.strictEqual(rejoined.phase, 'playing');
@@ -397,12 +428,12 @@ describe('Multiplayer Flow', () => {
 
   it('refuses a rejoin with a bad token', async () => {
     const c1 = createClient(port);
-    await new Promise(r => c1.ws.on('open', r));
+    await c1.waitOpen();
     c1.send({ type: C2S.CREATE_ROOM });
     const s1 = await c1.waitFor(S2C.ROOM_STATE);
 
     const c2 = createClient(port);
-    await new Promise(r => c2.ws.on('open', r));
+    await c2.waitOpen();
     c2.send({ type: C2S.REJOIN, code: s1.code, playerToken: 'not-a-real-token' });
     const err = await c2.waitFor(S2C.ERROR);
     assert.ok(err.code, 'a bad token must produce an error, not a silent seat');

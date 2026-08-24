@@ -170,8 +170,8 @@ describe('FIRE_SYNC is the authority for weapon and fuse', () => {
 
     const host = rm.createRoom('c1', { name: 'H' });
     const code = host.replies[0].msg.code;
-    rm.joinRoom('c2', { code });
-    rm.startGame('c1', { config: { rounds: 1, startingCash: 1000, wallType: 'off' } });
+    rm.join('c2', code);
+    rm.start('c1', { rounds: 1, startingCash: 1000, wallType: 'off' });
 
     // Reach past the protocol layer, the way a modified client would.
     const room = rm.rooms.get(code);

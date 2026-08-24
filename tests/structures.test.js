@@ -206,6 +206,30 @@ describe('Structure behaviour', () => {
     assert.ok(victim.hp < before, 'a breach must hurt whoever is standing on it');
   });
 
+  // A round opens with turrets loading rather than ready, so a freshly revived
+  // tank cannot be shot before anyone has taken a turn. Every turret test has
+  // to burn that loading window before it can assert anything about firing.
+  function loadTurret(game, id) {
+    const turns = S.STRUCTURES[id].turret.cooldown;
+    for (let i = 0; i < turns; i++) game.applyStructureTurnEffects();
+  }
+
+  it('a turret holds its fire on the opening turn of a round', () => {
+    const { game } = duel();
+    const bow = findStructure(game, 'scorpion-crossbow', 0);
+    game.structures = [bow];
+
+    const enemy = game.roster[1];
+    enemy.x = bow.x + 60;
+    enemy.y = bow.y;
+    enemy.shield = null;
+    const before = enemy.hp;
+
+    // This is the pass the server's post-ROUND_START TURN_SYNC triggers.
+    game.applyStructureTurnEffects();
+    assert.strictEqual(enemy.hp, before, 'a round must not open with a free volley');
+  });
+
   it('a scorpion crossbow fires on its own at the nearest enemy', () => {
     const { game } = duel();
     // Strip the field down to one turret so the damage has a single source.
@@ -218,8 +242,9 @@ describe('Structure behaviour', () => {
     enemy.shield = null;
     const before = enemy.hp;
 
+    loadTurret(game, 'scorpion-crossbow');
     game.applyStructureTurnEffects();
-    assert.ok(enemy.hp < before, 'a scorpion must actually shoot');
+    assert.ok(enemy.hp < before, 'a scorpion must actually shoot once loaded');
   });
 
   it('a turret respects its cooldown rather than firing every turn', () => {
@@ -232,9 +257,12 @@ describe('Structure behaviour', () => {
     enemy.y = silo.y;
     enemy.shield = null;
 
+    loadTurret(game, 'missile-silo');
+    assert.strictEqual(enemy.hp, enemy.maxHp, 'a loading silo must not fire');
+
     game.applyStructureTurnEffects();
     const afterFirst = enemy.hp;
-    assert.ok(afterFirst < enemy.maxHp, 'silo should have fired once');
+    assert.ok(afterFirst < enemy.maxHp, 'silo should have fired once loaded');
 
     // Next turn it is reloading, so the hull takes nothing.
     game.applyStructureTurnEffects();
@@ -253,6 +281,9 @@ describe('Structure behaviour', () => {
     enemy.x = 5;
     enemy.y = 5;
     const before = owner.hp;
+    // Load it first, or this passes for the wrong reason: a turret still
+    // sitting on its opening cooldown would not fire on anyone.
+    loadTurret(game, 'scorpion-crossbow');
     game.applyStructureTurnEffects();
     assert.strictEqual(owner.hp, before, 'a turret must never fire on its own house');
   });
@@ -406,6 +437,109 @@ describe('Structure determinism', () => {
 
     for (const banned of ['Math.random', 'Date.now', 'new Date']) {
       assert.ok(!code.includes(banned), `structures must not use ${banned}`);
+    }
+  });
+});
+
+// Regression cover for the bug that made tests/movement.test.js flaky: a
+// blocking footprint laid on top of a tank left that tank unable to drive in
+// EITHER direction for the whole round. Measured at 25 immobile tanks across
+// 60 seeded matches before the fix.
+describe('Masonry never traps a hull', () => {
+  it('lets a tank already inside a footprint drive out of it', () => {
+    const spec = S.STRUCTURES['portcullis'];
+    const wall = [{ key: 'portcullis', x: 600, y: 400, hp: spec.hp, maxHp: spec.hp, breached: false }];
+    const half = spec.w / 2;
+
+    // Standing dead centre: both directions must be allowed, or the hull is
+    // sealed in. This is the exact case the old [lo,hi] overlap test failed.
+    assert.strictEqual(S.blocksMovement(wall, 600, 604), false, 'must be able to drive right, out of the wall');
+    assert.strictEqual(S.blocksMovement(wall, 600, 596), false, 'must be able to drive left, out of the wall');
+
+    // From outside, the wall still stops a hull driving into it.
+    const outside = 600 - half - 2;
+    assert.strictEqual(S.blocksMovement(wall, outside, outside + 6), true, 'a wall must still block entry');
+    assert.strictEqual(S.blocksMovement(wall, outside, outside - 6), false, 'moving away is never blocked');
+  });
+
+  it('still refuses a stride that would clear the whole footprint in one step', () => {
+    const spec = S.STRUCTURES['portcullis'];
+    const wall = [{ key: 'portcullis', x: 600, y: 400, hp: spec.hp, maxHp: spec.hp, breached: false }];
+    const half = spec.w / 2;
+    // A stride longer than the building is wide must not teleport through it.
+    assert.strictEqual(S.blocksMovement(wall, 600 - half - 1, 600 + half + 1), true);
+  });
+
+  it('never leaves a tank immobile, across many generated matches', () => {
+    // THE invariant, and the one the movement flake was a symptom of. Walks
+    // real generated matches rather than a hand-placed case, because the bug
+    // only appeared for some seeds. Before the fix: 25 immobile tanks in 60
+    // matches. This assertion is strict — one immobile tank is a broken round.
+    let immobile = 0;
+    let checked = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const { game } = duel({ seed });
+      if (!game.structures || !game.structures.length) continue;
+      checked++;
+      for (const tank of game.roster) {
+        const startX = tank.x;
+        game.driveTank(tank, 1, 3);
+        const wentRight = tank.x !== startX;
+        tank.x = startX;
+        game.driveTank(tank, -1, 3);
+        const wentLeft = tank.x !== startX;
+        tank.x = startX;
+        if (!wentRight && !wentLeft) immobile++;
+      }
+    }
+    assert.ok(checked > 0, 'the sweep must actually have built some holdings');
+    assert.strictEqual(immobile, 0, `${immobile} tanks could not move in either direction`);
+  });
+
+  it('keeps footprint-on-tank overlap rare, even though it is only cosmetic', () => {
+    // Placement is best-effort, so a crowded zone can still leave a hull
+    // inside a footprint. That costs looks, not playability (the test above
+    // proves the tank still drives out). Bounded rather than zero, so the
+    // number is honest — but a regression that made it common would trip it.
+    let overlaps = 0;
+    let works = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const { game } = duel({ seed });
+      if (!game.structures || !game.structures.length) continue;
+      for (const s of game.structures) {
+        const spec = S.specOf(s);
+        if (!spec || !spec.blocking) continue;
+        works++;
+        if (game.roster.some(t => Math.abs(s.x - t.x) <= spec.w / 2)) overlaps++;
+      }
+    }
+    assert.ok(works > 100, 'the sweep must cover a meaningful number of works');
+    assert.ok(overlaps / works < 0.05, `${overlaps}/${works} blocking works sit on a tank — expected under 5%`);
+  });
+
+  it('keeps every holding its castle rather than dropping crowded works', () => {
+    // The first attempt at the layout fix omitted works it could not place
+    // clear, which cost 13 of 400 holdings their norman-castle. Placement is
+    // best-effort now, so the centrepiece is always there.
+    for (let seed = 1; seed <= 25; seed++) {
+      const { game } = duel({ seed });
+      if (!game.structures || !game.structures.length) continue;
+      for (let i = 0; i < game.roster.length; i++) {
+        assert.ok(
+          game.structures.some(s => s.ownerIdx === i && s.key === 'norman-castle'),
+          `seed ${seed}: holding ${i} lost its castle`
+        );
+      }
+    }
+  });
+
+  it('places structures identically for the same seed, so the fix is replicated', () => {
+    // The nudge reads roster positions and draws no randomness. Two builds
+    // from the same seed must agree exactly, or the fix itself is a desync.
+    const layout = (seed) => duel({ seed }).game.structures
+      .map(s => `${s.key}:${s.x.toFixed(6)}:${s.y.toFixed(6)}`).join('|');
+    for (const seed of [7, 909, 4242]) {
+      assert.strictEqual(layout(seed), layout(seed), `seed ${seed} must lay out identically`);
     }
   });
 });

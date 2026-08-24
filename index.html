@@ -2542,14 +2542,21 @@
           }
         }
 
-        // Top of a round: forges pay out, turrets come off cooldown.
+        // Top of a round: forges pay out, turrets start loading.
         applyStructureRoundStart() {
           if (!this.structures || !this.roster || !StructuresLib) return;
           for (let i = 0; i < this.structures.length; i++) {
             const s = this.structures[i];
-            s.cooldown = 0;
-            if (!StructuresLib.isStanding(s)) continue;
             const spec = StructuresLib.specOf(s);
+            // A round opens with turrets LOADING, not ready. The server sends
+            // a TURN_SYNC immediately behind ROUND_START, and that runs the
+            // turn-effects pass -- so a zeroed cooldown here handed every
+            // turret a free volley at tanks that had just been revived to full
+            // hp, before either player had taken a shot. Arming them with
+            // their own cooldown is a fixed table value, identical on every
+            // client, so this costs nothing in lockstep terms.
+            s.cooldown = (spec && spec.turret) ? spec.turret.cooldown : 0;
+            if (!StructuresLib.isStanding(s)) continue;
             if (!spec || !spec.income) continue;
             const owner = this.roster[s.ownerIdx];
             if (owner && owner.hp > 0) {
