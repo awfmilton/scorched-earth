@@ -127,19 +127,56 @@ describe('Structure behaviour', () => {
     assert.ok(tank.x > gate.x, 'a downed portcullis must not block');
   });
 
-  it('an aether forge pays its owner at the top of a round', () => {
+  // These go through the REAL round-start path -- rebuildStructures() then
+  // applyStructureRoundStart() -- rather than calling the payout directly.
+  // Calling it directly hid a design hole: the rebuild resets every structure
+  // to full hp, so a forge examined at payout time was ALWAYS standing and
+  // shelling an enemy forge had no economic effect at all.
+  function openNextRound(game) {
+    game.rebuildStructures();
+    game.applyStructureRoundStart();
+  }
+
+  it('does not hand out forge income on round 1', () => {
     const { game } = duel();
-    const forge = findStructure(game, 'aether-forge', 0);
+    // There is no previous round to have earned anything.
+    assert.strictEqual(
+      game.roster[0].cash, game.roster[1].cash,
+      'both players must open the match on the same cash'
+    );
+  });
+
+  it('an aether forge that survives the round pays its owner at the next one', () => {
+    const { game } = duel();
     const owner = game.roster[0];
     const before = owner.cash;
-    game.applyStructureRoundStart();
-    assert.strictEqual(owner.cash, before + S.STRUCTURES['aether-forge'].income);
+    openNextRound(game);
+    assert.strictEqual(
+      owner.cash, before + S.STRUCTURES['aether-forge'].income,
+      'a forge left standing must pay at the top of the next round'
+    );
+  });
 
-    // ...and stops paying once it is rubble.
-    forge.hp = 0;
-    const mid = owner.cash;
-    game.applyStructureRoundStart();
-    assert.strictEqual(owner.cash, mid, 'a destroyed forge must not pay');
+  it('a forge destroyed during a round denies its owner the next round income', () => {
+    const { game } = duel();
+    const owner = game.roster[0];
+    const rival = game.roster[1];
+
+    // Raze player 0's forge, leave player 1's standing.
+    findStructure(game, 'aether-forge', 0).hp = 0;
+
+    const ownerBefore = owner.cash;
+    const rivalBefore = rival.cash;
+    openNextRound(game);
+
+    assert.strictEqual(
+      owner.cash, ownerBefore,
+      'a razed forge must not pay, even though the rebuild restores it'
+    );
+    assert.strictEqual(
+      rival.cash, rivalBefore + S.STRUCTURES['aether-forge'].income,
+      'the surviving forge must still pay'
+    );
   });
 
   it('a repair bay heals a friendly hull over time, capped at max hp', () => {

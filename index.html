@@ -2371,6 +2371,8 @@
             tank.reportedDead = false;
             tank.damageDealt = 0;
             tank.kills = 0;
+            // Sub-point damage carry does not survive a round boundary.
+            tank.damageCarry = 0;
             this.grantRoundFuel(tank);
             this.applyChassisRoundStart(tank);
             const minX = zoneW * i + margin;
@@ -2515,7 +2517,35 @@
          * arithmetic over replicated state.
          */
 
+        /**
+         * Bank what the OUTGOING holding earned, before it is replaced.
+         *
+         * A round start rebuilds every structure at full hp, so by the time
+         * income was paid the forge was always standing again and shelling an
+         * enemy forge had no economic effect whatsoever. Entitlement is now
+         * taken from the holding as it ENDED the previous round: destroy a
+         * forge and its owner opens the next round poorer.
+         *
+         * Indexed by ownerIdx (a dense array walked in index order), so it is
+         * the same value in the same order on every client.
+         */
+        captureStructureIncome() {
+          const earned = [];
+          if (!this.structures || !StructuresLib) return earned;
+          for (let i = 0; i < this.structures.length; i++) {
+            const s = this.structures[i];
+            const spec = StructuresLib.specOf(s);
+            if (!spec || !spec.income) continue;
+            if (!StructuresLib.isStanding(s)) continue;
+            earned[s.ownerIdx] = (earned[s.ownerIdx] || 0) + spec.income;
+          }
+          return earned;
+        }
+
         rebuildStructures() {
+          // Must run before the holding is replaced, or the survival check is
+          // always true.
+          this.pendingStructureIncome = this.captureStructureIncome();
           if (!StructuresLib) { this.structures = []; return; }
           this.structures = StructuresLib.layoutStructures(
             structureRNG,
@@ -2556,13 +2586,21 @@
             // their own cooldown is a fixed table value, identical on every
             // client, so this costs nothing in lockstep terms.
             s.cooldown = (spec && spec.turret) ? spec.turret.cooldown : 0;
-            if (!StructuresLib.isStanding(s)) continue;
-            if (!spec || !spec.income) continue;
-            const owner = this.roster[s.ownerIdx];
+          }
+
+          // Income is what the PREVIOUS round's holding earned, banked by
+          // rebuildStructures before the works were reset to full hp. Round 1
+          // has no previous holding, so nobody opens the match with free cash.
+          const earned = this.pendingStructureIncome || [];
+          for (let idx = 0; idx < earned.length; idx++) {
+            const amount = earned[idx];
+            if (!amount) continue;
+            const owner = this.roster[idx];
             if (owner && owner.hp > 0) {
-              owner.cash = (owner.cash || 0) + spec.income;
+              owner.cash = (owner.cash || 0) + amount;
             }
           }
+          this.pendingStructureIncome = [];
         }
 
         /**
@@ -3537,12 +3575,23 @@
           if (!tank || tank.hp <= 0) return false;
 
           // Armour is the other half of a chassis's trade-off: a brass-plated
-          // hull takes 0.65x, a scout drone 1.35x. Rounded to a whole point so
-          // hp stays an integer everywhere — the HUD, the elimination check and
-          // the tests all read it, and a fractional hp would drift into a
-          // different rounding on a different client.
+          // hull takes 0.65x, a scout drone 1.35x. hp stays an integer
+          // everywhere — the HUD, the elimination check and the tests all read
+          // it, and a fractional hp would drift into a different rounding on a
+          // different client.
+          //
+          // Sub-point damage must NOT be discarded. A napalm burn ticks at
+          // 0.15 (0.3 for Hot); rounding each tick sent every one of them to
+          // zero, which silently made both napalms deal no burn damage at all.
+          // Instead the fraction is carried on the tank and accumulates into
+          // whole points. The carry is pure arithmetic over the same inputs in
+          // the same order, so it is identical on every client.
           const armour = chassisOf(tank).armour;
-          let remaining = Math.max(0, Math.round(Math.max(0, amount) * armour));
+          const scaled = Math.max(0, amount) * armour;
+          if (scaled <= 0) return false;
+          tank.damageCarry = (tank.damageCarry || 0) + scaled;
+          let remaining = Math.floor(tank.damageCarry);
+          tank.damageCarry -= remaining;
           if (remaining <= 0) return false;
 
           // Damage dealt counts the full hit, including whatever the shield eats
@@ -4707,9 +4756,19 @@
             const zoneW = CONST.WORLD_W / N;
             const margin = 40;
             this.roster.forEach((tank, i) => {
-              tank.hp = 100;
+              // Mirrors applyServerRoundStart exactly. This used to hardcode
+              // hp = 100, which overhealed a 60-hp scout past its own maximum
+              // and shortchanged a 140-hp Bertha, and skipped the chassis
+              // round-start regen entirely.
+              tank.maxHp = chassisOf(tank).hp;
+              tank.hp = tank.maxHp;
               tank.shield = null;
+              tank.alive = true;
+              tank.damageDealt = 0;
+              tank.kills = 0;
+              tank.damageCarry = 0;
               this.grantRoundFuel(tank);
+              this.applyChassisRoundStart(tank);
 
               // Fresh random position within player zone
               const minX = zoneW * i + margin;
@@ -4717,6 +4776,12 @@
               tank.x = gameplayRNG.range(minX, maxX);
             });
             this.snapTanksToTerrain();
+            // The holding is rebuilt onto the NEW terrain. Without this the
+            // round-1 structures stayed seated on the old ground — floating or
+            // buried — carrying their damage, never paying income and never
+            // re-arming their turrets.
+            this.rebuildStructures();
+            this.applyStructureRoundStart();
           }
 
           this.activePlayerIdx = 0;

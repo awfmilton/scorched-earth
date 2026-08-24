@@ -132,10 +132,25 @@ describe('inventory across the round boundary', () => {
     const nukesBefore = tank.inventory['Nuke'];
     const cashBefore = tank.cash;
 
+    // A standing Aether Forge pays out at the top of the next round, so the
+    // balance afterwards is the carried cash PLUS that income -- not a flat
+    // carry-over. Derived from the live holding so this stays honest if the
+    // forge's income ever changes.
+    const S = require('../lib/structures.js');
+    let income = 0;
+    for (const s of game.structures || []) {
+      if (s.ownerIdx !== 0) continue;
+      const spec = S.STRUCTURES[s.key];
+      if (spec && spec.income && s.hp > 0) income += spec.income;
+    }
+
     game.startNextRound();
 
     assert.strictEqual(tank.inventory['Nuke'], nukesBefore, 'unspent ammo carries over');
-    assert.strictEqual(tank.cash, cashBefore, 'and so does unspent cash');
-    assert.strictEqual(tank.hp, 100, 'but the tank is repaired for the new round');
+    assert.strictEqual(
+      tank.cash, cashBefore + income,
+      'unspent cash carries over (plus forge income), it must never reset'
+    );
+    assert.strictEqual(tank.hp, tank.maxHp, 'but the tank is repaired for the new round');
   });
 });

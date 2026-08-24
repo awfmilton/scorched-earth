@@ -258,7 +258,7 @@ describe('Multiplayer Flow', () => {
 
     c1.send({
       type: C2S.START_GAME,
-      config: { rounds: 1, startingCash: 10000, wallType: 'off', weaponsAvailability: 'all' }
+      config: { rounds: 1, startingCash: 10000, wallType: 'off', weaponsAvailability: 'all', mode: 'classic' }
     });
 
     const start1 = await c1.waitFor(S2C.ROUND_START);

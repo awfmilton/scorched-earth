@@ -75,7 +75,7 @@
         "MYSQL_HOST": "127.0.0.1",
         "MYSQL_PORT": "3307",
         "MYSQL_USER": "laughl6_wordpress_high",
-        "MYSQL_PASS": "kodex://vault/e206c6a77b349c97",
+        "MYSQL_PASS": "kodex://vault/2bf8432c0d7cd7a4",
         "MYSQL_DB": "laughl6_flagswag_ca",
         "ALLOW_INSERT_OPERATION": "true",
         "ALLOW_UPDATE_OPERATION": "true",
