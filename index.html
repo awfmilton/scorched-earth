@@ -2029,10 +2029,10 @@
 
           this.projectiles = [];
           this.structures = [];
-          // The last server turn boundary applied, and one held back because a
+          // The last server turn boundary applied, and any held back because a
           // shell was still in the air. Both are per-round; see applyTurnSync.
           this.turnNumber = null;
-          this.pendingTurnSync = null;
+          this.pendingTurnSyncs = [];
           // Set by ROUND_START when this client reconnected mid-round. Its world
           // is a private reconstruction from the seed until the next round.
           this.spectating = false;
@@ -2171,9 +2171,12 @@
                 angle: activeTank.angle,
                 power: activeTank.power,
                 weapon,
-                // Declared, not spent — only this client can see its own
-                // fuse stock, so it has to tell the server which one is
-                // armed or the watchers will fuse the shell differently.
+                // Declared, not spent. Every client now holds this tank's kit, so
+                // the watchers could derive the same trigger themselves — but the
+                // shot may still be rejected, and the stock must only come off
+                // once the server echoes the shot back. Declaring keeps the wire
+                // the single source of truth for what was armed, exactly as it is
+                // for the weapon; applyFireSync does the spending.
                 trigger: this.peekTrigger(activeTank)
               });
             }
@@ -2247,11 +2250,16 @@
            */
           const weapon = msg.weapon || 'Baby Missile';
 
-          // Every client now holds the shooter's kit, so this decrement runs
-          // the same way everywhere. Infinity (the free Baby Missile) and a
-          // missing entry are both left alone rather than driven negative.
+          // Every client now holds the shooter's kit, so this decrement runs the
+          // same way everywhere. Infinity (the free Baby Missile), a missing entry
+          // and a stock already at zero are all left alone. The guard tests "is a
+          // finite number above zero" rather than "is defined and not Infinity",
+          // which the previous wording claimed to do but did not: a zero entry
+          // went to -1. Every client did that in step so it never desynced, but
+          // declaredInventory() now puts zeros on the wire, and a -1 clamped back
+          // to 0 on the way out is a trip through a state nothing else models.
           const ammo = shooter.inventory[weapon];
-          if (ammo !== undefined && ammo !== Infinity) {
+          if (Number.isFinite(ammo) && ammo > 0) {
             shooter.inventory[weapon]--;
           }
 
@@ -2313,8 +2321,8 @@
           const alreadyApplied = this.turnNumber !== null &&
             this.turnNumber !== undefined &&
             msg.turnNumber === this.turnNumber;
-          const alreadyPending = this.pendingTurnSync &&
-            this.pendingTurnSync.turnNumber === msg.turnNumber;
+          const alreadyPending = this.pendingTurnSyncs.some(
+            p => p.turnNumber === msg.turnNumber);
           if (alreadyApplied || alreadyPending) return;
 
           /*
@@ -2328,8 +2336,22 @@
            * the two clients. Hold it until the world is at rest, which is the
            * same point the shooter applied it.
            */
-          if (this.projectile || this.anyTankFalling()) {
-            this.pendingTurnSync = msg;
+          /*
+           * Boundaries QUEUE — they must never overwrite one another. Two
+           * TURN_SYNCs can arrive back to back with no shot between them: a
+           * boundary volley kills the active player, that client reports the
+           * ELIMINATED, and the server advances the cursor again immediately.
+           * A client at rest dedupes nothing there — it simply commits both.
+           * But a client holding one because a shell is still in the air would,
+           * with a single slot, drop the held boundary on the floor and commit
+           * only the newer one. The skipped boundary's drift, repair-bay heals,
+           * turret cooldowns and live volley would then never run here and
+           * would have run everywhere else: a permanent fork. Hold them all,
+           * in arrival order (per-connection ordering is guaranteed), and let
+           * the physics step drain them once the world settles.
+           */
+          if (this.projectile || this.anyTankFalling() || this.pendingTurnSyncs.length) {
+            this.pendingTurnSyncs.push(msg);
             return;
           }
 
@@ -2337,9 +2359,10 @@
         }
 
         // The turn boundary itself. Only ever reached with the world at rest,
-        // and at most once per server turnNumber.
+        // and at most once per server turnNumber. Does NOT touch the pending
+        // queue: the only caller that commits a queued boundary has already
+        // removed it, and clearing here would discard the ones still waiting.
         commitTurnSync(msg) {
-          this.pendingTurnSync = null;
           this.turnNumber = msg.turnNumber;
           this.activeShotId = null;
           this.reportedShotId = null;
@@ -2396,9 +2419,14 @@
         // Called from the physics step once the shell has resolved and every
         // tank has finished falling.
         flushPendingTurnSync() {
-          if (!this.pendingTurnSync) return;
-          if (this.projectile || this.anyTankFalling()) return;
-          this.commitTurnSync(this.pendingTurnSync);
+          // Drain in arrival order, re-checking rest between each: a boundary
+          // can fire a turret volley that puts a shell back in the air or
+          // knocks a tank into a fall, and the next boundary has to wait for
+          // that to settle exactly as the first one did.
+          while (this.pendingTurnSyncs.length) {
+            if (this.projectile || this.anyTankFalling()) return;
+            this.commitTurnSync(this.pendingTurnSyncs.shift());
+          }
         }
 
         // A player dropped. Their tank stays on the field as a hulk (the server
@@ -2493,6 +2521,16 @@
          *
          * Infinite stock is omitted rather than sent: JSON turns Infinity into
          * null, and the base loadout every client builds already supplies it.
+         *
+         * ZEROS ARE DECLARED, not omitted. The restatement is an overlay, so an
+         * absent key means "leave whatever you have" — which is right for a
+         * build that sends no kit at all, and catastrophic for a stock that has
+         * been spent down to nothing. A client whose copy of a slot is stale
+         * (it rejoined during the shop and was seeded from the PREVIOUS round's
+         * declaration) would keep a Heavy Shield the owner used up, raise it at
+         * that owner's next boundary, absorb a hit everyone else watched land,
+         * and fork hp for the rest of the match. Sending the 0 is what lets the
+         * overlay converge downward as well as upward.
          */
         declaredInventory() {
           const mine = this.roster ? this.roster.find(t => t.slot === this.mySlot) : null;
@@ -2501,8 +2539,7 @@
           for (const key of Object.keys(mine.inventory)) {
             const count = mine.inventory[key];
             if (!Number.isFinite(count)) continue;
-            const whole = Math.max(0, Math.floor(count));
-            if (whole > 0) out[key] = whole;
+            out[key] = Math.max(0, Math.floor(count));
           }
           return out;
         }
@@ -2627,7 +2664,7 @@
           // TURN_SYNC look like a duplicate and swallow it. A boundary held back
           // mid-flight last round is likewise void — this world is brand new.
           this.turnNumber = null;
-          this.pendingTurnSync = null;
+          this.pendingTurnSyncs = [];
           // The server sends a TURN_SYNC right behind this to place the real
           // cursor; turnOrder[0] is only the placeholder until it lands.
           this.activePlayerIdx = 0;
@@ -3455,7 +3492,7 @@
           // deferred boundary carried in from the previous match would either
           // swallow this match's first TURN_SYNC or apply a dead one.
           this.turnNumber = null;
-          this.pendingTurnSync = null;
+          this.pendingTurnSyncs = [];
 
           // Online setup must land BEFORE newRound(), because the seed decides
           // the terrain, the biome and every tank spawn position.
@@ -3571,11 +3608,17 @@
           // Battery logic: "Battery restoring hp or recharging a raised shield."
           if (activeTank.inventory && activeTank.inventory['Battery'] > 0) {
             const cap = activeTank.shield ? shieldStrength(activeTank.shield.type) : 0;
+            // Cap the heal on the CHASSIS, not a hardcoded 100 — hulls run 60 to
+            // 140. The old constant overhealed a 60-hp scout past its own maximum
+            // and refused to touch a 140-hp Bertha sitting at 101. Harmless while
+            // this branch only ran on the owner's machine; now that the kit is
+            // replicated it runs everywhere, so it is worth being right.
+            const maxHp = activeTank.maxHp || chassisOf(activeTank).hp;
             if (activeTank.shield && activeTank.shield.hp < cap) {
               activeTank.shield.hp = Math.min(cap, activeTank.shield.hp + 50);
               activeTank.inventory['Battery']--;
-            } else if (activeTank.hp < 100) {
-              activeTank.hp = Math.min(100, activeTank.hp + 30);
+            } else if (activeTank.hp < maxHp) {
+              activeTank.hp = Math.min(maxHp, activeTank.hp + 30);
               activeTank.inventory['Battery']--;
             }
           }
@@ -3843,8 +3886,11 @@
           return null;
         }
 
-        // Spend the item backing an armed trigger, on the one client that
-        // actually tracks it. Everywhere else the entry is undefined.
+        // Spend the item backing an armed trigger. Every client holds every
+        // tank's kit now, so this runs identically everywhere rather than "on the
+        // one client that actually tracks it" — that was the old client-local
+        // invariant, and it is gone. The > 0 test is what keeps an exhausted or
+        // absent entry from going negative.
         spendTrigger(tank, trigger) {
           if (!tank || !tank.inventory || !trigger) return;
           for (const t of TRIGGER_PRIORITY) {

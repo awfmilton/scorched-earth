@@ -154,7 +154,13 @@ describe('SHOP_DONE carries the kit the server has no other way to learn', () =>
 
     assert.strictEqual(sanitiseInventory(null), null);
     assert.strictEqual(sanitiseInventory([1, 2, 3]), null);
-    assert.strictEqual(sanitiseInventory({}), null);
+
+    // null means "there is no usable declaration here", NOT "the declaration is
+    // empty". An emptied-out kit is a real statement about the world and has to
+    // replace the previous one; conflating it with absence made the server keep
+    // the last richer kit and restate it next round as a free refund.
+    assert.deepStrictEqual(sanitiseInventory({}), {});
+    assert.deepStrictEqual(sanitiseInventory({ 'Battery': 0 }), { 'Battery': 0 });
   });
 
   it('rejects a malformed inventory at the protocol boundary', () => {
@@ -177,7 +183,7 @@ describe('The client builds a kit from the base loadout plus the server copy', (
     game.roster[0].inventory = {
       'Baby Missile': Infinity,   // would stringify to null
       'Heavy Shield': 2,
-      'Battery': 0,               // nothing held, nothing to say
+      'Battery': 0,               // spent to nothing — and that must be SAID
       'Missile': 4
     };
 
@@ -185,8 +191,12 @@ describe('The client builds a kit from the base loadout plus the server copy', (
     // an object built in there is structurally identical but not
     // reference-equal to one built here, and deepStrictEqual compares
     // prototypes.
+    // Infinity is omitted (the base loadout rebuilds it). A zero is NOT: the
+    // restatement is an overlay, so an absent key means "keep what you have",
+    // and a stock spent to nothing that says nothing can never be reconciled
+    // downward on a client whose copy is stale.
     assert.deepStrictEqual({ ...game.declaredInventory() },
-      { 'Heavy Shield': 2, 'Missile': 4 });
+      { 'Heavy Shield': 2, 'Battery': 0, 'Missile': 4 });
   });
 
   it('rebuilds infinite stock from the base loadout instead of from the wire', () => {
@@ -224,6 +234,26 @@ describe('The client builds a kit from the base loadout plus the server copy', (
     assert.strictEqual(game.roster[1].inventory['Missile'], 7,
       'an overlay adds and replaces, it does not wipe');
     assert.strictEqual(game.roster[0].inventory['Heavy Shield'], undefined);
+  });
+
+  it('drives a stale count DOWN to zero when the declaration says zero', () => {
+    const { game } = newGame();
+    game.roster[0].slot = 0;
+
+    // This client rejoined during the shop and was seeded from the PREVIOUS
+    // round's declaration, so it still believes slot 0 holds two Heavy Shields
+    // the owner has since spent. The next declaration is the only channel that
+    // can correct it — inventory is deliberately the one thing ROUND_START does
+    // not reset — and an overlay can only correct downward if the zero is
+    // actually on the wire. Omit it and this client raises a 200hp shield that
+    // exists on no other screen: the next hit is absorbed here and lands
+    // everywhere else, and hp forks for the rest of the match.
+    game.roster[0].inventory['Heavy Shield'] = 2;
+
+    game.applyServerInventories([{ slot: 0, inventory: { 'Heavy Shield': 0 } }]);
+
+    assert.strictEqual(game.roster[0].inventory['Heavy Shield'], 0,
+      'a declared zero must overwrite a stale positive count');
   });
 });
 

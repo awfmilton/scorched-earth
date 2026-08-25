@@ -100,7 +100,7 @@ describe('Turn boundary waits for the world to come to rest', () => {
     game.applyTurnSync(syncMsg(game, 9));
     assert.strictEqual(turret.cooldown, 3, 'the boundary must not run under a live shell');
     assert.strictEqual(game.turnNumber, null, 'and must not be recorded as applied');
-    assert.ok(game.pendingTurnSync, 'it is held, not dropped');
+    assert.strictEqual(game.pendingTurnSyncs.length, 1, 'it is held, not dropped');
   });
 
   it('applies the held boundary from the physics step once the shell has resolved', () => {
@@ -120,10 +120,42 @@ describe('Turn boundary waits for the world to come to rest', () => {
 
     assert.strictEqual(turret.cooldown, 2, 'the held boundary must run after the impact');
     assert.strictEqual(game.turnNumber, 9);
-    assert.strictEqual(game.pendingTurnSync, null, 'and must not run a second time');
+    assert.strictEqual(game.pendingTurnSyncs.length, 0, 'and must not run a second time');
 
     game.stepPhysics(SCORCHED.CONST.TICK);
     assert.strictEqual(turret.cooldown, 2, 'a flushed boundary is spent');
+  });
+
+  it('queues back-to-back boundaries instead of overwriting the held one', () => {
+    const { SCORCHED, game } = newGame({ seed: 4242 });
+    const turret = armTurret(game, 5);
+
+    game.projectile = {
+      x: 200, y: 100, vx: 10, vy: -10,
+      weapon: 'Baby Missile', shooterIdx: 0
+    };
+
+    // Two TURN_SYNCs land with no shot between them. That is not a rarity any
+    // more: a boundary volley kills the active player, that client reports the
+    // ELIMINATED, and the server advances the cursor again immediately. A client
+    // at rest simply commits both — but a client holding one because a shell is
+    // still in the air used to keep exactly ONE, so the second evicted the
+    // first. The dropped boundary's drift, repair-bay heals, turret cooldowns
+    // and live volley then never run here and did run everywhere else.
+    game.applyTurnSync(syncMsg(game, 9));
+    game.applyTurnSync(syncMsg(game, 10));
+
+    assert.strictEqual(turret.cooldown, 5, 'neither runs under a live shell');
+    assert.strictEqual(game.pendingTurnSyncs.length, 2,
+      'the second must not evict the first');
+
+    // The shell lands.
+    game.projectile = null;
+    game.stepPhysics(SCORCHED.CONST.TICK);
+
+    assert.strictEqual(turret.cooldown, 3, 'BOTH boundaries run, in arrival order');
+    assert.strictEqual(game.turnNumber, 10);
+    assert.strictEqual(game.pendingTurnSyncs.length, 0, 'and the queue drains');
   });
 
   it('holds it exactly once even if the server restates it mid-flight', () => {
