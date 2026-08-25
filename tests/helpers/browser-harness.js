@@ -184,13 +184,33 @@ function bootBrowser(port) {
 
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
-async function until(predicate, timeoutMs = 10000, label = 'condition') {
+// A floor on the poll budget, which every call site may raise and none may
+// lower. `node --test` runs test files in PARALLEL, so this poll competes with
+// a dozen sibling processes for cores; under that load the event loop starves
+// and ten seconds of WALL CLOCK can pass while the predicate runs a handful of
+// times. The condition is not false, it is unobserved, and the test fails for
+// reasons that have nothing to do with the code under test.
+//
+// A budget here exists to bound a genuine hang, and the real backstop for that
+// is the runner's own --test-timeout=30000. Sitting three times tighter than
+// that backstop bought nothing except a test that fails on a busy machine.
+const MIN_POLL_BUDGET_MS = 25000;
+
+async function until(predicate, timeoutMs = MIN_POLL_BUDGET_MS, label = 'condition') {
+  const budget = Math.max(timeoutMs, MIN_POLL_BUDGET_MS);
   const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
+  let polls = 0;
+  while (Date.now() - start < budget) {
+    polls++;
     if (predicate()) return true;
     await wait(10);
   }
-  throw new Error(`Timed out waiting for ${label}`);
+  // Report the poll count: a timeout after 2,000 polls is a real stuck
+  // condition, one after 40 is a starved worker, and the two want different
+  // fixes. Without this the two are indistinguishable from the failure alone.
+  throw new Error(
+    `Timed out waiting for ${label} after ${Date.now() - start}ms and ${polls} polls`
+  );
 }
 
 /**

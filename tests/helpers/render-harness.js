@@ -86,6 +86,22 @@ function loadScorched(opts = {}) {
  * independent statement of the easter egg rather than a restatement of what
  * the current build happens to do.
  */
+// Compiling the page script is ~280KB of parse work, and these suites load it
+// dozens of times per run. A vm.Script is compiled once and can then be run in
+// as many fresh contexts as we like, so every load still gets its OWN globals —
+// no module state is shared between tests — while the parse is paid once per
+// distinct source. Sharing the resulting SCORCHED object instead would be the
+// obvious shortcut and the wrong one: these tests mutate the world they load.
+const scriptCache = new Map();
+function compileOnce(code) {
+  let script = scriptCache.get(code);
+  if (!script) {
+    script = new vm.Script(code);
+    scriptCache.set(code, script);
+  }
+  return script;
+}
+
 function loadScorchedFrom(html, opts = {}) {
   const code = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 
@@ -109,7 +125,7 @@ function loadScorchedFrom(html, opts = {}) {
   };
   context.globalThis = context;
   vm.createContext(context);
-  vm.runInContext(code, context);
+  compileOnce(code).runInContext(context);
   return context.globalThis.SCORCHED;
 }
 
