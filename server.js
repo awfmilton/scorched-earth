@@ -252,7 +252,10 @@ function createRoomManagerHandlers(roomManager) {
             result = roomManager.rejoin(connectionId, msg);
             break;
           case C2S.SHOP_DONE:
-            result = roomManager.shopDone(connectionId);
+            result = roomManager.shopDone(connectionId, msg);
+            break;
+          case C2S.ELIMINATED:
+            result = roomManager.reportEliminated(connectionId, msg);
             break;
           case C2S.MOVE:
             result = roomManager.move(connectionId, msg);

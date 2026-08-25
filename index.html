@@ -1116,10 +1116,16 @@
       // Proximity fuses trip this far from an enemy hull.
       const PROXIMITY_FUSE_RADIUS = 34;
 
-      // A shot carries at most one trigger. The order is FIXED rather than
-      // player-chosen, and that is the whole reason FIRE_SYNC does not need a
-      // new field: every client runs armTrigger() against the same replicated
-      // inventory and therefore arms the same trigger for the same shot.
+      // A shot carries at most one trigger, and the order is FIXED rather than
+      // player-chosen so that every client resolves the same one.
+      //
+      // This used to claim FIRE_SYNC needed no trigger field because clients
+      // ran armTrigger() against "the same replicated inventory" — which was
+      // not true: a client held its OWN kit and nobody else's, so the shooter
+      // armed a Proximity Fuse everyone else had no entry for. FIRE_SYNC now
+      // carries the shooter's declared trigger, and SHOP_DONE/ROUND_START
+      // replicate the kit itself (see declaredInventory), so the claim and the
+      // wire finally agree.
       const TRIGGER_PRIORITY = [
         { item: 'Proximity Fuse', trigger: 'proximity' },
         { item: 'Contact Trigger', trigger: 'contact' }
@@ -1776,7 +1782,10 @@
           // dropped and no feedback at all. Queue intent instead and flush it
           // on open. Gameplay frames are deliberately NOT queued: replaying a
           // stale shot after a reconnect would desync everyone.
-          if (type === 'FIRE' || type === 'RESOLVE_SHOT') return;
+          // ELIMINATED is stamped with the turn it describes, so a queued copy
+          // would only ever arrive stale — the server drops it, and the next
+          // boundary re-reports the same set anyway.
+          if (type === 'FIRE' || type === 'RESOLVE_SHOT' || type === 'ELIMINATED') return;
           this.pendingSends = this.pendingSends || [];
           if (this.pendingSends.length < 8) {
             this.pendingSends.push({ type, fields });
@@ -2221,13 +2230,16 @@
            *
            * This used to downgrade to Baby Missile whenever the shooter's
            * local inventory did not show stock of msg.weapon — which read as a
-           * sensible safety net and was in fact a guaranteed desync. A client
-           * replicates its OWN inventory and nobody else's: every remote
-           * tank is built with just { 'Baby Missile': Infinity, Fuel } and
-           * purchases are tracked only on the buyer's machine. So for any shot
+           * sensible safety net and was in fact a guaranteed desync. Back then
+           * a client held its OWN kit and nobody else's: every remote tank was
+           * built with just { 'Baby Missile': Infinity, Fuel }. So for any shot
            * that was not a Baby Missile, the shooter kept its weapon and every
            * WATCHER silently downgraded — a Nuke on one screen and a Baby
            * Missile on the others, with different blast, damage and carve.
+           *
+           * Kits are replicated now (SHOP_DONE declares, ROUND_START restates),
+           * so the check would usually agree — which makes reinstating it more
+           * tempting and no less wrong. Ownership is not the client's call.
            *
            * Ownership is the server's job (it already clamps the weapon to the
            * room's tier in lib/room-manager.js). A client's only job is to
@@ -2235,9 +2247,9 @@
            */
           const weapon = msg.weapon || 'Baby Missile';
 
-          // Spend ammo only where it is actually tracked: the shooter's own
-          // machine. On every other client the entry is undefined and there is
-          // nothing to decrement.
+          // Every client now holds the shooter's kit, so this decrement runs
+          // the same way everywhere. Infinity (the free Baby Missile) and a
+          // missing entry are both left alone rather than driven negative.
           const ammo = shooter.inventory[weapon];
           if (ammo !== undefined && ammo !== Infinity) {
             shooter.inventory[weapon]--;
@@ -2340,7 +2352,45 @@
           this.applyStructureTurnEffects();
           this.setActiveSlot(msg.activeSlot);
           this.raiseShieldForActivePlayer();
+          this.reportBoundaryEliminations();
           this.updateHUD();
+        }
+
+        /**
+         * Tell the server who the turn boundary just killed.
+         *
+         * A turret volley or an oil-vat breach fired by applyStructureTurnEffects()
+         * can take a tank to zero, and no shell resolves — so RESOLVE_SHOT, the
+         * only death channel the server had, never fires. The server went on
+         * handing the corpse the turn while its client refused all input, and
+         * the round's alive-count never fell to one. The room wedged for
+         * everybody, permanently.
+         *
+         * Sent by the active client only, which is who the server accepts it
+         * from, and it restates the WHOLE dead set rather than the newly dead:
+         * a report lost to a disconnect is then repaired at the next boundary
+         * instead of stranding the room. The server skips slots it already has
+         * down as dead, so the repetition costs nothing.
+         */
+        reportBoundaryEliminations() {
+          if (this.mode !== 'online' || !this.net || !this.roster) return;
+          // A spectator rebuilt this round from the seed alone, so its board is
+          // its own reconstruction and its casualty list is fiction.
+          if (this.spectating) return;
+          const active = this.roster[this.activePlayerIdx];
+          if (!active || active.slot !== this.mySlot) return;
+
+          const slots = [];
+          this.roster.forEach(t => {
+            if (t.hp <= 0 && Number.isInteger(t.slot)) {
+              // Keep the shot-resolution path from re-reporting the same death.
+              t.reportedDead = true;
+              slots.push(t.slot);
+            }
+          });
+          if (slots.length === 0) return;
+
+          this.net.send('ELIMINATED', { turnNumber: this.turnNumber, slots });
         }
 
         // Called from the physics step once the shell has resolved and every
@@ -2425,7 +2475,79 @@
         sendShopDone() {
           if (this.shopDoneSentForRound === this.currentRound) return;
           this.shopDoneSentForRound = this.currentRound;
-          if (this.net) this.net.send('SHOP_DONE', {});
+          if (this.net) {
+            this.net.send('SHOP_DONE', { inventory: this.declaredInventory() });
+          }
+        }
+
+        /**
+         * This client's own kit, in the shape the wire accepts.
+         *
+         * Buying is local and there is no per-purchase message, so the machine
+         * that shopped is the only one that knows what it bought — and the
+         * simulation reads that kit on EVERY machine (the turn-boundary shield
+         * raise, the Battery heal, Auto Defense's replacement shield, the
+         * Parachute that cancels a fall). Declaring it at SHOP_DONE lets the
+         * server restate it to everyone in the next ROUND_START, which is what
+         * makes those four reads agree.
+         *
+         * Infinite stock is omitted rather than sent: JSON turns Infinity into
+         * null, and the base loadout every client builds already supplies it.
+         */
+        declaredInventory() {
+          const mine = this.roster ? this.roster.find(t => t.slot === this.mySlot) : null;
+          if (!mine || !mine.inventory) return {};
+          const out = {};
+          for (const key of Object.keys(mine.inventory)) {
+            const count = mine.inventory[key];
+            if (!Number.isFinite(count)) continue;
+            const whole = Math.max(0, Math.floor(count));
+            if (whole > 0) out[key] = whole;
+          }
+          return out;
+        }
+
+        /**
+         * Overlay the server's copy of a tank's kit onto the base loadout the
+         * client just built. Called from both round-start paths before fuel is
+         * granted, so a bought Fuel stock is still compared against the
+         * chassis allowance rather than replaced by it.
+         *
+         * Absent (round 1, or a slot that never reported) leaves the base
+         * loadout alone — which is the same on every client, so it agrees too.
+         */
+        /**
+         * The base loadout every client builds identically, with a server-sent
+         * kit laid over it. Fuel keeps the chassis allowance as a floor, the
+         * same rule grantRoundFuel() applies at every later round start.
+         */
+        buildInventory(serverInventory, chassisFuel) {
+          const inventory = {
+            'Baby Missile': Infinity,
+            'Fuel': chassisFuel
+          };
+          if (serverInventory && typeof serverInventory === 'object') {
+            Object.keys(serverInventory).forEach(key => {
+              const count = serverInventory[key];
+              if (Number.isFinite(count) && count >= 0) inventory[key] = count;
+            });
+          }
+          inventory['Fuel'] = Math.max(inventory['Fuel'] || 0, chassisFuel);
+          return inventory;
+        }
+
+        applyServerInventories(tanks) {
+          if (!this.roster || !Array.isArray(tanks)) return;
+          tanks.forEach(t => {
+            if (!t || !t.inventory || typeof t.inventory !== 'object') return;
+            const tank = this.roster.find(r => r.slot === t.slot);
+            if (!tank) return;
+            tank.inventory = tank.inventory || {};
+            Object.keys(t.inventory).forEach(key => {
+              const count = t.inventory[key];
+              if (Number.isFinite(count) && count >= 0) tank.inventory[key] = count;
+            });
+          });
         }
 
         showWaitingForPlayers() {
@@ -2464,6 +2586,12 @@
           // builds a different world and desyncs silently.
           this.newRound(msg.seed);
           if (Number.isFinite(msg.wind)) this.wind = msg.wind;
+
+          // Before the per-tank reset below, because grantRoundFuel() takes the
+          // MAX of what a tank holds and what its chassis allows: a Fuel stock
+          // bought in the shop has to be in place by then or the allowance
+          // silently overwrites it.
+          this.applyServerInventories(msg.tanks);
 
           const N = this.roster.length;
           const zoneW = CONST.WORLD_W / N;
@@ -2895,12 +3023,12 @@
          * heights and arithmetic only, no RNG, so every client that applies the
          * same MOVE_SYNC lands on the same pixel.
          *
-         * Fuel is deliberately NOT a precondition here. Online, a client only
-         * knows its own inventory — every remote tank's Fuel entry is undefined
-         * on this machine — so gating the movement on fuel would stop remote
-         * tanks moving on every screen but their owner's, which is a desync.
-         * The fuel check belongs at the input site, before the MOVE is sent;
-         * this function only spends what it can see.
+         * Fuel is deliberately NOT a precondition here. The check belongs at
+         * the input site, before the MOVE is sent: MOVE_SYNC is an order every
+         * client must carry out identically, and a client that second-guessed
+         * it would leave a tank standing on one screen and moving on the rest.
+         * Kits are replicated, so the spend below now agrees everywhere — but
+         * that is a reason the gate is unnecessary, not a reason to add it.
          */
         /**
          * The altitude a chassis rests at once it is over column x.
@@ -2938,12 +3066,12 @@
          * Drive a tank horizontally under its chassis's movement model.
          * Deterministic by construction: terrain heights and arithmetic only.
          *
-         * Fuel is deliberately NOT a precondition here. Online, a client only
-         * knows its own inventory — every remote tank's Fuel entry is undefined
-         * on this machine — so gating the movement on fuel would stop remote
-         * tanks moving on every screen but their owner's, which is a desync.
-         * The fuel check belongs at the input site, before the MOVE is sent;
-         * this function only spends what it can see.
+         * Fuel is deliberately NOT a precondition here. The check belongs at
+         * the input site, before the MOVE is sent: MOVE_SYNC is an order every
+         * client must carry out identically, and a client that second-guessed
+         * it would leave a tank standing on one screen and moving on the rest.
+         * Kits are replicated, so the spend below now agrees everywhere — but
+         * that is a reason the gate is unnecessary, not a reason to add it.
          *
          * Four branches, one per locomotion type:
          *   aerial  — terrain cannot block it at all
@@ -3106,8 +3234,8 @@
           const tank = this.roster.find(t => t.slot === msg.slot);
           if (!tank) return;
           this.teleportTank(tank, msg.x);
-          // Only the owning client tracks a Teleport count; on every other
-          // client the entry is undefined and there is nothing to spend.
+          // Replicated, so every client spends the same charge. The guard
+          // survives for a tank that holds no Teleport entry at all.
           if (typeof tank.inventory['Teleport'] === 'number') {
             tank.inventory['Teleport'] = Math.max(0, tank.inventory['Teleport'] - 1);
           }
@@ -3390,10 +3518,13 @@
               angle: 45,
               power: 500,
               cash: this.startingCash,
-              inventory: {
-                'Baby Missile': Infinity,
-                'Fuel': ((p.chassis && CHASSIS[p.chassis]) || CHASSIS[DEFAULT_CHASSIS]).fuel
-              },
+              // Base loadout, then whatever the server says this tank bought.
+              // Round 1 has no purchases and the overlay is empty, so every
+              // client builds the same kit either way.
+              inventory: this.buildInventory(
+                p.inventory,
+                ((p.chassis && CHASSIS[p.chassis]) || CHASSIS[DEFAULT_CHASSIS]).fuel
+              ),
               selectedWeapon: 'Baby Missile',
               shield: null,
               x: x,
@@ -6155,7 +6286,11 @@
                  name: t.name,
                  type: 'Human', // All multiplayer players are Human or Network
                  color: t.colour,
-                 slot: t.slot
+                 slot: t.slot,
+                 // What this tank left the last shop holding. start() raises a
+                 // shield from it before the first turn, so it has to arrive
+                 // with the roster rather than being overlaid afterwards.
+                 inventory: t.inventory
                }));
                config.isMultiplayer = true;
                // msg.config is the HOST's blob, relayed by the server without
