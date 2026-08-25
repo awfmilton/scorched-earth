@@ -453,6 +453,28 @@
       background: var(--magenta-500);
       box-shadow: var(--glow-magenta);
     }
+    /*
+     * Reconnect notice. Deliberately loud and pinned over the canvas: a
+     * spectating client is rendering a world that is NOT the room's, and the
+     * one thing worse than sitting a round out is not being told you are.
+     */
+    #spectate-banner {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 40;
+      padding: var(--space-3) var(--space-5);
+      background: var(--void-900);
+      color: var(--brass-rail);
+      border-bottom: var(--rule-thick) solid var(--brass-700);
+      text-align: center;
+      font: var(--type-label);
+      font-size: var(--text-sm);
+      letter-spacing: var(--tracking-label);
+      text-transform: uppercase;
+    }
+    #spectate-banner[hidden] { display: none; }
     .error-msg {
       color: var(--blood-500);
       text-align: center;
@@ -507,6 +529,12 @@
 <body>
   <div id="hud"></div>
   <canvas id="game"></canvas>
+  <!--
+    Shown while this client is sitting a round out after reconnecting. The
+    board below it is rebuilt from the round seed and will NOT match what the
+    other players see, so say so rather than letting it read as the live match.
+  -->
+  <div id="spectate-banner" hidden>RECONNECTED — SPECTATING UNTIL THE NEXT ROUND. This board is rebuilt from the round seed and may not match the other players'.</div>
   <div id="setup">
     <div class="setup-container">
       <h2 id="setup-title">SCORCHED EARTH MULTIPLAYER</h2>
@@ -880,6 +908,18 @@
           if (titleEl) titleEl.textContent = wordmark;
         }
         return activeMode;
+      }
+
+      /**
+       * Show or hide the reconnect notice. Presentation only — whether this
+       * client may actually act is decided by Game.spectating, which the server
+       * sets in ROUND_START.
+       * @param {boolean} on
+       */
+      function setSpectateBanner(on) {
+        if (typeof document === 'undefined') return;
+        const el = document.getElementById('spectate-banner');
+        if (el) el.hidden = !on;
       }
 
       /**
@@ -1980,6 +2020,13 @@
 
           this.projectiles = [];
           this.structures = [];
+          // The last server turn boundary applied, and one held back because a
+          // shell was still in the air. Both are per-round; see applyTurnSync.
+          this.turnNumber = null;
+          this.pendingTurnSync = null;
+          // Set by ROUND_START when this client reconnected mid-round. Its world
+          // is a private reconstruction from the seed until the next round.
+          this.spectating = false;
           this.terrain = new Terrain();
           this.newRound(this.seed);
 
@@ -2048,6 +2095,7 @@
             // client aims and fires the whole field on its local copy.
             if (this.mode === 'online' && activeTank.slot !== this.mySlot) return;
             if (this.roundOver) return; // Ignore input during shop intermission / match summary
+            if (this.spectating) return; // Reconnected mid-round: watching, not playing
             if (this.projectile || this.anyTankFalling()) return; // Ignore while projectile is live or tanks are falling
 
             let changed = false;
@@ -2092,6 +2140,10 @@
 
         fireActiveWeapon() {
           if (!this.roster || this.activePlayerIdx === undefined) return;
+          // Sitting the round out after a reconnect. The server will not make a
+          // spectator the active slot, so this can only be a stale local cursor;
+          // firing on it would aim from a world nobody else has.
+          if (this.spectating) return;
           const activeTank = this.roster[this.activePlayerIdx];
           if (!activeTank || activeTank.hp <= 0 || this.projectile) return;
 
@@ -2230,6 +2282,52 @@
         // shooter, or four clients would each pick their own.
         applyTurnSync(msg) {
           if (!this.roster) return;
+
+          /*
+           * A turn boundary is NOT idempotent. commitTurnSync() drifts the
+           * airships, heals from repair bays, tops up dome shields, ticks every
+           * turret cooldown and lets a ready turret fire a live volley that
+           * carves terrain. Running it twice on one client and once everywhere
+           * else is a permanent, silent divergence.
+           *
+           * The server restates the cursor whenever it thinks a client may have
+           * missed it — most obviously on rejoin, where the reconnecting client
+           * can receive both the broadcast and its own copy. turnNumber is the
+           * server's own counter for the boundary, so it is the identity to
+           * dedupe on. It resets to 1 at every round start server-side, which is
+           * why the round-start paths clear our copy: the new round's first
+           * TURN_SYNC must never be mistaken for the last round's.
+           */
+          const alreadyApplied = this.turnNumber !== null &&
+            this.turnNumber !== undefined &&
+            msg.turnNumber === this.turnNumber;
+          const alreadyPending = this.pendingTurnSync &&
+            this.pendingTurnSync.turnNumber === msg.turnNumber;
+          if (alreadyApplied || alreadyPending) return;
+
+          /*
+           * A shell in flight is the shooter's turn still resolving. The server
+           * advances the cursor the moment the SHOOTER's simulation settles, so
+           * on any client running behind — a backgrounded tab loses sim time to
+           * the frame loop's dt clamp — this frame can land while the shell is
+           * still mid-air. Applying it now would detonate the turret volley and
+           * carve its crater BEFORE the shell lands here and AFTER it landed
+           * there, and the shell would then cross differently-shaped ground on
+           * the two clients. Hold it until the world is at rest, which is the
+           * same point the shooter applied it.
+           */
+          if (this.projectile || this.anyTankFalling()) {
+            this.pendingTurnSync = msg;
+            return;
+          }
+
+          this.commitTurnSync(msg);
+        }
+
+        // The turn boundary itself. Only ever reached with the world at rest,
+        // and at most once per server turnNumber.
+        commitTurnSync(msg) {
+          this.pendingTurnSync = null;
           this.turnNumber = msg.turnNumber;
           this.activeShotId = null;
           this.reportedShotId = null;
@@ -2243,6 +2341,14 @@
           this.setActiveSlot(msg.activeSlot);
           this.raiseShieldForActivePlayer();
           this.updateHUD();
+        }
+
+        // Called from the physics step once the shell has resolved and every
+        // tank has finished falling.
+        flushPendingTurnSync() {
+          if (!this.pendingTurnSync) return;
+          if (this.projectile || this.anyTankFalling()) return;
+          this.commitTurnSync(this.pendingTurnSync);
         }
 
         // A player dropped. Their tank stays on the field as a hulk (the server
@@ -2388,6 +2494,12 @@
           this.reportedShotId = null;
           this.projectile = null;
           this.roundOver = false;
+          // The server restarts its turn counter at 1 for every round, so a
+          // remembered number from the last round would make this round's first
+          // TURN_SYNC look like a duplicate and swallow it. A boundary held back
+          // mid-flight last round is likewise void — this world is brand new.
+          this.turnNumber = null;
+          this.pendingTurnSync = null;
           // The server sends a TURN_SYNC right behind this to place the real
           // cursor; turnOrder[0] is only the placeholder until it lands.
           this.activePlayerIdx = 0;
@@ -2414,6 +2526,11 @@
         // advancing the turn locally. Fires at most once per shotId: the
         // physics loop reaches "no projectiles left" from several branches.
         reportShotResolved() {
+          // A spectator's damage numbers come from its own reconstruction of the
+          // round, so its elimination list is fiction. The server rejects a
+          // non-active player's RESOLVE_SHOT anyway; not sending it keeps a
+          // reconnect from spraying errors for every shell of the round.
+          if (this.spectating) return;
           const shotId = this.activeShotId;
           if (shotId === undefined || shotId === null) return;
           if (this.reportedShotId === shotId) return;
@@ -2938,6 +3055,7 @@
         // lands on every client at the same point in the message order.
         requestDrive(dir) {
           if (!this.roster || this.activePlayerIdx === undefined) return;
+          if (this.spectating) return;
           const tank = this.roster[this.activePlayerIdx];
           if (!tank || tank.hp <= 0 || this.projectile) return;
           if ((tank.inventory['Fuel'] || 0) <= 0) return;
@@ -2955,6 +3073,7 @@
 
         requestTeleport() {
           if (!this.roster || this.activePlayerIdx === undefined) return;
+          if (this.spectating) return;
           const tank = this.roster[this.activePlayerIdx];
           if (!tank || tank.hp <= 0 || this.projectile) return;
           if ((tank.inventory['Teleport'] || 0) <= 0) return;
@@ -3180,6 +3299,36 @@
           this.wallType = config.wallType || 'off';
           this.startingCash = config.startingCash !== undefined ? config.startingCash : 10000;
 
+          // The SIMULATION mode has to be settable per match, not just at
+          // construction. gameInstance is built once at page load, so a mode
+          // chosen afterwards — the typed CLASSIC toggle, or any solo game
+          // started after an online match — reached the theme and never the
+          // simulation. That shipped a classic skin over a live aethercastle
+          // world: invisible castles blocking the tank, invisible turrets
+          // shooting back.
+          //
+          // The caller passes it; we do NOT reach for the activeMode global
+          // here. A headless test constructs the Game with an explicit mode and
+          // starts it with a config that has none, and reading the page-level
+          // global would silently overrule it. Online, ROUND_START sets
+          // gameMode on the instance before calling start(), so the fallback is
+          // the right answer on that path too.
+          this.gameMode = normaliseMode(config.gameMode || this.gameMode);
+
+          // A rematch reuses this instance, and rebuildStructures() banks income
+          // from whatever holding is still standing. Left over from the previous
+          // MATCH, that paid every surviving forge into round 1 of the next one.
+          // Round-to-round carry-over is handled by newRound()/applyServerRoundStart,
+          // which both run against a live holding; only a fresh match clears it.
+          this.structures = [];
+          this.pendingStructureIncome = [];
+
+          // Same reasoning as applyServerRoundStart: a turn counter or a
+          // deferred boundary carried in from the previous match would either
+          // swallow this match's first TURN_SYNC or apply a dead one.
+          this.turnNumber = null;
+          this.pendingTurnSync = null;
+
           // Online setup must land BEFORE newRound(), because the seed decides
           // the terrain, the biome and every tank spawn position.
           if (config.isMultiplayer) {
@@ -3187,6 +3336,14 @@
             this.mySlot = config.mySlot;
             this.turnOrder = Array.isArray(config.turnOrder) ? config.turnOrder.slice() : null;
             if (config.net) this.net = config.net;
+          } else {
+            // Symmetric reset. Without it a solo game started after an online
+            // match kept mode 'online' and the live socket, so it gated input as
+            // if networked and sent FIRE to a server that had no such room.
+            this.mode = 'local';
+            this.mySlot = null;
+            this.turnOrder = null;
+            this.net = null;
           }
 
           // The server mints the seed and broadcasts it in ROUND_START. Using
@@ -4005,6 +4162,13 @@
               }
             });
           }
+
+          // The world is at rest again if the shell has resolved and nothing is
+          // still falling, so a turn boundary held back mid-flight can be
+          // applied now — in the same order relative to the impact that the
+          // shooter used. Sits above the round-end check on purpose: the turret
+          // volley it may fire can be what ends the round.
+          this.flushPendingTurnSync();
 
           // If active player is dead, skip to next living player
           if (this.roster && this.activePlayerIdx !== undefined) {
@@ -5842,6 +6006,11 @@
                 // play still takes its seed from the server's ROUND_START.
                 gameInstance.start({
                   players,
+                  // The mode this player actually asked for — from the URL or
+                  // from typing CLASSIC on the setup screen. applyMode() only
+                  // repaints; this is what reaches the simulation and decides
+                  // whether a holding is fielded at all.
+                  gameMode: activeMode,
                   rounds: readInt('solo-rounds', 5, 1, 20),
                   startingCash: readInt('solo-cash', 10000, 0, 1000000),
                   wallType: (wallEl && wallEl.value) || 'off',
@@ -5955,6 +6124,17 @@
                // instance before any round-start path builds the world.
                gameInstance.gameMode = normaliseMode(msg.mode);
 
+               /*
+                * Set BEFORE the reconnect guard below, because both reconnect
+                * flavours need it. The server marks a mid-round rejoiner as a
+                * spectator: whatever board this client ends up with — a stale one
+                * it kept across a socket blip, or a pristine one rebuilt from the
+                * seed after a refresh — is missing a round's worth of craters and
+                * damage. It may watch; it may not act until the next round.
+                */
+               gameInstance.spectating = msg.spectating === true;
+               setSpectateBanner(gameInstance.spectating);
+
                // If the client just reconnected and is already in this round, do not reset the board.
                if (gameInstance.roster && gameInstance.currentRound === msg.round) {
                  return;
@@ -5978,6 +6158,12 @@
                  slot: t.slot
                }));
                config.isMultiplayer = true;
+               // msg.config is the HOST's blob, relayed by the server without
+               // inspection. start() honours config.gameMode, so leave it
+               // writable here and a host could smuggle a mode into a room the
+               // server pinned to the other one. The server's ROUND_START.mode
+               // is the only authority; overwrite whatever arrived.
+               config.gameMode = normaliseMode(msg.mode);
                config.mySlot = mySlot;
                config.seed = msg.seed;
                config.wind = msg.wind;

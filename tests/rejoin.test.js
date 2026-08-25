@@ -183,14 +183,29 @@ describe('RoomManager rejoin() mechanics', () => {
       assert.ok(val.ok, `Frame validation failed: ${val.error}`);
     }
 
-    // The un-park names the returning slot as the cursor, to the player and to everyone
-    const syncReply = rejoinRes.replies.find(r => r.msg.type === 'TURN_SYNC');
-    assert.ok(syncReply, 'the returning player must be told the live cursor');
-    assert.strictEqual(syncReply.msg.activeSlot, 1);
-
+    // The un-park names the returning slot as the cursor, to everyone
     const syncBroadcast = rejoinRes.broadcasts.find(b => b.msg.type === 'TURN_SYNC');
     assert.ok(syncBroadcast, 'un-park must announce the reassigned cursor to all clients');
     assert.strictEqual(syncBroadcast.msg.activeSlot, 1);
+
+    /*
+     * ...and EXACTLY ONCE to the returning player. This assertion used to
+     * require a TURN_SYNC reply in addition to the broadcast, which pinned the
+     * duplicate in place: the un-park broadcast already addresses every
+     * connection including this one. A turn boundary is not idempotent on the
+     * client — it drifts airships, heals from repair bays, ticks turret
+     * cooldowns and can fire a live volley that carves terrain — so a client
+     * that applies it twice while everyone else applies it once has silently
+     * left the shared simulation.
+     */
+    const syncsToRejoiner = [...rejoinRes.replies, ...rejoinRes.broadcasts]
+      .filter(f => f.msg.type === 'TURN_SYNC')
+      .filter(f => (Array.isArray(f.to) ? f.to : [f.to]).includes('conn_2_new'));
+    assert.strictEqual(
+      syncsToRejoiner.length, 1,
+      'the returning player must be told the cursor exactly once, not once per delivery path'
+    );
+    assert.strictEqual(syncsToRejoiner[0].msg.activeSlot, 1);
 
     // Player 2 can now fire!
     const fireRes = rm.fire('conn_2_new', { angle: 45, power: 500 });

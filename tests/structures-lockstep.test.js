@@ -12,7 +12,7 @@ const { describe, it, before, after } = test;
 const assert = require('node:assert');
 
 const {
-  bootBrowser, until, hashTerrain, tanksOf, structuresOf, gameOf,
+  bootBrowser, until, untilStepping, hashTerrain, tanksOf, structuresOf, gameOf,
   startTestServer, setupMatch
 } = require('./helpers/browser-harness.js');
 
@@ -133,13 +133,18 @@ describe('Structures agree across two real clients', () => {
       if (!hostGame().projectile && !guestGame().projectile) break;
     }
 
-    await until(
+    // Stepping, not just polling: the turn boundary is applied by the physics
+    // step once the world is at rest, so a wait that only sleeps would sit here
+    // holding the very frame it is waiting for.
+    await untilStepping(
+      [host, guest],
       () => hostGame().roster[hostGame().activePlayerIdx].slot !== activeSlot,
       10000,
       'the turn to advance'
     );
     // Let the guest's TURN_SYNC land too.
-    await until(
+    await untilStepping(
+      [host, guest],
       () => guestGame().roster[guestGame().activePlayerIdx].slot
          === hostGame().roster[hostGame().activePlayerIdx].slot,
       10000,

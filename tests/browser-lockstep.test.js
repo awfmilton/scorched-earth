@@ -13,7 +13,7 @@ const assert = require('node:assert');
 
 const { createServer, attachWebSocketServer, createRoomManagerHandlers } = require('../server.js');
 const RoomManager = require('../lib/room-manager.js');
-const { bootBrowser, wait, until, hashTerrain, tanksOf } = require('./helpers/browser-harness.js');
+const { bootBrowser, wait, until, untilStepping, hashTerrain, tanksOf } = require('./helpers/browser-harness.js');
 
 describe('Browser wiring: two clients play a real match', () => {
   let server, wss, port;
@@ -152,7 +152,8 @@ describe('Browser wiring: two clients play a real match', () => {
       'the watcher must actually see the terrain change');
 
     // --- The turn advances, server-driven, on both clients ---------------
-    await until(
+    await untilStepping(
+      [host, guest],
       () => hostGame().roster[hostGame().activePlayerIdx].slot !== activeSlot,
       10000,
       'the turn to advance past the shooter'

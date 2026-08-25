@@ -193,6 +193,36 @@ async function until(predicate, timeoutMs = 10000, label = 'condition') {
   throw new Error(`Timed out waiting for ${label}`);
 }
 
+/**
+ * Poll a predicate while keeping the simulations running.
+ *
+ * A real browser never stops stepping: the frame loop runs whether or not a
+ * shell is in the air, and some client work is deliberately deferred to it. A
+ * turn boundary that arrives mid-flight is held back until the world is at rest
+ * so that every client applies it in the same order relative to the impact —
+ * which means the thing that releases it is the next physics step, not the
+ * passage of time. A poll-only wait hangs forever on exactly that.
+ *
+ * Every browser is stepped the same number of times per iteration, so the
+ * clients stay in lockstep with each other while the wait runs.
+ *
+ * @param {Array<Object>} browsers Booted browsers to keep stepping.
+ * @param {Function} predicate Checked between steps.
+ */
+async function untilStepping(browsers, predicate, timeoutMs = 10000, label = 'condition') {
+  const TICK = browsers[0].ctx.globalThis.SCORCHED.CONST.TICK;
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (predicate()) return true;
+    for (const b of browsers) {
+      const game = gameOf(b);
+      if (game) game.stepPhysics(TICK);
+    }
+    await wait(10);
+  }
+  throw new Error(`Timed out waiting for ${label}`);
+}
+
 function hashTerrain(game) {
   const h = game.terrain.heights;
   const b = new Uint8Array(h.buffer, h.byteOffset, h.byteLength);
@@ -212,9 +242,19 @@ const tanksOf = (game) => game.roster.map(t => `${t.slot}:${t.x}:${t.y}:${t.hp}`
  * order is part of the comparison on purpose — structures are addressed by
  * index during a round, so two clients holding the same set in a different
  * order is still a desync.
+ *
+ * cooldown and breached are in the hash because they are LATENT divergence:
+ * neither is visible in hp or position on the turn it drifts, and both decide
+ * what happens on a later one. A turret cooldown that is one lower on one
+ * client fires a volley a turn early there and nowhere else; a vat flagged
+ * breached on one client has already spent its explosion and will never spend
+ * it again, while its twin is still armed. Comparing only the visible fields
+ * would let the exact drift a duplicate turn boundary produces pass unseen.
  */
 const structuresOf = (game) => (game.structures || [])
-  .map(s => `${s.key}@${s.owner}:${s.x.toFixed(4)}:${s.y.toFixed(4)}:${s.hp}`)
+  .map(s => `${s.key}@${s.owner}:${s.x.toFixed(4)}:${s.y.toFixed(4)}:${s.hp}` +
+    `:cd${s.cooldown === undefined ? 'n' : s.cooldown}` +
+    `:br${s.breached ? 1 : 0}`)
   .join('|');
 
 const gameOf = (b) => b.ctx.globalThis.SCORCHED.gameInstance;
@@ -289,6 +329,7 @@ module.exports = {
   bootBrowser,
   wait,
   until,
+  untilStepping,
   hashTerrain,
   tanksOf,
   structuresOf,

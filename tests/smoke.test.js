@@ -1866,15 +1866,21 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
 
       it('Test online mode handleRoundEnd does not call showMatchSummary, startShopIntermission, or startNextRound', () => {
         const game = SCORCHED.createHeadlessGame({ seed: 5000 });
-        game.mode = 'online';
+        // isMultiplayer in the CONFIG is how the real client starts an online
+        // match. Setting game.mode by hand before start() no longer survives:
+        // start() now derives mode from the config it was handed, so a solo
+        // match started on a page that had just finished an online one cannot
+        // inherit 'online' and keep firing at a server that has no such room.
         game.start({
           players: [
             { name: 'P1', type: 'Human', color: '#ff2d9b' },
             { name: 'P2', type: 'Human', color: '#00bfff' }
           ],
           rounds: 1,
-          startingCash: 1000
+          startingCash: 1000,
+          isMultiplayer: true
         });
+        assert.strictEqual(game.mode, 'online', 'config must be what puts the match online');
 
         let calledSummary = false;
         let calledIntermission = false;
@@ -1905,15 +1911,16 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
 
       it('Test online mode handleRoundEnd when currentRound < rounds', () => {
         const game = SCORCHED.createHeadlessGame({ seed: 5001 });
-        game.mode = 'online';
         game.start({
           players: [
             { name: 'P1', type: 'Human', color: '#ff2d9b' },
             { name: 'P2', type: 'Human', color: '#00bfff' }
           ],
           rounds: 5,
-          startingCash: 1000
+          startingCash: 1000,
+          isMultiplayer: true
         });
+        assert.strictEqual(game.mode, 'online', 'config must be what puts the match online');
 
         let calledSummary = false;
         let calledIntermission = false;
