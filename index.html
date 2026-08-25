@@ -824,6 +824,30 @@
         // Match semantics
         hpFull: '#8fd400', hpMid: '#ffa31a', hpLow: '#e23a2e',
         shieldCharge: '#00bfff', damage: '#d5007f', cash: '#e0d286',
+        /**
+         * Canvas effect colours. Everything the field draws that is not a
+         * palette ramp: shells, tracers, bursts, markers and the two particle
+         * sets. THEMES.classic.fx holds the literal values the game drew
+         * before the visualisation layer existed, so the two key sets must
+         * stay identical — tests/theme-tokens.test.js enforces that, including
+         * the ARRAY LENGTHS, because visualRNG.choice() draws one number over
+         * arr.length and a shorter list would shift the particle stream.
+         */
+        fx: {
+          projectile: '#7fe3ff',
+          tracer: 'rgba(127, 227, 255, 0.35)',
+          burstRing: '#ff6a00',
+          burstCore: '#ffa31a',
+          aimMarker: '#ff2d9b',
+          activeMarker: '#e0d286',
+          shieldFallback: 'rgba(0, 191, 255, 0.5)',
+          burstFlash: '#ffd166',
+          trailDirt: '#735035',
+          trailBurn: '#ff6a00',
+          burnSparks: ['#ff6a00', '#ffa31a', '#ffd166', '#ff2d9b'],
+          smoke: ['#3a3340', '#575060', '#7b7288', '#241f2a'],
+          debris: ['#6e6320', '#4a413c', '#2e2823', '#8a7c70']
+        },
         // Type roles for canvas text. Every number a player reads is mono.
         fontMono: "'Share Tech Mono', ui-monospace, 'Courier New', monospace",
         fontHeading: "'Cinzel', Georgia, serif",
@@ -850,6 +874,23 @@
         blood600: '#cc0000', blood500: '#ff0000',
         hpFull: '#00ff00', hpMid: '#ffff00', hpLow: '#ff0000',
         shieldCharge: '#00ffff', damage: '#ff4444', cash: '#ffff00',
+        // The originals, verbatim. Every value here was a literal in a draw
+        // call before the visualisation layer routed them through the theme.
+        fx: {
+          projectile: '#ffffff',
+          tracer: 'rgba(255, 255, 255, 0.4)',
+          burstRing: '#ff3300',
+          burstCore: '#ffaa00',
+          aimMarker: '#ff0000',
+          activeMarker: '#ffffff',
+          shieldFallback: 'rgba(0, 255, 0, 0.5)',
+          burstFlash: '#ffff00',
+          trailDirt: '#735035',
+          trailBurn: '#ff5500',
+          burnSparks: ['#ff3300', '#ffaa00', '#ffff00', '#ff6600'],
+          smoke: ['#555555', '#777777', '#999999', '#333333'],
+          debris: ['#8b5a2b', '#5c3a21', '#3d2514', '#4a4a4a']
+        },
         fontMono: "'Courier New', Courier, monospace",
         fontHeading: "'Courier New', Courier, monospace",
         fontDisplay: "'Courier New', Courier, monospace"
@@ -1020,13 +1061,53 @@
       /**
        * Per-biome terrain ramp: sky gradient, lit crust band and dark core.
        * Mirrors --biome-*-{sky,crust,core} in the design tokens.
+       *
+       * One ramp set per MODE, for the same reason THEMES has one palette per
+       * mode: classic is a replica, not a re-tint. The classic numbers below
+       * are the literal hex the pre-visualisation build drew inside
+       * Terrain.draw(), recovered verbatim — a fan who finds the easter egg
+       * gets the DOS screen back pixel for pixel, and
+       * tests/render-classic-parity.test.js fails on any drift.
+       *
+       * `edge` is the lit surface stroke. `glow` is Aethercastle-only ground
+       * bloom: classic leaves it undefined, and Terrain.draw skips the whole
+       * pass when it is absent, so classic's draw-call log stays byte-identical
+       * rather than merely looking the same.
        */
       const BIOME_RAMPS = {
-        mountains: { sky: '#0b1b2e', skyLow: '#1d3550', crust: '#8a8f98', core: '#1c1e22' },
-        plains:    { sky: '#0a1c10', skyLow: '#16351f', crust: '#3e7a33', core: '#0a2410' },
-        plateau:   { sky: '#2b1606', skyLow: '#5a2f10', crust: '#c98a46', core: '#5a3a1c' },
-        hills:     { sky: '#0a0616', skyLow: '#1a1030', crust: '#6a4a30', core: '#1c1208' }
+        aethercastle: {
+          mountains: { sky: '#0b1b2e', skyLow: '#1d3550', crust: '#8a8f98', core: '#1c1e22', edge: '#b9c0cc', glow: 'rgba(213, 0, 127, 0.10)' },
+          plains:    { sky: '#0a1c10', skyLow: '#16351f', crust: '#3e7a33', core: '#0a2410', edge: '#63b04e', glow: 'rgba(213, 0, 127, 0.08)' },
+          plateau:   { sky: '#2b1606', skyLow: '#5a2f10', crust: '#c98a46', core: '#5a3a1c', edge: '#e8b26a', glow: 'rgba(213, 0, 127, 0.09)' },
+          hills:     { sky: '#0a0616', skyLow: '#1a1030', crust: '#6a4a30', core: '#1c1208', edge: '#9b7448', glow: 'rgba(213, 0, 127, 0.12)' }
+        },
+        classic: {
+          mountains: { sky: '#001a33', skyLow: '#334d66', crust: '#888888', core: '#222222', edge: '#2d8a2d' },
+          plains:    { sky: '#002200', skyLow: '#004411', crust: '#226622', core: '#003300', edge: '#2d8a2d' },
+          plateau:   { sky: '#331a00', skyLow: '#663300', crust: '#cc8844', core: '#664422', edge: '#2d8a2d' },
+          hills:     { sky: '#020010', skyLow: '#1b1b3a', crust: '#5a3d28', core: '#1f140c', edge: '#2d8a2d' }
+        }
       };
+
+      /**
+       * The palette for a mode, resolved at DRAW time.
+       *
+       * Every render path takes the mode it draws from its Game instance
+       * (`this.gameMode`) rather than the module-level `activeMode`, because
+       * the instance field is the one ROUND_START writes — the SERVER's value,
+       * shared by every client in the room. The module binding only seeds solo
+       * play and the landing screen.
+       */
+      function themeFor(mode) {
+        return THEMES[normaliseMode(mode)];
+      }
+
+      // Terrain ramp for a mode/biome pair. Unknown biomes fall back to hills,
+      // which is what Terrain itself treats as the default shape.
+      function biomeRampFor(mode, biome) {
+        const set = BIOME_RAMPS[normaliseMode(mode)];
+        return set[biome] || set.hills;
+      }
 
       const WEAPONS = [
         { id: 'Baby Missile', name: 'Baby Missile', cost: 0, packSize: 1, blast: 30, damage: 60, kind: 'explosive' },
@@ -1942,24 +2023,28 @@
           }
         }
 
-        draw(ctx) {
+        /**
+         * Paint sky, ground body and the lit surface line.
+         *
+         * The caller passes the ramp because a Terrain does not know which
+         * MATCH mode it belongs to — Game does, and its `gameMode` is the
+         * value the server broadcast. The `activeMode` fallback covers the
+         * landing screen, which draws before any room exists.
+         *
+         * Pure: reads `this.heights` and the ramp, writes neither.
+         *
+         * @param {CanvasRenderingContext2D} ctx
+         * @param {Object} [ramp] Resolved biome ramp; defaults to this
+         *   client's current mode.
+         */
+        draw(ctx, ramp) {
           if (!ctx) return;
+          const r = ramp || biomeRampFor(activeMode, this.biome);
 
           // Sky gradient
           const skyGrad = ctx.createLinearGradient(0, 0, 0, CONST.WORLD_H);
-          if (this.biome === 'mountains') {
-            skyGrad.addColorStop(0, '#001a33');
-            skyGrad.addColorStop(1, '#334d66');
-          } else if (this.biome === 'plains') {
-            skyGrad.addColorStop(0, '#002200');
-            skyGrad.addColorStop(1, '#004411');
-          } else if (this.biome === 'plateau') {
-            skyGrad.addColorStop(0, '#331a00');
-            skyGrad.addColorStop(1, '#663300');
-          } else {
-            skyGrad.addColorStop(0, '#020010');
-            skyGrad.addColorStop(1, '#1b1b3a');
-          }
+          skyGrad.addColorStop(0, r.sky);
+          skyGrad.addColorStop(1, r.skyLow);
 
           ctx.fillStyle = skyGrad;
           ctx.fillRect(0, 0, CONST.WORLD_W, CONST.WORLD_H);
@@ -1974,20 +2059,9 @@
           ctx.closePath();
 
           const groundGrad = ctx.createLinearGradient(0, CONST.WORLD_H * 0.15, 0, CONST.WORLD_H);
-          if (this.biome === 'mountains') {
-            groundGrad.addColorStop(0, '#888888');
-            groundGrad.addColorStop(1, '#222222');
-          } else if (this.biome === 'plains') {
-            groundGrad.addColorStop(0, '#226622');
-            groundGrad.addColorStop(1, '#003300');
-          } else if (this.biome === 'plateau') {
-            groundGrad.addColorStop(0, '#cc8844');
-            groundGrad.addColorStop(1, '#664422');
-          } else {
-            groundGrad.addColorStop(0, '#5a3d28');
-            groundGrad.addColorStop(1, '#1f140c');
-          }
-          
+          groundGrad.addColorStop(0, r.crust);
+          groundGrad.addColorStop(1, r.core);
+
           ctx.fillStyle = groundGrad;
           ctx.fill();
 
@@ -1997,9 +2071,392 @@
           for (let i = 1; i < this.heights.length; i++) {
             ctx.lineTo(i, CONST.WORLD_H - this.heights[i]);
           }
-          ctx.strokeStyle = '#2d8a2d';
+          ctx.strokeStyle = r.edge;
           ctx.lineWidth = 3;
           ctx.stroke();
+
+          // Aether bloom along the crust. Aethercastle only: the classic ramp
+          // carries no `glow`, so this whole pass is skipped and classic's
+          // call log ends at the stroke above, exactly where it used to.
+          if (r.glow) {
+            ctx.save();
+            ctx.strokeStyle = r.glow;
+            ctx.lineWidth = 10;
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+      }
+
+      /*
+       * ── Visualisation layer ─────────────────────────────────────────────
+       *
+       * Everything below draws. Nothing below may write simulation state, and
+       * nothing below may draw a random number from any stream: two clients
+       * watching the same replicated world must see the same picture, so a
+       * renderer reads only (structure, spec, theme, roster) and arithmetic.
+       * visualRNG is reserved for transient particle spray, which is spawned
+       * from the simulation path, never from a draw call.
+       * tests/render-purity.test.js hashes the world across a draw and fails
+       * if a pixel path moved anything.
+       *
+       * Brand doctrine (skills/aethercastle-design): metal is beveled and
+       * square, aether glows, and the two treatments are never applied to the
+       * same shape. bevelPlate() is the metal half, withGlow() the aether one.
+       */
+
+      // Masonry and metal: square, lit along the top edge, shadowed under.
+      function bevelPlate(ctx, x, y, w, h, fill, lit, shade) {
+        ctx.fillStyle = fill;
+        ctx.fillRect(x, y, w, h);
+        if (h >= 3) {
+          ctx.fillStyle = lit;
+          ctx.fillRect(x, y, w, 1);
+          ctx.fillStyle = shade;
+          ctx.fillRect(x, y + h - 1, w, 1);
+        }
+      }
+
+      // Aether: anything alchemically powered is drawn lit, never beveled.
+      function withGlow(ctx, colour, blur, fn) {
+        ctx.save();
+        ctx.shadowColor = colour;
+        ctx.shadowBlur = blur;
+        fn();
+        ctx.restore();
+      }
+
+      // A destroyed work: a low broken mound where the building stood. Keeps
+      // the footprint readable so a player can still see what they knocked
+      // down and where the ground is no longer blocked.
+      function drawRubble(ctx, left, groundY, w, h, theme) {
+        const rubbleH = Math.max(4, h * 0.18);
+        bevelPlate(ctx, left, groundY - rubbleH, w, rubbleH,
+          theme.stone800, theme.stone600, theme.void900);
+        // Two broken stumps, at fixed fractions so every client draws them
+        // in the same place.
+        ctx.fillStyle = theme.stone700;
+        ctx.fillRect(left + w * 0.12, groundY - rubbleH - h * 0.10, w * 0.14, h * 0.10);
+        ctx.fillRect(left + w * 0.68, groundY - rubbleH - h * 0.07, w * 0.11, h * 0.07);
+      }
+
+      /**
+       * Draw one structure.
+       *
+       * Renders the four states the simulation actually tracks: position,
+       * hp, breached, destroyed. It reads the live entry and its spec and
+       * writes neither — if a state is wanted here that the simulation does
+       * not already expose, the fix is to expose it read-only, never to move
+       * logic into the renderer.
+       *
+       * @param {Object} s Live structure entry (x, y, hp, maxHp, breached)
+       * @param {Object} spec Its STRUCTURES definition (w, h, breach, ...)
+       * @param {Object} theme Resolved palette for the match mode
+       * @param {string} ownerColour Slot colour of the holding's owner
+       */
+      function drawStructure(ctx, s, spec, theme, ownerColour) {
+        const w = spec.w;
+        const h = spec.h;
+        const left = s.x - w / 2;
+        const top = s.y - h;
+        const maxHp = s.maxHp || spec.hp || 1;
+        const frac = Math.max(0, Math.min(1, s.hp / maxHp));
+
+        ctx.save();
+
+        if (s.hp <= 0) {
+          drawRubble(ctx, left, s.y, w, h, theme);
+          // A vat that already spent its breach is scorched rather than merely
+          // broken, so a player can tell a spent trap from a live one.
+          if (s.breached && spec.breach) {
+            ctx.globalAlpha = 0.5;
+            ctx.fillStyle = theme.fire600;
+            ctx.fillRect(left, s.y - 2, w, 2);
+          }
+          ctx.restore();
+          return;
+        }
+
+        const stone = theme.stone600;
+        const lit = theme.stone300;
+        const shade = theme.void900;
+
+        switch (s.key) {
+          case 'norman-castle': {
+            // Curtain wall under a crenellated top, with the keep behind it.
+            const wallTop = top + h * 0.34;
+            bevelPlate(ctx, left + w * 0.34, top, w * 0.32, h * 0.5, stone, lit, shade);
+            bevelPlate(ctx, left, wallTop, w, h - (wallTop - top), stone, lit, shade);
+            ctx.fillStyle = stone;
+            for (let m = 0; m < 5; m++) {
+              ctx.fillRect(left + (w / 5) * m + w * 0.02, wallTop - h * 0.09, w * 0.16, h * 0.09);
+            }
+            // Gate mouth.
+            ctx.fillStyle = theme.void800;
+            ctx.fillRect(left + w * 0.44, s.y - h * 0.24, w * 0.12, h * 0.24);
+            break;
+          }
+          case 'keep-gatehouse': {
+            // Twin drum towers over an arch.
+            bevelPlate(ctx, left, top, w * 0.3, h, stone, lit, shade);
+            bevelPlate(ctx, left + w * 0.7, top, w * 0.3, h, stone, lit, shade);
+            bevelPlate(ctx, left + w * 0.3, top + h * 0.18, w * 0.4, h * 0.82, stone, lit, shade);
+            ctx.fillStyle = theme.void800;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y - h * 0.3, w * 0.16, Math.PI, 0);
+            ctx.fill();
+            ctx.fillRect(s.x - w * 0.16, s.y - h * 0.3, w * 0.32, h * 0.3);
+            // The ward it projects, as a brass lintel band.
+            ctx.fillStyle = theme.brass600;
+            ctx.fillRect(left + w * 0.3, top + h * 0.18, w * 0.4, 2);
+            break;
+          }
+          case 'portcullis': {
+            // Iron lattice: three bars down, four across.
+            ctx.fillStyle = theme.brass700;
+            for (let b = 0; b < 3; b++) ctx.fillRect(left + b * (w / 3), top, 3, h);
+            for (let b = 0; b < 4; b++) ctx.fillRect(left, top + b * (h / 4), w, 2);
+            break;
+          }
+          case 'oil-vats': {
+            // Two pressure cylinders. Still-armed vats carry a fire sheen.
+            for (let v = 0; v < 2; v++) {
+              const vx = left + v * (w * 0.55);
+              bevelPlate(ctx, vx, top + h * 0.15, w * 0.45, h * 0.85, theme.stone700, theme.brass600, shade);
+              ctx.fillStyle = theme.brass700;
+              ctx.beginPath();
+              ctx.ellipse(vx + w * 0.225, top + h * 0.15, w * 0.225, h * 0.12, 0, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            withGlow(ctx, theme.fire600, 8, () => {
+              ctx.fillStyle = theme.fire500;
+              ctx.fillRect(left + w * 0.1, top + h * 0.4, w * 0.8, 2);
+            });
+            break;
+          }
+          case 'aether-forge': {
+            bevelPlate(ctx, left, top + h * 0.3, w, h * 0.7, stone, lit, shade);
+            bevelPlate(ctx, left + w * 0.66, top, w * 0.2, h * 0.4, theme.stone700, theme.brass600, shade);
+            withGlow(ctx, theme.magenta600, 12, () => {
+              ctx.fillStyle = theme.magenta500;
+              ctx.fillRect(left + w * 0.12, top + h * 0.5, w * 0.34, h * 0.34);
+            });
+            break;
+          }
+          case 'scorpion-crossbow': {
+            bevelPlate(ctx, left, s.y - h * 0.35, w, h * 0.35, theme.stone700, theme.brass600, shade);
+            ctx.strokeStyle = theme.brass500;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(left + w * 0.2, s.y - h * 0.35);
+            ctx.lineTo(left + w * 0.8, top + h * 0.1);
+            ctx.stroke();
+            withGlow(ctx, theme.cyan600, 8, () => {
+              ctx.strokeStyle = theme.cyan500;
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.moveTo(left + w * 0.55, top);
+              ctx.lineTo(left + w * 0.95, top + h * 0.3);
+              ctx.stroke();
+            });
+            break;
+          }
+          case 'shield-dome': {
+            bevelPlate(ctx, left, s.y - h * 0.28, w, h * 0.28, theme.stone700, theme.brass600, shade);
+            withGlow(ctx, theme.cyan600, 14, () => {
+              ctx.strokeStyle = theme.cyan500;
+              ctx.lineWidth = 3;
+              ctx.beginPath();
+              ctx.arc(s.x, s.y - h * 0.28, w * 0.45, Math.PI, 0);
+              ctx.stroke();
+            });
+            break;
+          }
+          case 'aether-radar': {
+            bevelPlate(ctx, s.x - w * 0.12, top + h * 0.3, w * 0.24, h * 0.7, theme.stone700, theme.brass600, shade);
+            withGlow(ctx, theme.cyan600, 10, () => {
+              ctx.strokeStyle = theme.cyan400;
+              ctx.lineWidth = 3;
+              ctx.beginPath();
+              ctx.arc(s.x, top + h * 0.3, w * 0.42, Math.PI * 1.15, Math.PI * 1.85);
+              ctx.stroke();
+            });
+            break;
+          }
+          case 'repair-bay': {
+            bevelPlate(ctx, left, s.y - h * 0.3, w, h * 0.3, theme.stone700, theme.brass600, shade);
+            ctx.strokeStyle = theme.brass500;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(left + w * 0.1, top, w * 0.8, h * 0.7);
+            withGlow(ctx, theme.acid500, 10, () => {
+              ctx.fillStyle = theme.acid400;
+              ctx.fillRect(left + w * 0.38, top + h * 0.2, w * 0.24, 3);
+              ctx.fillRect(left + w * 0.46, top + h * 0.06, 3, h * 0.31);
+            });
+            break;
+          }
+          case 'missile-silo': {
+            bevelPlate(ctx, left, s.y - h * 0.35, w, h * 0.35, stone, lit, shade);
+            bevelPlate(ctx, s.x - w * 0.22, top, w * 0.44, h * 0.68, theme.stone700, theme.brass600, shade);
+            withGlow(ctx, theme.violet600, 12, () => {
+              ctx.fillStyle = theme.violet500;
+              ctx.beginPath();
+              ctx.arc(s.x, top, w * 0.22, Math.PI, 0);
+              ctx.fill();
+            });
+            break;
+          }
+          default:
+            bevelPlate(ctx, left, top, w, h, stone, lit, shade);
+        }
+
+        // Owner banner: a slot-coloured pip on the ridge, so a glance tells
+        // you whose holding you are about to shell.
+        if (ownerColour) {
+          ctx.fillStyle = ownerColour;
+          ctx.fillRect(s.x - 3, top - 6, 6, 4);
+        }
+
+        // Damage readout, only once something has actually hit it.
+        if (frac < 1) {
+          const barW = Math.max(16, w * 0.7);
+          const barX = s.x - barW / 2;
+          const barY = top - 12;
+          ctx.fillStyle = theme.void900;
+          ctx.fillRect(barX, barY, barW, 3);
+          ctx.fillStyle = frac > 0.6 ? theme.hpFull : (frac > 0.3 ? theme.hpMid : theme.hpLow);
+          ctx.fillRect(barX, barY, barW * frac, 3);
+        }
+
+        ctx.restore();
+      }
+
+      /**
+       * Draw one tank.
+       *
+       * Two renderers behind one call. Classic reproduces the original sprite
+       * exactly — a 16x6 hull, a radius-4 dome and a 12px barrel — because
+       * that silhouette IS the easter egg; changing it by a pixel is the one
+       * regression this whole layer is not allowed to cause.
+       *
+       * MUZZLE CONTRACT: the barrel is anchored at (x, y - 6) and is 12 long
+       * in BOTH modes, because that is where the simulation spawns a shell
+       * (see fire() and applyFireSync). Chassis differentiation is therefore
+       * expressed in the hull, the running gear and the accent — never in the
+       * barrel. A chassis whose drawn muzzle disagreed with its real one would
+       * be a sprite that lies about where its shots come from.
+       */
+      function drawTank(ctx, tank, chassis, isActive, theme) {
+        const angleRad = (tank.angle * Math.PI) / 180;
+        const barrelLen = 12;
+        const bx = tank.x + barrelLen * detCos(angleRad);
+        const by = tank.y - 6 - barrelLen * detSin(angleRad);
+
+        if (theme === THEMES.classic) {
+          ctx.fillStyle = tank.color;
+          ctx.strokeStyle = tank.color;
+          ctx.fillRect(tank.x - 8, tank.y - 6, 16, 6);
+          ctx.beginPath();
+          ctx.arc(tank.x, tank.y - 6, 4, Math.PI, 0);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(tank.x, tank.y - 6);
+          ctx.lineTo(bx, by);
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          if (isActive) {
+            ctx.fillStyle = theme.fx.activeMarker;
+            ctx.beginPath();
+            ctx.moveTo(tank.x - 4, tank.y - 20);
+            ctx.lineTo(tank.x + 4, tank.y - 20);
+            ctx.lineTo(tank.x, tank.y - 14);
+            ctx.closePath();
+            ctx.fill();
+          }
+          return;
+        }
+
+        // Aethercastle: the hull dimensions and accent that have been sitting
+        // in the CHASSIS table unused since it was written.
+        const hw = chassis.hullW;
+        const hh = chassis.hullH;
+        const accent = chassis.accent;
+        const left = tank.x - hw / 2;
+        const hullTop = tank.y - hh;
+
+        ctx.save();
+        switch (chassis.locomotion) {
+          case 'tracked': {
+            // Track band under the hull, road wheels inside it.
+            ctx.fillStyle = theme.stone700;
+            ctx.fillRect(left - 1, tank.y - 3, hw + 2, 3);
+            ctx.fillStyle = accent;
+            for (let wI = 0; wI < 3; wI++) {
+              ctx.fillRect(left + 1 + wI * ((hw - 2) / 3), tank.y - 2, 2, 2);
+            }
+            bevelPlate(ctx, left, hullTop, hw, hh, tank.color, accent, theme.void900);
+            break;
+          }
+          case 'legged': {
+            // Two legs planted at full stride, which is what a mech's
+            // strideClearance actually looks like on the ground.
+            ctx.strokeStyle = accent;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(tank.x - hw * 0.3, hullTop + hh);
+            ctx.lineTo(tank.x - hw * 0.5, tank.y);
+            ctx.moveTo(tank.x + hw * 0.3, hullTop + hh);
+            ctx.lineTo(tank.x + hw * 0.5, tank.y);
+            ctx.stroke();
+            bevelPlate(ctx, left, hullTop - 2, hw, hh, tank.color, accent, theme.void900);
+            break;
+          }
+          case 'aerial': {
+            // Envelope over a gondola. Drawn around tank.y, which for an
+            // airship is already its cruise altitude, not the ground.
+            ctx.fillStyle = tank.color;
+            ctx.beginPath();
+            ctx.ellipse(tank.x, tank.y - hh - 3, hw / 2, hh * 0.7, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = accent;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            bevelPlate(ctx, tank.x - hw * 0.22, tank.y - 6, hw * 0.44, 5, theme.stone700, accent, theme.void900);
+            break;
+          }
+          case 'hover':
+          default: {
+            bevelPlate(ctx, left, hullTop, hw, hh, tank.color, accent, theme.void900);
+            // The skirt is the only part of a drone that glows.
+            withGlow(ctx, accent, 8, () => {
+              ctx.fillStyle = accent;
+              ctx.fillRect(left + 1, tank.y - 1, hw - 2, 2);
+            });
+            break;
+          }
+        }
+
+        // Turret dome and barrel, on the muzzle contract above.
+        ctx.fillStyle = tank.color;
+        ctx.beginPath();
+        ctx.arc(tank.x, tank.y - 6, 4, Math.PI, 0);
+        ctx.fill();
+        ctx.strokeStyle = accent;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(tank.x, tank.y - 6);
+        ctx.lineTo(bx, by);
+        ctx.stroke();
+        ctx.restore();
+
+        if (isActive) {
+          ctx.fillStyle = theme.fx.activeMarker;
+          ctx.beginPath();
+          ctx.moveTo(tank.x - 4, tank.y - 20);
+          ctx.lineTo(tank.x + 4, tank.y - 20);
+          ctx.lineTo(tank.x, tank.y - 14);
+          ctx.closePath();
+          ctx.fill();
         }
       }
 
@@ -4495,7 +4952,8 @@
 
                 // Visual trails
                 if (!this.headless) {
-                  const col = proj.weapon.includes('Liquid Dirt') ? '#735035' : '#ff5500';
+                  const trailFx = themeFor(this.gameMode).fx;
+                  const col = proj.weapon.includes('Liquid Dirt') ? trailFx.trailDirt : trailFx.trailBurn;
                   this.spawnParticle('spark', proj.x, proj.y, visualRNG.range(-3, 3), visualRNG.range(-8, -2), col, 0.2, 1.5);
                 }
                 continue;
@@ -4603,7 +5061,10 @@
 
                 // Spawn trail particle
                 if (!this.headless) {
-                  const col = visualRNG.choice(['#ff3300', '#ffaa00', '#ffff00', '#ff6600']);
+                  // Four entries in BOTH themes: visualRNG.choice() draws one
+                  // number over arr.length, so a differently-sized list would
+                  // shift the particle stream between modes.
+                  const col = visualRNG.choice(themeFor(this.gameMode).fx.burnSparks);
                   const jx = visualRNG.range(-5, 5);
                   const jy = visualRNG.range(-5, 5);
                   this.spawnParticle(
@@ -4924,6 +5385,30 @@
           }
         }
 
+        /**
+         * Render the holding, walking this.structures by INDEX.
+         *
+         * Index order matters for the same reason it does in the simulation
+         * passes: structure entries are addressed positionally, and a renderer
+         * that iterated object keys would be one refactor away from drawing a
+         * different holding than the one being simulated.
+         *
+         * Read-only. The owner colour is looked up from the roster rather than
+         * stored on the structure, so nothing here needs the simulation to
+         * carry a field that only a renderer wants.
+         */
+        drawStructures(ctx, theme) {
+          if (this.headless || !this.structures || !StructuresLib) return;
+          const specs = StructuresLib.STRUCTURES;
+          for (let i = 0; i < this.structures.length; i++) {
+            const s = this.structures[i];
+            const spec = specs[s.key];
+            if (!spec) continue;
+            const owner = this.roster && this.roster[s.ownerIdx];
+            drawStructure(ctx, s, spec, theme, owner && owner.color);
+          }
+        }
+
         drawParticles(ctx) {
           if (this.headless || !this.particlePool) return;
           for (let i = 0; i < this.particlePool.length; i++) {
@@ -4948,6 +5433,11 @@
         // === END SIMULATION PATH ===
         spawnCraterEffects(x, y, radius) {
           if (this.headless) return;
+          // Particle colours come from the match palette. Both fx.smoke and
+          // fx.debris are FOUR entries in every theme on purpose: choice()
+          // draws one number scaled by arr.length, so a list of a different
+          // size would move the visual stream rather than just re-tint it.
+          const theme = themeFor(this.gameMode);
           const smokeCount = Math.floor(radius / 2);
           for (let i = 0; i < smokeCount; i++) {
             const angle = visualRNG.range(0, Math.PI * 2);
@@ -4960,8 +5450,7 @@
 
             const size = visualRNG.range(3, 8);
             const maxLife = visualRNG.range(0.8, 1.5);
-            const colors = ['#555555', '#777777', '#999999', '#333333'];
-            const color = visualRNG.choice(colors);
+            const color = visualRNG.choice(theme.fx.smoke);
 
             this.spawnParticle('smoke', px, py, vx, vy, color, maxLife, size);
           }
@@ -4975,8 +5464,7 @@
 
             const maxLife = visualRNG.range(2.0, 4.0);
             const size = visualRNG.range(1.5, 3.5);
-            const colors = ['#8b5a2b', '#5c3a21', '#3d2514', '#4a4a4a'];
-            const color = visualRNG.choice(colors);
+            const color = visualRNG.choice(theme.fx.debris);
 
             this.spawnParticle('debris', x, y - 2, vx, vy, color, maxLife, size);
           }
@@ -4995,26 +5483,27 @@
           }
         }
 
-        drawExplosions(ctx) {
+        drawExplosions(ctx, theme) {
           if (this.headless || !this.explosions) return;
+          theme = theme || themeFor(this.gameMode);
           for (let i = 0; i < this.explosions.length; i++) {
             const exp = this.explosions[i];
             ctx.save();
             const alpha = Math.max(0, Math.min(1, exp.life / exp.maxLife));
             ctx.globalAlpha = alpha;
 
-            ctx.strokeStyle = '#ff3300';
+            ctx.strokeStyle = theme.fx.burstRing;
             ctx.lineWidth = 4;
             ctx.beginPath();
             ctx.arc(exp.x, exp.y, exp.currentRadius, 0, Math.PI * 2);
             ctx.stroke();
 
-            ctx.fillStyle = '#ffaa00';
+            ctx.fillStyle = theme.fx.burstCore;
             ctx.beginPath();
             ctx.arc(exp.x, exp.y, exp.currentRadius * 0.8, 0, Math.PI * 2);
             ctx.fill();
 
-            ctx.fillStyle = '#ffff00';
+            ctx.fillStyle = theme.fx.burstFlash;
             ctx.beginPath();
             ctx.arc(exp.x, exp.y, exp.currentRadius * 0.5, 0, Math.PI * 2);
             ctx.fill();
@@ -5631,56 +6120,34 @@
           const cssWidth = this.canvas.width / dpr;
           const cssHeight = this.canvas.height / dpr;
 
+          // The palette for THIS MATCH. Resolved from the instance's gameMode,
+          // which ROUND_START wrote from the server's value, so every client
+          // in the room draws the same mode even if one of them arrived on the
+          // classic URL and joined an Aethercastle room.
+          const theme = themeFor(this.gameMode);
+
           // Draw the terrain scaled to fit the CSS bounds of the canvas
           ctx.save();
           ctx.scale(cssWidth / CONST.WORLD_W, cssHeight / CONST.WORLD_H);
-          this.terrain.draw(ctx);
+          this.terrain.draw(ctx, biomeRampFor(this.gameMode, this.terrain.biome));
+
+          // Draw the holding. Behind the tanks: a hull that drives up to a
+          // curtain wall should read as being in front of it. Classic fields
+          // no structures at all, so this pass is empty there.
+          this.drawStructures(ctx, theme);
 
           // Draw tanks
           if (this.roster) {
             this.roster.forEach((tank, idx) => {
               if (tank.hp <= 0) return;
-
-              ctx.fillStyle = tank.color;
-              ctx.strokeStyle = tank.color;
-
-              // Hull
-              ctx.fillRect(tank.x - 8, tank.y - 6, 16, 6);
-
-              // Dome
-              ctx.beginPath();
-              ctx.arc(tank.x, tank.y - 6, 4, Math.PI, 0);
-              ctx.fill();
-
-              // Barrel
-              const angleRad = (tank.angle * Math.PI) / 180;
-              const barrelLen = 12;
-              const bx = tank.x + barrelLen * detCos(angleRad);
-              const by = tank.y - 6 - barrelLen * detSin(angleRad);
-
-              ctx.beginPath();
-              ctx.moveTo(tank.x, tank.y - 6);
-              ctx.lineTo(bx, by);
-              ctx.lineWidth = 2;
-              ctx.stroke();
-
-              // Active player indicator (small triangle pointing down)
-              if (idx === this.activePlayerIdx) {
-                ctx.fillStyle = '#ffffff';
-                ctx.beginPath();
-                ctx.moveTo(tank.x - 4, tank.y - 20);
-                ctx.lineTo(tank.x + 4, tank.y - 20);
-                ctx.lineTo(tank.x, tank.y - 14);
-                ctx.closePath();
-                ctx.fill();
-              }
+              drawTank(ctx, tank, chassisOf(tank), idx === this.activePlayerIdx, theme);
             });
           }
 
           // Draw active projectiles
           if (this.projectiles && this.projectiles.length > 0) {
             this.projectiles.forEach(p => {
-              ctx.fillStyle = '#ffffff';
+              ctx.fillStyle = theme.fx.projectile;
               ctx.beginPath();
               ctx.arc(p.x, p.y, p.weapon && p.weapon.includes('Particle') ? 1.5 : 3, 0, Math.PI * 2);
               ctx.fill();
@@ -5690,7 +6157,7 @@
           // Draw persistent tracers
           if (this.persistentTracers && this.persistentTracers.length > 0) {
             ctx.save();
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.strokeStyle = theme.fx.tracer;
             ctx.lineWidth = 1.5;
             ctx.setLineDash([2, 4]); // Dotted!
             this.persistentTracers.forEach(path => {
@@ -5712,7 +6179,7 @@
               if (tank.hp > 0 && tank.shield && tank.shield.hp > 0) {
                 ctx.save();
                 const shieldConf = SHIELD_TYPES[tank.shield.type];
-                ctx.strokeStyle = shieldConf ? shieldConf.colour : 'rgba(0, 255, 0, 0.5)';
+                ctx.strokeStyle = shieldConf ? shieldConf.colour : theme.fx.shieldFallback;
                 // A deflector reads as a thicker arc, so you can tell at a
                 // glance whether the next shell will bounce or be absorbed.
                 ctx.lineWidth = shieldDeflects(tank.shield.type) ? 4 : 3;
@@ -5764,7 +6231,7 @@
 
               // Draw Predicted Marker as a red crosshair
               ctx.save();
-              ctx.strokeStyle = '#ff0000';
+              ctx.strokeStyle = theme.fx.aimMarker;
               ctx.lineWidth = 2;
               ctx.beginPath();
               ctx.moveTo(hitX - 6, hitY);
@@ -5780,7 +6247,7 @@
           this.drawParticles(ctx);
 
           // Draw explosions
-          this.drawExplosions(ctx);
+          this.drawExplosions(ctx, theme);
 
           ctx.restore();
         }
@@ -6445,6 +6912,17 @@
         SHIELD_PRIORITY,
         PROXIMITY_FUSE_RADIUS,
         BASIC_WEAPON_IDS,
+        // The visualisation layer's surface, exported so the render tests can
+        // assert on palettes and draw one structure or chassis in isolation
+        // rather than only through a whole frame.
+        THEMES,
+        themeFor,
+        BIOME_RAMPS,
+        biomeRampFor,
+        CHASSIS,
+        applyMode,
+        drawStructure,
+        drawTank,
         STRUCTURES: StructuresLib && StructuresLib.STRUCTURES,
         STRUCTURE_IDS: StructuresLib && StructuresLib.STRUCTURE_IDS,
         HOLDING_TEMPLATE: StructuresLib && StructuresLib.HOLDING_TEMPLATE,

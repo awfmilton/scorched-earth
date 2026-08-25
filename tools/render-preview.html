@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Æthercastle — visualisation preview</title>
+<!--
+  A LOOKING GLASS, not a second renderer.
+
+  This page loads the real index.html, pulls its page script out and evaluates
+  it against a stub DOM, then calls the SAME Terrain.draw / drawStructure /
+  drawTank the game calls. Nothing here re-implements a sprite: if a shape
+  looks wrong on this page it is wrong in the game, and if it is fixed in the
+  game it is fixed here without this file being touched.
+
+  It exists because a draw-call log can prove which primitives were issued and
+  in what order, and cannot prove the result is legible to a human. That last
+  step needs eyes, and this is the cheapest way to put a whole holding, all six
+  chassis and both modes in front of them at once.
+
+  Serve it, don't open it from disk — it fetches /index.html, which file://
+  will not allow:
+      npm start        then open  http://localhost:8080/tools/render-preview.html
+-->
+<style>
+  body {
+    margin: 0; padding: 24px; background: #08070a; color: #dcc388;
+    font-family: 'Courier New', monospace;
+  }
+  h1 { font-size: 20px; letter-spacing: .14em; text-transform: uppercase; color: #ff2d9b; }
+  h2 {
+    font-size: 13px; letter-spacing: .18em; text-transform: uppercase;
+    color: #b5a642; border-bottom: 1px solid #4a413c; padding-bottom: 6px; margin-top: 32px;
+  }
+  canvas { background: #000; display: block; border: 2px solid #6e6320; }
+  .row { display: flex; flex-wrap: wrap; gap: 16px; }
+  .cell { text-align: center; }
+  .cell span { display: block; font-size: 11px; color: #8a7c70; margin-top: 4px; }
+  #err { color: #e23a2e; white-space: pre-wrap; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>Æthercastle — visualisation preview</h1>
+<div id="err"></div>
+
+<h2>Full frame — Æthercastle</h2>
+<canvas id="field-aether" width="1200" height="700"></canvas>
+
+<h2>Full frame — classic (the easter egg, must look untouched)</h2>
+<canvas id="field-classic" width="1200" height="700"></canvas>
+
+<h2>The six chassis (4×)</h2>
+<div class="row" id="chassis-row"></div>
+
+<h2>The ten structures — intact / half / destroyed (2×)</h2>
+<div class="row" id="structure-row"></div>
+
+<script src="../lib/terrain.js"></script>
+<script src="../lib/structures.js"></script>
+<script>
+(async function () {
+  const err = document.getElementById('err');
+  try {
+    // ── Load the real game code against a stub DOM ────────────────────────
+    const src = await (await fetch('../index.html')).text();
+    const code = src.match(/<script>([\s\S]*?)<\/script>/)[1];
+
+    const sandbox = {
+      globalThis: {}, Math, Float32Array, console, JSON, setTimeout, clearTimeout,
+      Terrain: window.Terrain, Structures: window.Structures,
+      document: { getElementById: () => null, addEventListener: () => {} },
+      window: { addEventListener: () => {}, devicePixelRatio: 1 }
+    };
+    sandbox.globalThis = sandbox;
+    new Function(...Object.keys(sandbox), code)(...Object.values(sandbox));
+    const S = sandbox.globalThis.SCORCHED;
+    if (!S) throw new Error('page script did not export SCORCHED');
+
+    const PLAYERS = [
+      { name: 'Sir Aldric',   color: '#ff2d9b', type: 'Human', chassis: 'clockwork-tank' },
+      { name: 'Dame Oriel',   color: '#00bfff', type: 'Human', chassis: 'walker-mech' },
+      { name: 'Provost Kell', color: '#8fd400', type: 'Human', chassis: 'airship-platform' },
+      { name: 'Magister Vane', color: '#e0d286', type: 'Human', chassis: 'scout-drone' }
+    ];
+
+    // ── Two full frames, same seed, one per mode ──────────────────────────
+    function field(canvasId, mode) {
+      const game = new S.Game({ headless: true, seed: 20260825, gameMode: mode });
+      game.start({ rounds: 1, wallType: 'rubber', startingCash: 20000, players: PLAYERS });
+      game.activePlayerIdx = 0;
+      // A shell in flight and a burst, so the effect palette is on screen too.
+      game.projectiles = [{ x: 620, y: 220, weapon: 'Missile' }];
+      game.explosions = [{ x: 430, y: 380, currentRadius: 34, maxRadius: 48, life: 0.7, maxLife: 1 }];
+      game.persistentTracers = [[{ x: 180, y: 380 }, { x: 400, y: 210 }, { x: 620, y: 220 }]];
+      // Knock the holding about so damaged and destroyed states are visible.
+      if (game.structures.length > 3) {
+        game.structures[1].hp = Math.floor(game.structures[1].maxHp * 0.45);
+        game.structures[3].hp = 0;
+        game.structures[3].breached = true;
+      }
+      const canvas = document.getElementById(canvasId);
+      game.headless = false;
+      game.canvas = canvas;
+      game.ctx = canvas.getContext('2d');
+      game.draw();
+    }
+    field('field-aether', 'aethercastle');
+    field('field-classic', 'classic');
+
+    // ── The six chassis, enlarged ─────────────────────────────────────────
+    const chassisRow = document.getElementById('chassis-row');
+    const theme = S.themeFor('aethercastle');
+    Object.entries(S.CHASSIS).forEach(([id, chassis]) => {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      const c = document.createElement('canvas');
+      c.width = 180; c.height = 180;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#0f0d14';
+      ctx.fillRect(0, 0, 180, 180);
+      ctx.scale(4, 4);
+      // Ground line, so a hover skirt and a walker's legs have something to
+      // stand on and the eye can judge the clearance.
+      ctx.fillStyle = '#2e2823';
+      ctx.fillRect(0, 34, 45, 11);
+      S.drawTank(ctx, {
+        x: 22, y: 34, angle: 52, color: '#ff2d9b', hp: 100, chassis: id
+      }, chassis, true, theme);
+      const label = document.createElement('span');
+      label.textContent = `${chassis.name} — ${chassis.locomotion} ${chassis.hullW}×${chassis.hullH}`;
+      cell.appendChild(c); cell.appendChild(label);
+      chassisRow.appendChild(cell);
+    });
+
+    // ── The ten structures at three damage states ─────────────────────────
+    const structureRow = document.getElementById('structure-row');
+    const SPECS = S.STRUCTURES;
+    S.HOLDING_TEMPLATE.forEach((key) => {
+      const spec = SPECS[key];
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      const w = Math.ceil((spec.w + 24) * 3 * 2);
+      const h = Math.ceil((spec.h + 40) * 2);
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#0f0d14';
+      ctx.fillRect(0, 0, w, h);
+      ctx.scale(2, 2);
+      const groundY = spec.h + 24;
+      ctx.fillStyle = '#2e2823';
+      ctx.fillRect(0, groundY, w / 2, 8);
+      [1, 0.4, 0].forEach((frac, i) => {
+        const cx = (spec.w + 24) * i + (spec.w / 2) + 12;
+        S.drawStructure(ctx, {
+          key, x: cx, y: groundY, hp: Math.round(spec.hp * frac),
+          maxHp: spec.hp, cooldown: 0, breached: frac === 0, ownerIdx: 0
+        }, spec, theme, '#ff2d9b');
+      });
+      const label = document.createElement('span');
+      label.textContent = `${spec.name} — ${spec.w}×${spec.h}, hp ${spec.hp}`;
+      cell.appendChild(c); cell.appendChild(label);
+      structureRow.appendChild(cell);
+    });
+  } catch (e) {
+    err.textContent = 'PREVIEW FAILED: ' + (e && e.stack ? e.stack : e);
+  }
+})();
+</script>
+</body>
+</html>
