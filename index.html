@@ -1481,6 +1481,21 @@
             gain.connect(masterGain);
             osc.start();
             osc.stop(audioCtx.currentTime + 0.5);
+          } else if (name === 'turret') {
+            // A short energy zap, deliberately unlike 'hit' or 'explode':
+            // the turret volley needs its own voice so a struck player can
+            // tell structure fire from an incoming shell.
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(700, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.2);
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.2);
           } else if (name === 'shieldHit') {
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
@@ -2257,6 +2272,22 @@
         // CHASSIS row the simulation uses, so hullW/hullH stay the wire
         // contract they were and differentiation lives inside that box.
         ACChassis.drawTankAC(ctx, tank, chassis, isActive, theme);
+
+        // Per-hull hp bar. Classic never had one (the replica constraint
+        // above keeps that branch clean), but Aethercastle needs it: turret
+        // volleys, burns and drop damage land on hulls the HUD is not
+        // showing, and a hit with no visible bar reads as damage from
+        // nowhere. Sits above the kit's active marker so neither occludes
+        // the other.
+        const barMaxHp = tank.maxHp || (chassis && chassis.hp) || 100;
+        const hpFrac = Math.max(0, Math.min(1, tank.hp / barMaxHp));
+        const barW = 18, barH = 3;
+        const barX = tank.x - barW / 2;
+        const barY = tank.y - 27;
+        ctx.fillStyle = theme.void800;
+        ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+        ctx.fillStyle = hpFrac > 0.5 ? theme.hpFull : (hpFrac > 0.25 ? theme.hpMid : theme.hpLow);
+        ctx.fillRect(barX, barY, barW * hpFrac, barH);
       }
 
       class Game {
@@ -3204,6 +3235,22 @@
             if (Math.sqrt(dx * dx + dy * dy) > spec.turret.range) continue;
 
             s.cooldown = spec.turret.cooldown;
+
+            // Render-only attribution BEFORE the blast: a visible bolt from
+            // the turret head to its victim plus a distinct report, so the
+            // volley cannot be mistaken for part of whatever shell just
+            // landed. Nothing here is simulation state — headless clients
+            // skip straight to the explosion and stay in lockstep.
+            if (!this.headless) {
+              if (!this.turretBolts) this.turretBolts = [];
+              this.turretBolts.push({
+                x1: s.x, y1: s.y - (spec.h || 16),
+                x2: target.x, y2: target.y - 3,
+                life: 24, maxLife: 24
+              });
+              if (typeof sfx === 'function') sfx('turret');
+            }
+
             // Credited to the owner so kills and damage-dealt still add up.
             this.explosion(
               target.x, target.y - 3,
@@ -5192,6 +5239,16 @@
               }
             }
           }
+
+          if (!this.headless && this.turretBolts) {
+            for (let i = this.turretBolts.length - 1; i >= 0; i--) {
+              const b = this.turretBolts[i];
+              b.life -= 1;
+              if (b.life <= 0) {
+                this.turretBolts.splice(i, 1);
+              }
+            }
+          }
         }
 
         /**
@@ -6099,6 +6156,46 @@
 
           // Draw explosions
           this.drawExplosions(ctx, theme);
+
+          // Turret volley bolts — the attribution line from a structure's
+          // turret to the tank it just struck. Structures exist only in
+          // Aethercastle, so this pass is empty in classic.
+          if (this.turretBolts && this.turretBolts.length > 0) {
+            ctx.save();
+            this.turretBolts.forEach(b => {
+              const t = Math.max(0, b.life / b.maxLife);
+              ctx.globalAlpha = t;
+              ctx.strokeStyle = theme.fx.aimMarker;
+              ctx.lineWidth = 2;
+              ctx.setLineDash([6, 3]);
+              ctx.beginPath();
+              ctx.moveTo(b.x1, b.y1);
+              ctx.lineTo(b.x2, b.y2);
+              ctx.stroke();
+              ctx.setLineDash([]);
+              // Muzzle flash at the turret head, shrinking as the bolt fades.
+              ctx.fillStyle = theme.fx.burstFlash;
+              ctx.beginPath();
+              ctx.arc(b.x1, b.y1, 3 * t, 0, Math.PI * 2);
+              ctx.fill();
+            });
+            ctx.restore();
+          }
+
+          // Floating damage numbers. Aged by updateParticles; drawn last so
+          // they read over every other layer. The array is empty outside
+          // combat, so the classic golden frame records no extra calls.
+          if (this.damageNumbers && this.damageNumbers.length > 0) {
+            ctx.save();
+            ctx.font = '10px ' + theme.fontMono;
+            ctx.textAlign = 'center';
+            this.damageNumbers.forEach(dn => {
+              ctx.globalAlpha = Math.max(0, Math.min(1, dn.life / 30));
+              ctx.fillStyle = dn.color;
+              ctx.fillText(dn.text, dn.x, dn.y);
+            });
+            ctx.restore();
+          }
 
           ctx.restore();
         }
