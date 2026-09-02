@@ -2506,6 +2506,32 @@
         // one flipped `Math.floor(x)` terrain column is a permanent desync.
         applyFireSync(msg) {
           if (!this.roster) return;
+
+          /*
+           * Hold until the world is at rest, exactly like applyTurnSync. The
+           * server lets the NEXT player fire the moment the shooter's own
+           * simulation resolves, so on a lagging client this frame can land
+           * while the previous shell is still mid-air HERE — and the
+           * projectile setter replaces the whole array, deleting that shell
+           * (with every MIRV sub, bomblet and napalm particle) before it
+           * lands. The damage and craters it caused on every other client
+           * would then never happen on this one: a permanent fork. Queue
+           * behind whatever the world is still waiting on and spawn in
+           * arrival order.
+           */
+          if (msg.shotId !== undefined && (this.activeShotId === msg.shotId ||
+              this.pendingTurnSyncs.some(p => p.kind === 'fire' && p.msg && p.msg.shotId === msg.shotId))) {
+            return; // restated frame: already live or already queued
+          }
+          if (this.projectile || this.anyTankFalling() || this.pendingTurnSyncs.length) {
+            this.pendingTurnSyncs.push({ kind: 'fire', msg });
+            return;
+          }
+          this.commitFireSync(msg);
+        }
+
+        commitFireSync(msg) {
+          if (!this.roster) return;
           const shooterIdx = this.roster.findIndex(t => t.slot === msg.shooterSlot);
           if (shooterIdx === -1) return;
           const shooter = this.roster[shooterIdx];
@@ -2609,7 +2635,7 @@
             this.turnNumber !== undefined &&
             msg.turnNumber === this.turnNumber;
           const alreadyPending = this.pendingTurnSyncs.some(
-            p => p.turnNumber === msg.turnNumber);
+            p => p.kind === 'turn' && p.msg && p.msg.turnNumber === msg.turnNumber);
           if (alreadyApplied || alreadyPending) return;
 
           /*
@@ -2638,7 +2664,7 @@
            * the physics step drain them once the world settles.
            */
           if (this.projectile || this.anyTankFalling() || this.pendingTurnSyncs.length) {
-            this.pendingTurnSyncs.push(msg);
+            this.pendingTurnSyncs.push({ kind: 'turn', msg });
             return;
           }
 
@@ -2706,13 +2732,23 @@
         // Called from the physics step once the shell has resolved and every
         // tank has finished falling.
         flushPendingTurnSync() {
-          // Drain in arrival order, re-checking rest between each: a boundary
-          // can fire a turret volley that puts a shell back in the air or
-          // knocks a tank into a fall, and the next boundary has to wait for
-          // that to settle exactly as the first one did.
+          // Drain in arrival order, re-checking rest between each entry: a
+          // boundary can fire a turret volley that puts a shell back in the
+          // air or knocks a tank into a fall — and a queued FIRE_SYNC puts a
+          // shell in the air by design — so every later entry waits exactly
+          // as the first one did. The queue carries every kind of gameplay
+          // sync (turn, fire, move, teleport) in one FIFO because ORDER is
+          // the contract: applying a move before the shell it queued behind
+          // would walk the tank through the blast on this client only.
           while (this.pendingTurnSyncs.length) {
             if (this.projectile || this.anyTankFalling()) return;
-            this.commitTurnSync(this.pendingTurnSyncs.shift());
+            const entry = this.pendingTurnSyncs.shift();
+            const kind = entry.kind || 'turn';
+            const msg = entry.msg || entry;
+            if (kind === 'turn') this.commitTurnSync(msg);
+            else if (kind === 'fire') this.commitFireSync(msg);
+            else if (kind === 'move') this.commitMoveSync(msg);
+            else if (kind === 'teleport') this.commitTeleportSync(msg);
           }
         }
 
@@ -2799,7 +2835,14 @@
           if (this.shopDoneSentForRound === this.currentRound) return;
           this.shopDoneSentForRound = this.currentRound;
           if (this.net) {
-            this.net.send('SHOP_DONE', { inventory: this.declaredInventory() });
+            // Cash is declared alongside the kit: the server restates both in
+            // the next ROUND_START so every client carries the same numbers.
+            const mine = this.roster && this.roster.find(t => t.slot === this.mySlot);
+            const payload = { inventory: this.declaredInventory() };
+            if (mine && Number.isFinite(mine.cash) && mine.cash >= 0) {
+              payload.cash = Math.floor(mine.cash);
+            }
+            this.net.send('SHOP_DONE', payload);
           }
         }
 
@@ -2882,6 +2925,22 @@
           });
         }
 
+        // Cash and chassis ride the same ROUND_START.tanks entries as the
+        // inventory, for the same reason: each is owned by one client and
+        // read by all of them. Restating both at every round boundary means
+        // a client rebuilt from scratch mid-match converges instead of
+        // ranking, paying and armouring a fiction.
+        applyServerTankMeta(tanks) {
+          if (!this.roster || !Array.isArray(tanks)) return;
+          tanks.forEach(t => {
+            if (!t) return;
+            const tank = this.roster.find(r => r.slot === t.slot);
+            if (!tank) return;
+            if (Number.isFinite(t.cash) && t.cash >= 0) tank.cash = t.cash;
+            if (t.chassis && CHASSIS[t.chassis]) tank.chassis = t.chassis;
+          });
+        }
+
         showWaitingForPlayers() {
           if (this.headless || typeof document === 'undefined') return;
           const shopEl = document.getElementById('shop');
@@ -2926,6 +2985,8 @@
           // bought in the shop has to be in place by then or the allowance
           // silently overwrites it.
           this.applyServerInventories(msg.tanks);
+          // Likewise before the reset: maxHp below reads chassisOf(tank).
+          this.applyServerTankMeta(msg.tanks);
 
           const N = this.roster.length;
           const zoneW = CONST.WORLD_W / N;
@@ -3573,6 +3634,21 @@
 
         applyMoveSync(msg) {
           if (!this.roster || !msg) return;
+          // An order for a world at rest. The server only blocks moves during
+          // ITS shot window; on a lagging client the previous shell can still
+          // be mid-air here, and driving now would walk the tank through the
+          // blast column and across ground the impact has not yet carved on
+          // this client. Same hold, same queue, same order as every other
+          // gameplay sync.
+          if (this.projectile || this.anyTankFalling() || this.pendingTurnSyncs.length) {
+            this.pendingTurnSyncs.push({ kind: 'move', msg });
+            return;
+          }
+          this.commitMoveSync(msg);
+        }
+
+        commitMoveSync(msg) {
+          if (!this.roster || !msg) return;
           const tank = this.roster.find(t => t.slot === msg.slot);
           if (!tank) return;
           this.driveTank(tank, msg.dir, msg.steps);
@@ -3580,6 +3656,16 @@
         }
 
         applyTeleportSync(msg) {
+          if (!this.roster || !msg) return;
+          // Same at-rest hold as applyMoveSync, for the same reason.
+          if (this.projectile || this.anyTankFalling() || this.pendingTurnSyncs.length) {
+            this.pendingTurnSyncs.push({ kind: 'teleport', msg });
+            return;
+          }
+          this.commitTeleportSync(msg);
+        }
+
+        commitTeleportSync(msg) {
           if (!this.roster || !msg) return;
           const tank = this.roster.find(t => t.slot === msg.slot);
           if (!tank) return;
@@ -3871,7 +3957,10 @@
               maxHp: ((p.chassis && CHASSIS[p.chassis]) || CHASSIS[DEFAULT_CHASSIS]).hp,
               angle: 45,
               power: 500,
-              cash: this.startingCash,
+              // Server-restated cash wins over the starting bankroll: a
+              // client rebuilt mid-match (refresh + rejoin) must not hand its
+              // player a fresh fortune, or lose an earned one.
+              cash: Number.isFinite(p.cash) && p.cash >= 0 ? p.cash : this.startingCash,
               // Base loadout, then whatever the server says this tank bought.
               // Round 1 has no purchases and the overlay is empty, so every
               // client builds the same kit either way.
@@ -6782,6 +6871,15 @@
                  type: 'Human', // All multiplayer players are Human or Network
                  color: t.colour,
                  slot: t.slot,
+                 // The server sends this in every tankEntry and the client
+                 // used to quietly drop it — which turned every online hull
+                 // into DEFAULT_CHASSIS: no armour scaling, no per-chassis
+                 // hp, no locomotion. start() validates it against CHASSIS.
+                 chassis: t.chassis,
+                 // Declared at SHOP_DONE, restated here, so a client rebuilt
+                 // from scratch (mid-match refresh) does not reset its owner
+                 // to startingCash and shop with money it no longer has.
+                 cash: t.cash,
                  // What this tank left the last shop holding. start() raises a
                  // shield from it before the first turn, so it has to arrive
                  // with the roster rather than being overlaid afterwards.
@@ -6807,6 +6905,15 @@
                config.net = net;
 
                gameInstance.start(config);
+
+               // A refreshed page reaching here mid-match went down the fresh
+               // start() path (no roster survived the reload), which resets
+               // currentRound to 1. The server's round number is the truth —
+               // without it the client pays itself a bogus round-1 survival
+               // bonus and mislabels every later ROUND_END.
+               if (Number.isFinite(msg.round)) {
+                 gameInstance.currentRound = msg.round;
+               }
             });
 
             btnCreate.addEventListener('click', () => {

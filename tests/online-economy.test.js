@@ -221,7 +221,12 @@ describe('Online economy across rounds', () => {
       gameOf(guest).roster[gameOf(guest).activePlayerIdx].slot,
       'both clients must open round 2 on the same slot'
     );
-    assert.strictEqual(gameOf(host).shopDoneSentForRound, 1, 'SHOP_DONE is sent once per round');
+    // CONTRACT CHANGE: the DONE guard is per-intermission now. It reads 1
+    // while the shop is open and resets when ROUND_START closes it — a guard
+    // that survived the boundary could gag a reconnecting client's re-DONE
+    // and wedge the whole room (see tests/tier1-wedges.test.js).
+    assert.strictEqual(gameOf(host).shopDoneSentForRound, null,
+      'the DONE guard must reset once the new round starts');
   });
 
   it('ends the match after the final round', async () => {
