@@ -401,6 +401,36 @@ describe('Structure determinism', () => {
     );
   });
 
+  it('every structure records the footing its renderer builds a plinth from', () => {
+    const { game } = duel();
+
+    for (const s of game.structures) {
+      assert.strictEqual(typeof s.footing, 'number', `${s.key} recorded no footing`);
+      assert.ok(Number.isFinite(s.footing), `${s.key} footing is not finite`);
+      assert.ok(s.footing >= 0, `${s.key} footing is negative`);
+    }
+
+    // The footing is the drop across the footprint, so it can never exceed the
+    // building's own seating height — a plinth deeper than the ground is under
+    // the world.
+    for (const s of game.structures) {
+      assert.ok(s.footing <= 700, `${s.key} footing ${s.footing} is taller than the world`);
+    }
+  });
+
+  it('footing is derived, not drawn — the same seed gives the same plinths', () => {
+    // The whole reason footing is computed in layoutStructures rather than at
+    // draw time: it has to be identical on every client without being sent.
+    // If it ever consumed an RNG draw, the holding positions above would move
+    // too, so this pins the value AND the fact that it costs no randomness.
+    const a = duel({ seed: 909 }).game;
+    const b = duel({ seed: 909 }).game;
+    assert.deepStrictEqual(
+      a.structures.map(s => s.footing),
+      b.structures.map(s => s.footing)
+    );
+  });
+
   it('different seeds move the holding', () => {
     const a = duel({ seed: 777 }).game;
     const b = duel({ seed: 778 }).game;

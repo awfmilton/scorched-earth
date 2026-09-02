@@ -13,6 +13,7 @@ const vm = require('vm');
 const { WebSocket } = require('ws');
 const terrainLib = require('../../lib/terrain.js');
 const structuresLib = require('../../lib/structures.js');
+const { loadKitInto } = require('./gfx-kit.js');
 
 const html = fs.readFileSync(path.join(__dirname, '..', '..', 'index.html'), 'utf8');
 const code = html.match(/<script>([\s\S]*?)<\/script>/)[1];
@@ -158,6 +159,9 @@ function bootBrowser(port) {
   ctx.globalThis = ctx;
   ctx.window.document = dom.document;
   vm.createContext(ctx);
+  // Stands in for the page's <script src="gfx/..."> tags, which this harness
+  // does not execute because it runs only the inline page script.
+  loadKitInto(ctx);
   vm.runInContext(code, ctx);
   dom.fire();
   return {

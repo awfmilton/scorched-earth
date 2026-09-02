@@ -5,6 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { loadKitInto } = require('./gfx-kit.js');
 
 const html = fs.readFileSync(path.join(__dirname, '..', '..', 'index.html'), 'utf8');
 const code = html.match(/<script>([\s\S]*?)<\/script>/)[1];
@@ -29,6 +30,9 @@ function loadScorched() {
   };
   context.globalThis = context;
   vm.createContext(context);
+  // Stands in for the page's <script src="gfx/..."> tags. A headless Game
+  // never draws, but the page script resolves the kit at load either way.
+  loadKitInto(context);
   vm.runInContext(code, context);
   return context.globalThis.SCORCHED;
 }

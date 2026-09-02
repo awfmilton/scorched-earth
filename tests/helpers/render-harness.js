@@ -15,6 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { loadKitInto } = require('./gfx-kit.js');
 
 const REPO = path.join(__dirname, '..', '..');
 
@@ -125,6 +126,11 @@ function loadScorchedFrom(html, opts = {}) {
   };
   context.globalThis = context;
   vm.createContext(context);
+  // The sprite kit stands in for the six <script src="gfx/..."> tags the page
+  // carries. It has to be in place before the page script runs, because that
+  // script resolves the kit into consts at load. Running it in-context (rather
+  // than require()ing it) keeps it inside the banRandom probe's reach.
+  loadKitInto(context);
   compileOnce(code).runInContext(context);
   return context.globalThis.SCORCHED;
 }
