@@ -565,6 +565,10 @@
             <label for="solo-name">Your Name:</label>
             <input type="text" id="solo-name" maxlength="12" value="PLAYER">
           </div>
+          <div class="form-group" id="solo-chassis-group">
+            <label for="solo-chassis">Chassis:</label>
+            <select id="solo-chassis"></select>
+          </div>
           <div class="form-group">
             <label for="solo-ai-count">AI Opponents:</label>
             <select id="solo-ai-count">
@@ -1620,6 +1624,38 @@
           // Fallback if needed
         }
       }
+
+      /**
+       * The holding is expandable. Each work is a shop purchase whose
+       * 'Structure: <id>' inventory key is replicated like any other stock
+       * (SHOP_DONE declares it, ROUND_START restates it); lib/structures.js
+       * layoutStructures() reads the counts and adds the works to the
+       * owner's zone at every round rebuild. Costs live here because they
+       * are a SHOP concern — the simulation registry stays a pure spec
+       * table. Aethercastle-only: the shop concatenates these on the AC
+       * path and classic never sees them.
+       */
+      const STRUCTURE_COSTS = {
+        'norman-castle': 5000,
+        'keep-gatehouse': 3500,
+        'aether-forge': 4500,
+        'oil-vats': 2000,
+        'portcullis': 1500,
+        'scorpion-crossbow': 3000,
+        'shield-dome': 3500,
+        'aether-radar': 2000,
+        'repair-bay': 3500,
+        'missile-silo': 7000
+      };
+      const STRUCTURE_ITEMS = (StructuresLib && StructuresLib.STRUCTURE_IDS)
+        ? StructuresLib.STRUCTURE_IDS.map(id => ({
+            id: 'Structure: ' + id,
+            name: StructuresLib.STRUCTURES[id].name + ' (Work)',
+            cost: STRUCTURE_COSTS[id] || 3000,
+            packSize: 1,
+            kind: 'structure'
+          }))
+        : [];
 
       /**
        * The Æthercastle sprite kit (gfx/*.js), resolved the way the simulation
@@ -2688,6 +2724,12 @@
           this.turnNumber = msg.turnNumber;
           this.activeShotId = null;
           this.reportedShotId = null;
+          // Mid-round wind rides the boundary frame (server-minted, like the
+          // per-shot wind on FIRE_SYNC), and must land before the drift that
+          // consumes it.
+          if (Number.isFinite(msg.wind)) {
+            this.wind = msg.wind;
+          }
           // Wind moves the airships before the new shooter takes aim. Online
           // this is the one place every client advances a turn, so applying
           // the drift here keeps all of them on the same pixel.
@@ -3113,8 +3155,21 @@
           // holding layout cannot shift wind or tank placement.
           structureRNG.seed((roundSeed ^ STRUCTURE_SEED_SALT) >>> 0);
           this.persistentTracers = [];
-          // Regenerate wind: signed horizontal acceleration, let's say between -150 and 150
-          this.wind = gameplayRNG.range(-150, 150);
+          // Regenerate wind under the match's wind policy. The stream draw
+          // ALWAYS happens, so gameplayRNG advances identically in every mode
+          // and the draws after it (tank placement) stay aligned.
+          const drawnWind = gameplayRNG.range(-150, 150);
+          const windMode = (this.config && this.config.windVariability) || 'changing-per-round';
+          if (windMode === 'none') {
+            this.wind = 0;
+          } else if (windMode === 'constant') {
+            // First round of the match banks the draw; every later round
+            // reuses it. matchWind clears in start(), so a rematch redraws.
+            if (!Number.isFinite(this.matchWind)) this.matchWind = drawnWind;
+            this.wind = this.matchWind;
+          } else {
+            this.wind = drawnWind;
+          }
 
           if (!this.headless) {
             if (this.particlePool) {
@@ -3924,6 +3979,10 @@
           // match's shop: the guard is per-intermission, not per-lifetime.
           this.shopDoneSentForRound = null;
 
+          // A 'constant' wind is constant per MATCH: forget the previous
+          // match's banked draw so the rematch mints its own.
+          this.matchWind = undefined;
+
           // Online setup must land BEFORE newRound(), because the seed decides
           // the terrain, the biome and every tank spawn position.
           if (config.isMultiplayer) {
@@ -4087,6 +4146,13 @@
           if (this.mode === 'online') {
             this.reportShotResolved();
             return;
+          }
+
+          // Mid-round wind changes at every boundary, drawn from the shared
+          // gameplay stream BEFORE the drift that consumes it. Config-gated,
+          // and config is identical everywhere, so the stream stays aligned.
+          if (this.config && this.config.windVariability === 'changing-mid-round') {
+            this.wind = gameplayRNG.range(-150, 150);
           }
 
           // Local play advances its own turn, so the drift is applied here
@@ -5746,7 +5812,8 @@
 
         buy(tank, id, packs = 1) {
           const weapon = WEAPONS.find(w => w.id === id);
-          const item = ITEMS.find(i => i.id === id);
+          const item = ITEMS.find(i => i.id === id) ||
+            STRUCTURE_ITEMS.find(i => i.id === id);
           const config = weapon || item;
           if (!config) return false;
 
@@ -5771,7 +5838,9 @@
         }
 
         sell(tank, id, itemsToSell = 1) {
-          const config = WEAPONS.find(w => w.id === id) || ITEMS.find(i => i.id === id);
+          const config = WEAPONS.find(w => w.id === id) ||
+            ITEMS.find(i => i.id === id) ||
+            STRUCTURE_ITEMS.find(i => i.id === id);
           if (!config) return false;
 
           tank.inventory = tank.inventory || {};
@@ -5993,7 +6062,11 @@
 
           const availableWeapons = this.availableWeapons();
           const isBasicOnly = this.isBasicTier();
-          const availableItems = ITEMS;
+          // Structures are an Aethercastle concern; classic's shop sells the
+          // classic catalogue only.
+          const availableItems = normaliseMode(this.gameMode) === 'aethercastle'
+            ? ITEMS.concat(STRUCTURE_ITEMS)
+            : ITEMS;
 
           // Helper to add rows
           const addRow = (itemConf) => {
@@ -6588,6 +6661,22 @@
                 `<option value="${c.value}" ${c.value === player.colour ? 'selected' : ''} style="color: ${safeColour(c.value)}; background: #000;">${escapeHtml(c.name)}</option>`
               ).join('');
 
+              // Chassis are an Aethercastle concept. The room's mode is the
+              // authority (the server rejects a chassis the mode disallows),
+              // so a classic room simply shows no picker.
+              const roomIsAC = (roomState.mode || activeMode) !== 'classic';
+              const chassisOptionsHtml = roomIsAC
+                ? Object.keys(CHASSIS).map(id =>
+                    `<option value="${id}" ${id === player.chassis ? 'selected' : ''}>${escapeHtml(CHASSIS[id].name)} — ${CHASSIS[id].hp}hp, ${escapeHtml(CHASSIS[id].locomotion)}</option>`
+                  ).join('')
+                : '';
+              const chassisRowHtml = roomIsAC
+                ? `<div class="form-group">
+                    <label>Chassis:</label>
+                    <select class="player-chassis">${chassisOptionsHtml}</select>
+                  </div>`
+                : '';
+
               row.innerHTML = `
                 <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 8px; color: ${safeColour(player.colour)};">
                   <span>PLAYER ${i + 1} (YOU) ${isHost ? '👑' : ''}</span>
@@ -6603,25 +6692,39 @@
                     ${colorOptionsHtml}
                   </select>
                 </div>
+                ${chassisRowHtml}
               `;
 
               const nameInput = row.querySelector('.player-name');
               const colorSelect = row.querySelector('.player-color');
+              const chassisSelect = row.querySelector('.player-chassis');
 
               const updateProfile = () => {
-                net.send('SET_PROFILE', { name: nameInput.value, colour: colorSelect.value });
+                const profile = { name: nameInput.value, colour: colorSelect.value };
+                // Only send what the mode supports; the field is optional on
+                // the wire and the server validates it against the room mode.
+                if (chassisSelect && CHASSIS[chassisSelect.value]) {
+                  profile.chassis = chassisSelect.value;
+                }
+                net.send('SET_PROFILE', profile);
               };
 
               nameInput.addEventListener('change', updateProfile);
               colorSelect.addEventListener('change', updateProfile);
+              if (chassisSelect) chassisSelect.addEventListener('change', updateProfile);
 
             } else {
+              const chassisLabel = ((roomState.mode || activeMode) !== 'classic' &&
+                player.chassis && CHASSIS[player.chassis])
+                ? `<div style="font-size: 12px; color: #888;">${escapeHtml(CHASSIS[player.chassis].name)}</div>`
+                : '';
               row.innerHTML = `
                 <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 8px; color: ${safeColour(player.colour)};">
                   <span>PLAYER ${i + 1} ${isHost ? '👑' : ''}</span>
                   ${!player.connected ? '<span style="color: red;">DISCONNECTED</span>' : ''}
                 </div>
                 <div style="font-size: 18px;">${escapeHtml(player.name)}</div>
+                ${chassisLabel}
               `;
             }
           } else {
@@ -6730,8 +6833,41 @@
             const soloAiCount = document.getElementById('solo-ai-count');
             const soloAiList = document.getElementById('solo-ai-list');
 
+            // AI seats get a chassis by PROFILE — a fixed map, not a random
+            // draw, so the opponent's silhouette telegraphs its behaviour.
+            const AI_CHASSIS = {
+              Poolshark: 'brass-plated-tank',
+              Cyborg: 'airship-platform',
+              Shooter: 'walker-mech',
+              Moron: 'scout-drone'
+            };
+
+            function renderSoloChassisPicker() {
+              const group = document.getElementById('solo-chassis-group');
+              const select = document.getElementById('solo-chassis');
+              if (!group || !select) return;
+              // Chassis are an Aethercastle concept; the classic replica
+              // fields the one original tank and shows no picker.
+              if (activeMode === 'classic') {
+                group.hidden = true;
+                return;
+              }
+              group.hidden = false;
+              const previous = select.value;
+              select.innerHTML = '';
+              Object.keys(CHASSIS).forEach(id => {
+                const opt = document.createElement('option');
+                opt.value = id;
+                const spec = CHASSIS[id];
+                opt.textContent = spec.name + ' — ' + spec.hp + 'hp, ' + spec.locomotion;
+                select.appendChild(opt);
+              });
+              if (previous && CHASSIS[previous]) select.value = previous;
+            }
+
             function renderSoloAiList() {
               if (!soloAiList) return;
+              renderSoloChassisPicker();
               const count = soloAiCount ? (parseInt(soloAiCount.value, 10) || 2) : 2;
               soloAiList.innerHTML = '';
               for (let i = 0; i < count; i++) {
@@ -6805,11 +6941,16 @@
                 const humanName = (nameEl && nameEl.value.trim()) || 'PLAYER';
                 const count = soloAiCount ? (parseInt(soloAiCount.value, 10) || 2) : 2;
 
+                // Chassis only ride along in Aethercastle; classic seats the
+                // one original hull and start() defaults it.
+                const isAC = activeMode !== 'classic';
+                const chassisEl = document.getElementById('solo-chassis');
                 const players = [{
                   name: humanName.toUpperCase().slice(0, 12),
                   type: 'Human',
                   color: paletteFor(activeMode)[0].value,
-                  slot: 0
+                  slot: 0,
+                  chassis: (isAC && chassisEl && CHASSIS[chassisEl.value]) ? chassisEl.value : undefined
                 }];
                 for (let i = 0; i < count; i++) {
                   const sel = document.getElementById('solo-ai-' + i);
@@ -6818,7 +6959,8 @@
                     name: 'CPU ' + (i + 1) + ' (' + type.toUpperCase() + ')',
                     type,
                     color: paletteFor(activeMode)[(i + 1) % paletteFor(activeMode).length].value,
-                    slot: i + 1
+                    slot: i + 1,
+                    chassis: isAC ? AI_CHASSIS[type] : undefined
                   });
                 }
 
@@ -7119,6 +7261,7 @@
         Terrain,
         WEAPONS,
         ITEMS,
+        STRUCTURE_ITEMS,
         SHIELD_TYPES,
         SHIELD_PRIORITY,
         PROXIMITY_FUSE_RADIUS,
