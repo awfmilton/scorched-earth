@@ -7,6 +7,12 @@ const { C2S, ERRORS, validate } = require('./lib/protocol.js');
 
 // A client frame larger than this is refused before it is parsed.
 const MAX_PAYLOAD_BYTES = 4096;
+// Flood control, per connection: a rolling window with a message budget,
+// plus a much tighter budget for JOIN_ROOM so 4-letter room codes cannot be
+// brute-forced through one socket.
+const RATE_WINDOW_MS = 10000;
+const MAX_MESSAGES_PER_WINDOW = 120;
+const MAX_JOINS_PER_WINDOW = 8;
 // Ping every client on this cadence; a client that misses a whole cycle is half-open.
 const HEARTBEAT_INTERVAL_MS = 30000;
 // Sweep abandoned and stale rooms on this cadence.
@@ -21,6 +27,13 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon'
 };
+
+// Only the files the game client actually loads are served. The resolver
+// used to serve ANY file under the repo root — .git/, .claude/, docs,
+// salvage files — to anyone who asked for it by name; on the live host that
+// meant the whole repository was publicly downloadable. The traversal
+// checks below still run, but the allowlist is the real gate.
+const STATIC_ALLOWLIST = /^\/(index\.html|favicon\.ico|lib\/[\w-]+\.js|gfx\/[\w-]+\.js)$/;
 
 function createServer() {
   return http.createServer((req, res) => {
@@ -67,6 +80,12 @@ function createServer() {
     // Default to index.html for root or index.html requests
     if (reqPath === '/' || reqPath === '/index.html') {
       reqPath = '/index.html';
+    }
+
+    if (!STATIC_ALLOWLIST.test(reqPath)) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not Found');
+      return;
     }
 
     // Resolve absolute path and verify it doesn't escape __dirname
@@ -179,6 +198,13 @@ function attachWebSocketServer(httpServer, options = {}) {
     // An errored socket never reliably emits 'close' first — clean up here too.
     ws.on('error', handleClose);
 
+    // Flood control state, per socket. Reconnecting resets it, which is
+    // fine: the cost of a reconnect (TCP + upgrade) already dwarfs the
+    // budget it buys back.
+    ws.rateWindowStart = 0;
+    ws.rateCount = 0;
+    ws.joinCount = 0;
+
     ws.on('message', (raw, isBinary) => {
       if (isBinary) {
         sendError(connectionId, ERRORS.BAD_MESSAGE, 'Binary frames are not accepted');
@@ -188,6 +214,23 @@ function attachWebSocketServer(httpServer, options = {}) {
       // Size is checked on the raw bytes, before any parse work is done.
       if (raw.length > maxPayloadBytes) {
         sendError(connectionId, ERRORS.BAD_MESSAGE, 'Payload too large');
+        return;
+      }
+
+      // Rolling-window flood control, before any parse work: one hot socket
+      // must not get free JSON parsing at line rate, and JOIN_ROOM gets a
+      // far tighter budget so room codes cannot be enumerated.
+      const now = Date.now();
+      if (now - ws.rateWindowStart > RATE_WINDOW_MS) {
+        ws.rateWindowStart = now;
+        ws.rateCount = 0;
+        ws.joinCount = 0;
+      }
+      ws.rateCount++;
+      if (ws.rateCount > MAX_MESSAGES_PER_WINDOW) {
+        if (ws.rateCount === MAX_MESSAGES_PER_WINDOW + 1) {
+          sendError(connectionId, ERRORS.RATE_LIMITED, 'Slow down');
+        }
         return;
       }
 
@@ -209,6 +252,14 @@ function attachWebSocketServer(httpServer, options = {}) {
       if (!Object.values(C2S).includes(msg.type)) {
         sendError(connectionId, ERRORS.BAD_MESSAGE, `Not a client message type: ${msg.type}`);
         return;
+      }
+
+      if (msg.type === C2S.JOIN_ROOM) {
+        ws.joinCount++;
+        if (ws.joinCount > MAX_JOINS_PER_WINDOW) {
+          sendError(connectionId, ERRORS.RATE_LIMITED, 'Too many join attempts');
+          return;
+        }
       }
 
       if (onMessage) onMessage({ connectionId, msg, send, broadcast });
@@ -360,4 +411,12 @@ if (require.main === module) {
   });
 }
 
-module.exports = { createServer, attachWebSocketServer, MAX_PAYLOAD_BYTES, createRoomManagerHandlers };
+module.exports = {
+  createServer,
+  attachWebSocketServer,
+  MAX_PAYLOAD_BYTES,
+  RATE_WINDOW_MS,
+  MAX_MESSAGES_PER_WINDOW,
+  MAX_JOINS_PER_WINDOW,
+  createRoomManagerHandlers
+};

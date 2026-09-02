@@ -1703,7 +1703,8 @@
         NOT_HOST: 'Only the host can start the game.',
         NOT_ENOUGH_PLAYERS: 'Not enough players to start.',
         COLOUR_TAKEN: 'That colour is already taken.',
-        BAD_MESSAGE: 'The server rejected that message.'
+        BAD_MESSAGE: 'The server rejected that message.',
+        RATE_LIMITED: 'Too many requests — slow down a moment.'
       };
 
       // handleError() emits two different shapes: a flat server ERROR frame
@@ -2570,6 +2571,12 @@
           }
           if (this.projectile || this.anyTankFalling() || this.pendingTurnSyncs.length) {
             this.pendingTurnSyncs.push({ kind: 'fire', msg });
+            // Drain immediately if the world is actually at rest (the hold
+            // may be nothing but an already-drainable queue). The physics
+            // step remains the drain site for the in-flight case; this just
+            // removes the dependency on a frame tick that a backgrounded or
+            // starved tab may not get for seconds.
+            this.flushPendingTurnSync();
             return;
           }
           this.commitFireSync(msg);
@@ -2710,6 +2717,7 @@
            */
           if (this.projectile || this.anyTankFalling() || this.pendingTurnSyncs.length) {
             this.pendingTurnSyncs.push({ kind: 'turn', msg });
+            this.flushPendingTurnSync(); // see applyFireSync
             return;
           }
 
@@ -3724,6 +3732,7 @@
           // gameplay sync.
           if (this.projectile || this.anyTankFalling() || this.pendingTurnSyncs.length) {
             this.pendingTurnSyncs.push({ kind: 'move', msg });
+            this.flushPendingTurnSync(); // see applyFireSync
             return;
           }
           this.commitMoveSync(msg);
@@ -3742,6 +3751,7 @@
           // Same at-rest hold as applyMoveSync, for the same reason.
           if (this.projectile || this.anyTankFalling() || this.pendingTurnSyncs.length) {
             this.pendingTurnSyncs.push({ kind: 'teleport', msg });
+            this.flushPendingTurnSync(); // see applyFireSync
             return;
           }
           this.commitTeleportSync(msg);
