@@ -2756,6 +2756,14 @@
           const matchOver = !msg || msg.matchOver === undefined ? true : msg.matchOver;
           this.matchOver = matchOver;
 
+          // Every ROUND_END legitimately (re)opens the shop — including the
+          // one the server re-sends to a player who reconnected mid-shop. The
+          // per-intermission DONE guard resets with it, so that player's
+          // second DONE actually goes to the wire (the server's SHOP_DONE is
+          // a Set.add and dedupes resends); without this reset the guard ate
+          // the resend and the whole room waited on them forever.
+          this.shopDoneSentForRound = null;
+
           if (this.headless) return;
           if (matchOver) {
             this.showMatchSummary();
@@ -2900,6 +2908,8 @@
         // progression the shop just bought.
         applyServerRoundStart(msg) {
           this.currentRound = Number.isFinite(msg.round) ? msg.round : (this.currentRound || 1) + 1;
+          // The intermission is over; whatever DONE state it held is spent.
+          this.shopDoneSentForRound = null;
           if (Number.isFinite(msg.totalRounds)) this.rounds = msg.totalRounds;
           if (Array.isArray(msg.turnOrder)) this.turnOrder = msg.turnOrder.slice();
           this.matchOver = false;
@@ -3796,6 +3806,10 @@
           // swallow this match's first TURN_SYNC or apply a dead one.
           this.turnNumber = null;
           this.pendingTurnSyncs = [];
+
+          // A DONE sent in the PREVIOUS match's intermission must not gag this
+          // match's shop: the guard is per-intermission, not per-lifetime.
+          this.shopDoneSentForRound = null;
 
           // Online setup must land BEFORE newRound(), because the seed decides
           // the terrain, the biome and every tank spawn position.
@@ -5984,10 +5998,30 @@
           restartBtn.style.transition = 'background 0.2s';
 
           restartBtn.addEventListener('click', () => {
-            // Hide shop
             shopEl.hidden = true;
-            // Show setup modal
+
+            // A finished ONLINE room is a dead end server-side: its phase is
+            // 'ended' and nothing transitions it back to 'lobby', so START
+            // GAME from its stale lobby can only ever be rejected. Tear the
+            // session down instead — forget the token, reconnect for a fresh
+            // connectionId (which also lets the server sweep the ended room),
+            // and land on the entry view.
+            if (this.mode === 'online') {
+              try { sessionStorage.removeItem('scorched_session'); } catch (e) {}
+              if (this.net) this.net.connect();
+            }
+
+            // Land on the entry view with every sub-view in a known state.
+            // PLAY AGAIN used to show #setup with whatever sub-view was last
+            // visible — a dead lobby after an online match, or nothing at all
+            // after solo (every sub-view hidden).
             const setupEl = document.getElementById('setup');
+            const landing = document.getElementById('landing-view');
+            const lobby = document.getElementById('lobby-view');
+            const solo = document.getElementById('solo-view');
+            if (lobby) lobby.hidden = true;
+            if (solo) solo.hidden = true;
+            if (landing) landing.hidden = false;
             if (setupEl) setupEl.hidden = false;
           });
 

@@ -50,8 +50,18 @@ function createServer() {
       return;
     }
 
-    // Parse URL and clean/normalize pathname
-    const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    // Parse only the request path against a fixed base. The Host header is
+    // attacker-controlled and `new URL` throws on malformed values
+    // (`Host: foo bar` is accepted by Node's parser), which used to escape
+    // this handler as an uncaught exception and kill the whole process.
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(req.url, 'http://localhost');
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.end('Bad Request');
+      return;
+    }
     let reqPath = parsedUrl.pathname;
 
     // Default to index.html for root or index.html requests
@@ -127,7 +137,11 @@ function attachWebSocketServer(httpServer, options = {}) {
     heartbeatIntervalMs = HEARTBEAT_INTERVAL_MS
   } = options;
 
-  const wss = new WebSocketServer({ server: httpServer });
+  // Hard cap at the protocol layer: ws refuses to buffer a frame larger
+  // than this (1009 close) instead of allocating it, so a hostile 100MiB
+  // frame never reaches memory. Kept well above maxPayloadBytes so the
+  // polite in-band error below still answers merely-oversized frames.
+  const wss = new WebSocketServer({ server: httpServer, maxPayload: 64 * 1024 });
   const clients = new Map(); // connectionId -> ws
 
   function send(connectionId, msg) {
