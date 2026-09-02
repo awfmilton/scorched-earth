@@ -4466,7 +4466,20 @@
           // kills are paid and ranked, and nuking your own hull must not
           // climb the scoreboard.
           if (prevHp > 0 && tank.hp <= 0) {
-            if (!this.headless && typeof sfx === 'function') sfx('death');
+            if (!this.headless) {
+              if (typeof sfx === 'function') sfx('death');
+              // The hull itself pops. Blast deaths already read clearly from
+              // the chain-reaction explosion, but a napalm burn or a fall
+              // used to end with the tank simply vanishing — every death now
+              // leaves the same render-only burst at the hull.
+              if (this.explosions) {
+                this.explosions.push({
+                  x: tank.x, y: tank.y - 3,
+                  maxRadius: 24, currentRadius: 0,
+                  life: 0.5, maxLife: 0.5
+                });
+              }
+            }
             if (shooter && shooter !== tank) {
               shooter.kills = (shooter.kills || 0) + 1;
             }
@@ -4524,8 +4537,10 @@
             if (this.explosions) {
               // A nuke-family burst needs longer on screen than a shell burst
               // for the cloud to read. The timer is per-entry, so this changes
-              // no shared constant.
-              const life = isNukeFamily(opts.weapon) ? 1 : 0.5;
+              // no shared constant — and it is Aethercastle-only, because the
+              // classic replica's burst timing is part of the replica.
+              const life = (isNukeFamily(opts.weapon) &&
+                normaliseMode(this.gameMode) === 'aethercastle') ? 1 : 0.5;
               this.explosions.push({
                 x: x,
                 y: y,
@@ -4677,6 +4692,7 @@
             if (!this.headless) {
               sfx('explode', { radius });
               this.spawnCraterEffects(x, y, radius);
+              this.pushKindBurst(x, y, radius, wp);
             }
           } else if (kind === 'riot') {
             // Clears dirt with no BLAST damage — deliberately routed around
@@ -4687,6 +4703,7 @@
             if (!this.headless) {
               sfx('explode', { radius });
               this.spawnCraterEffects(x, y, radius);
+              this.pushKindBurst(x, y, radius, wp);
             }
           } else if (kind === 'plasma') {
             // Energy blast: huge damage radius, terrain left intact.
@@ -4741,6 +4758,7 @@
             }
             if (!this.headless) {
               sfx('explode', { radius: 50 });
+              this.pushKindBurst(x, y, 50, wp);
             }
           } else if (isTracer(wp)) {
             // Tracers deal exactly zero damage and zero blast
@@ -4817,6 +4835,28 @@
           if (this.config && typeof this.config.onImpact === 'function') {
             this.config.onImpact(x, y);
           }
+        }
+
+        /**
+         * Render-only burst for the detonations that bypass explosion() —
+         * the dirt deposit, the riot carve and Sandstorm. Their kit tiers
+         * (soil fountain, acid puff) were finished art that no code path
+         * could ever reach, because only explosion() pushed burst entries.
+         * Aethercastle-only: the classic replica's dirt-family visuals are
+         * its crater particles, exactly as the golden build drew them.
+         */
+        pushKindBurst(x, y, radius, weaponId) {
+          if (this.headless || !this.explosions) return;
+          if (normaliseMode(this.gameMode) !== 'aethercastle') return;
+          this.explosions.push({
+            x: x,
+            y: y,
+            maxRadius: radius,
+            currentRadius: 0,
+            life: 0.5,
+            maxLife: 0.5,
+            weapon: weaponId
+          });
         }
 
         anyTankFalling() {
@@ -5413,7 +5453,18 @@
                         proj.x = tank.x + nx * 12.5;
                         proj.y = (tank.y - 6) + ny * 12.5;
                         tank.shield.hp -= 50;
-                        if (!this.headless) sfx('bounce');
+                        if (!this.headless) {
+                          sfx('bounce');
+                          // The 50hp the field just paid is real damage the
+                          // player needs to see — a silent chip left shields
+                          // dying with no visible cause.
+                          if (this.damageNumbers) {
+                            this.damageNumbers.push({
+                              x: tank.x, y: tank.y - 20,
+                              text: '50', color: THEME.shieldCharge, life: 45
+                            });
+                          }
+                        }
                         if (tank.shield.hp <= 0) {
                           tank.shield = null;
                           this.raiseAutoDefenseShield(tank);

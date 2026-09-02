@@ -28,12 +28,20 @@
 
   function familyOf(weaponId) {
     var id = weaponId || '';
+    // 'Liquid Dirt Particle' carries BOTH marker words; dirt must win — it
+    // is soil in flight, not a fire ember.
+    if (id.indexOf('Liquid Dirt') !== -1) return 'dirt';
     if (id.indexOf('Particle') !== -1) return 'particle';
     if (id.indexOf('Meganuke') !== -1 || id === 'Nuke' || id === 'Baby Nuke') return 'nuke';
     if (id.indexOf('Roller') !== -1) return 'roller';
-    if (id.indexOf('Dirt') !== -1 || id.indexOf('Sandstorm') !== -1 || id.indexOf('Sandhog') !== -1) return 'dirt';
+    // Diggers and the Sandhog burrow: they get the drill-bit sprite, and
+    // before this they fell through to the generic missile, drawn pointing
+    // along a velocity that means nothing once the round is underground.
+    if (id.indexOf('Digger') !== -1 || id.indexOf('Sandhog') !== -1) return 'digger';
+    if (id.indexOf('Dirt') !== -1 || id.indexOf('Sandstorm') !== -1) return 'dirt';
     if (id.indexOf('Napalm') !== -1) return 'napalm';
     if (id.indexOf('Tracer') !== -1) return 'tracer';
+    if (id.indexOf('LeapFrog') !== -1) return 'hopper';
     if (id.indexOf('MIRV') !== -1 || id.indexOf("Death's Head") !== -1 || id.indexOf('Cluster') !== -1 || id.indexOf('Funky') !== -1) return 'cluster';
     if (id.indexOf('Plasma') !== -1 || id.indexOf('Laser') !== -1 || id.indexOf('Disrupter') !== -1) return 'exotic';
     if (id.indexOf('Riot') !== -1) return 'riot';
@@ -93,6 +101,42 @@
           ctx.fillStyle = theme.fire500;
           ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fill();
           ACG.px(ctx, p.x - 1, p.y - 4, 2, 2, theme.fire400);
+        });
+        break;
+      }
+      case 'digger': {
+        // Drill round: a steel cone pointing along travel with brass thread
+        // ticks, keyed off p.y so the thread appears to spin as it burrows.
+        ctx.translate(p.x, p.y);
+        ctx.rotate(a + Math.PI / 2);
+        ctx.fillStyle = theme.stone400;
+        ctx.beginPath();
+        ctx.moveTo(-2.5, -1); ctx.lineTo(2.5, -1); ctx.lineTo(0, 5);
+        ctx.closePath(); ctx.fill();
+        ACG.px(ctx, -2.5, -4, 5, 3, theme.stone500);
+        var thread = Math.floor(p.y) % 3;
+        ACG.px(ctx, -2, -1 + thread, 4, 1, theme.brass500);
+        ACG.glow(ctx, theme.brass500, 3, function () {
+          ACG.px(ctx, -1, 4, 2, 1, theme.brass400);
+        });
+        break;
+      }
+      case 'hopper': {
+        // LeapFrog: a coiled brass spring under a squat shell — the coil
+        // compression keys off p.x so it pulses as the round travels.
+        var squeeze = (Math.floor(p.x) % 4 < 2) ? 0 : 1;
+        ctx.fillStyle = theme.stone400;
+        ctx.beginPath(); ctx.arc(p.x, p.y - 2, 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = theme.brass500;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(p.x - 2, p.y + 3 - squeeze);
+        ctx.lineTo(p.x + 2, p.y + 2 - squeeze);
+        ctx.moveTo(p.x - 2, p.y + 1 - squeeze);
+        ctx.lineTo(p.x + 2, p.y - squeeze);
+        ctx.stroke();
+        ACG.glow(ctx, theme.violet500, 3, function () {
+          ACG.px(ctx, p.x - 1, p.y - 3, 2, 2, theme.violet500);
         });
         break;
       }

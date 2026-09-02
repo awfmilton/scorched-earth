@@ -79,9 +79,12 @@ test('the burst sprite is chosen by the weapon that fired it', () => {
   const theme = SCORCHED.themeFor('aethercastle');
   const ACWeapons = require('../gfx/ac-weapons.js');
 
-  // One representative per burst tier. These are drawn from the same centre,
-  // radius and life, so anything that differs is the tier selection working.
-  const tiers = ['Missile', 'Nuke', 'Plasma Blast', 'Napalm', 'Riot Charge', 'Dirt Charge'];
+  // One representative per burst tier, every one of them a REAL registry id
+  // ('Dirt Charge' used to sit here — a phantom id that happened to match
+  // the dirt tier's substring, proving nothing about the live game). These
+  // are drawn from the same centre, radius and life, so anything that
+  // differs is the tier selection working.
+  const tiers = ['Missile', 'Nuke', 'Plasma Blast', 'Napalm', 'Riot Charge', 'Dirt Bomb'];
   const seen = new Map();
 
   for (const weapon of tiers) {

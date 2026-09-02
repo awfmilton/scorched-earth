@@ -46,11 +46,30 @@
     for (var by = 0; by < H; by += 9) {
       ACG.px(ctx, 0, by, W, 2, (by / 9) % 2 ? bandC1 : bandC2);
     }
-    ACG.dither(ctx, 0, 0, W, H, ACG.mix(ramp.core, ramp.crust, 0.3), 0.035, 2, 11);
-    ACG.dither(ctx, 0, 0, W, H, ACG.shade(ramp.core, 0.35), 0.04, 2, 23);
+    // Speckle only the rows that can contain ground. The clip above hides
+    // anything over the surface anyway, so hashing the whole 1200x700 rect
+    // spent roughly half the pass on cells that could never draw. Starting
+    // on an even row keeps every surviving cell on the same (cx, cy) hash
+    // lattice as before — the visible pattern is unchanged.
+    var peak = 0;
+    for (var ph = 0; ph < N; ph++) {
+      if (heights[ph] > peak) peak = heights[ph];
+    }
+    var groundTop = Math.max(0, Math.floor((H - peak) / 2) * 2 - 2);
+    ACG.dither(ctx, 0, groundTop, W, H - groundTop, ACG.mix(ramp.core, ramp.crust, 0.3), 0.035, 2, 11);
+    ACG.dither(ctx, 0, groundTop, W, H - groundTop, ACG.shade(ramp.core, 0.35), 0.04, 2, 23);
 
-    // Buried aether veins: rare 2px seams of dim magenta deep in the rock.
-    ACG.dither(ctx, 0, H * 0.55, W, H * 0.45, 'rgba(213,0,127,0.16)', 0.012, 2, 41);
+    // Buried aether veins: rare 2px seams of dim glow deep in the rock.
+    // The hue comes from the live ramp's glow (an rgba string — ACG.mix is
+    // hex-only, so the channels are lifted directly) at the vein's own
+    // alpha, so a retuned or added biome keeps its veins on-theme. The
+    // literal is only the fallback for a glow that fails to parse.
+    var veinColour = 'rgba(213,0,127,0.16)';
+    if (ramp.glow) {
+      var gm = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(ramp.glow);
+      if (gm) veinColour = 'rgba(' + gm[1] + ',' + gm[2] + ',' + gm[3] + ',0.16)';
+    }
+    ACG.dither(ctx, 0, Math.max(H * 0.55, groundTop), W, H * 0.45, veinColour, 0.012, 2, 41);
 
     // Crust band: an 8px-thick lit layer hugging the surface, then a 3px
     // darker transition under it. Drawn by re-stroking the surface polyline

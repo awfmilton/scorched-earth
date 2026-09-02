@@ -23,11 +23,15 @@
     if (!ctx || !ramp) return;
 
     // Banded sky: 8 hard steps instead of a smooth gradient — the pixel-art
-    // read — darkest at the top.
+    // read — darkest at the top. Band edges land on whole pixels: a
+    // fractional fillRect edge antialiases the seam row into a blend colour
+    // that softens exactly the hard step the bands exist for.
     var bands = 8;
     for (var b = 0; b < bands; b++) {
       var c = ACG.mix(ramp.sky, ramp.skyLow, b / (bands - 1));
-      ACG.px(ctx, 0, (H / bands) * b, W, H / bands + 1, c);
+      var top = Math.round((H / bands) * b);
+      var next = Math.round((H / bands) * (b + 1));
+      ACG.px(ctx, 0, top, W, (next - top) + 1, c);
     }
 
     // Starfield: sparse single pixels in the upper 55%, brighter ones rare.
@@ -72,6 +76,9 @@
 
     // Far ridge: a low silhouette band above the playfield midline, in a
     // colour between sky and ground so it sits behind everything.
+    // Drawn through ACG.sin — the engine's deterministic pair — so two
+    // clients on engines whose Math.sin differs in the last bit paint the
+    // ridge on the same pixel. setTrig() fills these in at page load.
     var ridgeC = ACG.mix(ramp.skyLow, ramp.core, 0.55);
     var baseY = H * 0.52;
     ctx.fillStyle = ridgeC;
@@ -80,9 +87,9 @@
     for (var x = 0; x <= W; x += 8) {
       var t = x / W;
       var y = baseY
-        + Math.sin(t * 9.2) * 14
-        + Math.sin(t * 23.7 + 2) * 7
-        + Math.sin(t * 3.1 + 5) * 22;
+        + ACG.sin(t * 9.2) * 14
+        + ACG.sin(t * 23.7 + 2) * 7
+        + ACG.sin(t * 3.1 + 5) * 22;
       ctx.lineTo(x, y);
     }
     ctx.lineTo(W, H * 0.62);
@@ -91,7 +98,7 @@
 
     // Ruined keep silhouette on the ridge: two broken towers and a wall,
     // one faint cyan window lit — the world beyond the battlefield.
-    var kx = W * 0.31, ky = baseY + Math.sin(0.31 * 9.2) * 14 + Math.sin(0.31 * 23.7 + 2) * 7 + Math.sin(0.31 * 3.1 + 5) * 22;
+    var kx = W * 0.31, ky = baseY + ACG.sin(0.31 * 9.2) * 14 + ACG.sin(0.31 * 23.7 + 2) * 7 + ACG.sin(0.31 * 3.1 + 5) * 22;
     ACG.px(ctx, kx - 20, ky - 18, 8, 18, ridgeC);
     ACG.px(ctx, kx + 10, ky - 24, 9, 24, ridgeC);
     ACG.px(ctx, kx - 14, ky - 10, 26, 10, ridgeC);
