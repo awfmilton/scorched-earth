@@ -528,7 +528,7 @@
 </head>
 <body>
   <div id="hud"></div>
-  <canvas id="game"></canvas>
+  <canvas id="game" role="img" aria-label="Scorched Earth battlefield"></canvas>
   <!--
     Shown while this client is sitting a round out after reconnecting. The
     board below it is rebuilt from the round seed and will NOT match what the
@@ -750,7 +750,7 @@
         <button id="start-btn" hidden>START GAME</button>
       </div>
 
-      <div id="error-msg" class="error-msg"></div>
+      <div id="error-msg" class="error-msg" role="alert" aria-live="assertive"></div>
     </div>
   </div>
   <div id="shop" hidden></div>
@@ -1585,15 +1585,59 @@
         }
       }
 
+      // True while the event target is somewhere the player is TYPING —
+      // global single-key shortcuts must not fire from inside a name field.
+      function isTypingTarget(e) {
+        const t = e && e.target;
+        if (!t || !t.tagName) return false;
+        const tag = t.tagName.toUpperCase();
+        return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable === true;
+      }
+
+      function showMuteIndicator() {
+        if (typeof document === 'undefined') return;
+        let el = document.getElementById('mute-indicator');
+        if (!el) {
+          el = document.createElement('div');
+          el.id = 'mute-indicator';
+          el.setAttribute('aria-live', 'polite');
+          el.style.cssText = 'position:fixed;top:10px;right:10px;z-index:99;'
+            + 'padding:4px 10px;background:rgba(0,0,0,0.7);color:#ffd166;'
+            + 'font-family:monospace;font-size:13px;letter-spacing:1px;'
+            + 'border:1px solid #444;pointer-events:none;';
+          document.body.appendChild(el);
+        }
+        el.textContent = isMuted ? '🔇 MUTED — M to unmute' : '';
+        el.hidden = !isMuted;
+      }
+
       if (typeof window !== 'undefined') {
         window.addEventListener('keydown', (e) => {
+          // Typing a name with an M in it used to silence the game.
+          if (isTypingTarget(e)) return;
           if (e.key === 'm' || e.key === 'M') {
             isMuted = !isMuted;
             if (masterGain && audioCtx) {
               masterGain.gain.setValueAtTime(isMuted ? 0 : 1, audioCtx.currentTime);
             }
+            // The toggle used to be invisible: no indicator, so a muted
+            // game just read as broken audio.
+            showMuteIndicator();
           }
         });
+
+        // Browsers gesture-lock the AudioContext. If the FIRST sfx arrives
+        // over the wire (a remote player's shot) before any local gesture,
+        // audioCtx.resume() inside sfx() is refused and stays refused. The
+        // first real gesture unlocks it for good.
+        const unlockAudio = () => {
+          initAudio();
+          if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {});
+          }
+        };
+        window.addEventListener('pointerdown', unlockAudio, { once: true });
+        window.addEventListener('keydown', unlockAudio, { once: true });
       }
 
       let TerrainLib;
@@ -2231,16 +2275,6 @@
        * diffed against a recording of the pre-visualisation build.
        */
 
-      // A destroyed work: a low broken mound where the building stood. Keeps
-      // the footprint readable so a player can still see what they knocked
-      // down and where the ground is no longer blocked.
-      //
-      // Structures exist only in Aethercastle (structuresAllowedIn('classic')
-      // is empty), so this delegates wholesale rather than branching on mode.
-      function drawRubble(ctx, left, groundY, w, h, theme) {
-        ACStructures.drawRubbleAC(ctx, left, groundY, w, h, theme);
-      }
-
       /**
        * Draw one structure.
        *
@@ -2425,6 +2459,8 @@
 
         setupInput() {
           window.addEventListener('keydown', (e) => {
+            // Never steal keys from a text field (lobby name, join code).
+            if (isTypingTarget(e)) return;
             if (!this.roster || this.activePlayerIdx === undefined) return;
             const activeTank = this.roster[this.activePlayerIdx];
             if (!activeTank || activeTank.hp <= 0 || activeTank.type !== 'Human') return;
@@ -2470,6 +2506,8 @@
             }
 
             if (changed) {
+              // A handled aim key must not also scroll the page.
+              e.preventDefault();
               this.updateHUD();
             }
           });

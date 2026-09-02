@@ -115,3 +115,22 @@ test('an unknown weapon still bursts rather than throwing', () => {
     assert.ok(rec.__log.length > 0, `weapon ${String(weapon)} drew nothing`);
   }
 });
+
+test('the kit publishes exactly the six contracted globals and nothing more', () => {
+  // Acceptance item from gfx/PROMPT.md: "No new globals besides ACG, ACSky,
+  // ACTerrain, ACChassis, ACStructures, ACWeapons." This is the test that
+  // item never had: a fresh window, the kit loaded the way the page loads
+  // it, and an exact key-set comparison.
+  const vm = require('node:vm');
+  const { loadKitInto } = require('./helpers/gfx-kit.js');
+
+  const context = { window: {}, console };
+  context.globalThis = context;
+  vm.createContext(context);
+  loadKitInto(context);
+
+  const published = Object.keys(context.window).sort();
+  assert.deepStrictEqual(published,
+    ['ACChassis', 'ACG', 'ACSky', 'ACStructures', 'ACTerrain', 'ACWeapons'],
+    `kit published: ${published.join(', ')}`);
+});

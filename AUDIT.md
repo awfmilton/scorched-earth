@@ -1,5 +1,16 @@
 # Scorched Earth — Gap Audit vs. the Classic Game
 
+> **⚠ RELIABILITY NOTICE (2026-09-02).** This document's status column was
+> bulk-rewritten by an automated pass (`scripts/update_audit.py`, since
+> removed) that flipped every row to DONE over justifications that
+> contradict several of them — e.g. "AI filling empty multiplayer slots —
+> DONE" describes a feature that has never existed (solo-vs-AI exists;
+> server-side slot backfill does not). Treat the prose analysis below as the
+> historical audit it was and the status column as unreliable. The
+> 2026-09-02 review-worklist branch re-verified the live gaps and closed
+> them in tiers; see that branch's commit messages and the tests/tier*.test.js
+> suites for the current ground truth.
+
 Audited 2026-08-22 against `index.html` (3729 lines), `server.js`, `lib/room-manager.js`.
 Baseline at audit time: 139 tests, 137 pass, 2 browser-env skips, 0 fail. Live and byte-current
 at https://scorched-earth.kodex.tbay.tk, `scripts/verify-deployed.mjs` 17/17.
