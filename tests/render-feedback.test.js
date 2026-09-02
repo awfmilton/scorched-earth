@@ -53,25 +53,22 @@ test('turret bolts draw an attribution line from turret head to victim', () => {
 test('a turret volley records a bolt on a drawing client and nothing on a headless one', () => {
   const SCORCHED = loadScorched();
   const StructuresLib = require('../lib/structures.js');
-  const spec = StructuresLib.STRUCTURES && StructuresLib.STRUCTURES['scorpion-nest'];
-  if (!spec || !spec.turret) {
-    // Registry id moved — the other tests still cover the draw pass.
-    return;
-  }
+  const spec = StructuresLib.STRUCTURES['scorpion-crossbow'];
+  assert.ok(spec && spec.turret, 'scorpion-crossbow must exist and carry a turret');
 
   // Drawing client: force a standing scorpion next to an enemy and run the
   // turn-boundary pass. The sim outcome (the explosion) is exercised by the
   // structures suites; here we only care that the volley left a visible trace.
   const game = renderableGame(SCORCHED);
   const [a, b] = game.roster;
-  game.structures = [{ id: 'scorpion-nest', hp: 60, owner: a.slot, ownerIdx: 0, x: b.x - 50, y: 400, cooldown: 0 }];
+  game.structures = [{ key: 'scorpion-crossbow', hp: 60, owner: a.slot, ownerIdx: 0, x: b.x - 50, y: 400, cooldown: 0 }];
   game.applyStructureTurnEffects();
   assert.ok(game.turretBolts && game.turretBolts.length > 0, 'no bolt recorded for a live volley');
 
   // Headless twin of the same scenario stays clean — bolts are render-only.
   const head = renderableGame(SCORCHED);
   head.headless = true;
-  head.structures = [{ id: 'scorpion-nest', hp: 60, owner: head.roster[0].slot, ownerIdx: 0, x: head.roster[1].x - 50, y: 400, cooldown: 0 }];
+  head.structures = [{ key: 'scorpion-crossbow', hp: 60, owner: head.roster[0].slot, ownerIdx: 0, x: head.roster[1].x - 50, y: 400, cooldown: 0 }];
   head.applyStructureTurnEffects();
   assert.ok(!head.turretBolts || head.turretBolts.length === 0, 'headless client grew render state');
 });

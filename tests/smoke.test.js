@@ -1600,7 +1600,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
 
       // Assert: onImpact fired
       assert.strictEqual(onImpactCalled, true, 'Expected onImpact to be called on flight lifetime timeout');
-      assert.strictEqual(game.lastShooterIdx, 0, 'Expected shooterIdx to be 0');
+      // (lastShooterIdx was retired: it fed stale kill credit for fall
+      // deaths. Attribution now travels only inside the impact call chain.)
 
       // Assert: a fired Tracer path was pushed to persistentTracers
       assert.ok(game.persistentTracers && game.persistentTracers.length > 0, 'Expected tracer path to be pushed to persistentTracers');
