@@ -32,7 +32,11 @@ const {
   worldFingerprint, richScene, classicDrift
 } = require('./helpers/render-harness.js');
 
-const SOURCE = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+// Normalised to LF so multi-line mutation anchors match regardless of what
+// core.autocrlf smudged onto the working copy — a Windows checkout used to
+// flip two anchors dead without changing a byte of real content.
+const SOURCE = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8')
+  .replace(/\r\n/g, '\n');
 
 /**
  * Apply one textual mutation to the page source.
