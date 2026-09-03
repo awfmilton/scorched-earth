@@ -124,7 +124,12 @@ describe('RoomManager Lifecycle & State Machine Tests', () => {
     const startRes = rm.start('conn_1');
     assert.ok(startRes);
     assert.ok(Array.isArray(startRes.broadcasts));
-    assert.strictEqual(startRes.broadcasts.length, 2);
+    // Two tailored ROUND_STARTs plus the round-1 TURN_SYNC(1) that makes
+    // turn 1 unambiguous (so a mid-round-1 rejoin's restatement dedupes).
+    assert.strictEqual(startRes.broadcasts.length, 3);
+    const openSync = startRes.broadcasts.find(b => b.msg.type === 'TURN_SYNC');
+    assert.ok(openSync, 'round 1 must announce its cursor');
+    assert.strictEqual(openSync.msg.turnNumber, 1);
 
     const b1 = startRes.broadcasts.find(b => b.to.includes('conn_1'));
     const b2 = startRes.broadcasts.find(b => b.to.includes('conn_2'));

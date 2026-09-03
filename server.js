@@ -9,9 +9,14 @@ const { C2S, ERRORS, validate } = require('./lib/protocol.js');
 const MAX_PAYLOAD_BYTES = 4096;
 // Flood control, per connection: a rolling window with a message budget,
 // plus a much tighter budget for JOIN_ROOM so 4-letter room codes cannot be
-// brute-forced through one socket.
+// brute-forced through one socket. The general budget is sized for the
+// chattiest HONEST client — a held drive key at keyboard repeat rate is
+// ~30 MOVE/s (~300 per window) before the client-side throttle — with
+// headroom for the turn's FIRE/RESOLVE_SHOT/ELIMINATED singletons, which
+// must never be starved: a dropped RESOLVE_SHOT is never retried and
+// stalls the whole room until the sweep timeout.
 const RATE_WINDOW_MS = 10000;
-const MAX_MESSAGES_PER_WINDOW = 120;
+const MAX_MESSAGES_PER_WINDOW = 400;
 const MAX_JOINS_PER_WINDOW = 8;
 // Ping every client on this cadence; a client that misses a whole cycle is half-open.
 const HEARTBEAT_INTERVAL_MS = 30000;
@@ -206,20 +211,12 @@ function attachWebSocketServer(httpServer, options = {}) {
     ws.joinCount = 0;
 
     ws.on('message', (raw, isBinary) => {
-      if (isBinary) {
-        sendError(connectionId, ERRORS.BAD_MESSAGE, 'Binary frames are not accepted');
-        return;
-      }
-
-      // Size is checked on the raw bytes, before any parse work is done.
-      if (raw.length > maxPayloadBytes) {
-        sendError(connectionId, ERRORS.BAD_MESSAGE, 'Payload too large');
-        return;
-      }
-
-      // Rolling-window flood control, before any parse work: one hot socket
-      // must not get free JSON parsing at line rate, and JOIN_ROOM gets a
-      // far tighter budget so room codes cannot be enumerated.
+      // Rolling-window flood control runs FIRST, so every inbound frame —
+      // binary, oversize, or well-formed — spends budget. When binary and
+      // oversize frames bypassed the counter, each one earned a 1:1 ERROR
+      // reply forever: a free reflection/memory amplifier through a socket
+      // that never reads. Past the cap everything is dropped in silence
+      // after a single RATE_LIMITED notice.
       const now = Date.now();
       if (now - ws.rateWindowStart > RATE_WINDOW_MS) {
         ws.rateWindowStart = now;
@@ -231,6 +228,21 @@ function attachWebSocketServer(httpServer, options = {}) {
         if (ws.rateCount === MAX_MESSAGES_PER_WINDOW + 1) {
           sendError(connectionId, ERRORS.RATE_LIMITED, 'Slow down');
         }
+        return;
+      }
+
+      // Never reply into a socket that is not draining: an unread socket
+      // turns every polite error into buffered server memory.
+      const canReply = ws.bufferedAmount < 64 * 1024;
+
+      if (isBinary) {
+        if (canReply) sendError(connectionId, ERRORS.BAD_MESSAGE, 'Binary frames are not accepted');
+        return;
+      }
+
+      // Size is checked on the raw bytes, before any parse work is done.
+      if (raw.length > maxPayloadBytes) {
+        if (canReply) sendError(connectionId, ERRORS.BAD_MESSAGE, 'Payload too large');
         return;
       }
 

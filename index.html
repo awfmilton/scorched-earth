@@ -2574,7 +2574,12 @@
             vy: vy,
             weapon: weapon,
             shooterIdx: this.activePlayerIdx,
-            trigger: trigger
+            trigger: trigger,
+            // A buried hull's muzzle sits INSIDE the pile; the shell must
+            // tunnel out before terrain contact means anything, or firing
+            // while buried detonates the round in your own lap. Derived
+            // from replicated state, so every client agrees.
+            startedUnderground: startY >= CONST.WORLD_H - this.terrain.heightAt(startX)
           };
 
           if (!this.headless && typeof sfx === 'function') {
@@ -2607,7 +2612,14 @@
               this.pendingTurnSyncs.some(p => p.kind === 'fire' && p.msg && p.msg.shotId === msg.shotId))) {
             return; // restated frame: already live or already queued
           }
-          if (this.projectile || this.anyTankFalling() || this.pendingTurnSyncs.length) {
+          // A frozen simulation must never be handed a live shell. Once this
+          // client's local sim has ended the round, stepPhysics returns
+          // early, so a projectile spawned now would hang mid-air forever
+          // and jam the FIFO behind it for the rest of the round. Queue it:
+          // either applyRoundEnd/ROUND_START resolves the disagreement and
+          // clears the queue, or the round is genuinely still live elsewhere
+          // and the entry commits when the local state catches up.
+          if (this.roundOver || this.projectile || this.anyTankFalling() || this.pendingTurnSyncs.length) {
             this.pendingTurnSyncs.push({ kind: 'fire', msg });
             // Drain immediately if the world is actually at rest (the hold
             // may be nothing but an already-drainable queue). The physics
@@ -2692,7 +2704,9 @@
             weapon: weapon,
             shooterIdx: shooterIdx,
             shotId: msg.shotId,
-            trigger: trigger
+            trigger: trigger,
+            // Same buried-muzzle escape as the local fire() spawn.
+            startedUnderground: startY >= CONST.WORLD_H - this.terrain.heightAt(startX)
           };
 
           if (!this.headless && typeof sfx === 'function') {
@@ -2838,7 +2852,9 @@
           // the contract: applying a move before the shell it queued behind
           // would walk the tank through the blast on this client only.
           while (this.pendingTurnSyncs.length) {
-            if (this.projectile || this.anyTankFalling()) return;
+            // roundOver holds the queue closed too: a commit against a
+            // frozen simulation (see applyFireSync) could strand a shell.
+            if (this.roundOver || this.projectile || this.anyTankFalling()) return;
             const entry = this.pendingTurnSyncs.shift();
             const kind = entry.kind || 'turn';
             const msg = entry.msg || entry;
@@ -2937,7 +2953,10 @@
             const mine = this.roster && this.roster.find(t => t.slot === this.mySlot);
             const payload = { inventory: this.declaredInventory() };
             if (mine && Number.isFinite(mine.cash) && mine.cash >= 0) {
-              payload.cash = Math.floor(mine.cash);
+              // Clamped to the protocol bound: an HONEST bankroll past it
+              // would fail validation and the rejected SHOP_DONE would wedge
+              // the whole room waiting on this player.
+              payload.cash = Math.min(100000000, Math.floor(mine.cash));
             }
             this.net.send('SHOP_DONE', payload);
           }
@@ -3225,6 +3244,9 @@
               this.explosions.length = 0;
             }
             this.damageNumbers = [];
+            // A bolt from last round's final volley must not hang over the
+            // fresh terrain.
+            this.turretBolts = [];
           }
         }
 
@@ -3374,7 +3396,15 @@
         applyStructureTurnEffects() {
           if (!this.structures || !this.roster || !StructuresLib) return;
 
-          // Pass 1 — auras, in structure order, over the roster in slot order.
+          // Pass 1 — auras. Collected FIRST, applied ONCE per tank: every
+          // aura effect is non-stacking. Shields always topped to a floor;
+          // repair used to add per structure, which let purchasable
+          // repair-bay copies compound to 42hp/turn — the collect-then-apply
+          // shape gives repair the same best-single-source rule. Iteration
+          // stays (structure order × roster order), so the numbers every
+          // client computes are identical.
+          const bestRepair = new Array(this.roster.length).fill(0);
+          const bestShieldFloor = new Array(this.roster.length).fill(0);
           for (let i = 0; i < this.structures.length; i++) {
             const s = this.structures[i];
             if (!StructuresLib.isStanding(s)) continue;
@@ -3391,18 +3421,26 @@
               const dist = Math.sqrt(dx * dx + dy * dy);
               if (dist > spec.aura.radius) continue;
 
-              if (spec.aura.repair) {
-                const maxHp = tank.maxHp || chassisOf(tank).hp;
-                tank.hp = Math.min(maxHp, tank.hp + spec.aura.repair);
+              if (spec.aura.repair && spec.aura.repair > bestRepair[t]) {
+                bestRepair[t] = spec.aura.repair;
               }
-              if (spec.aura.shield) {
-                // Tops up to a FLOOR rather than stacking, so two domes are
-                // not twice as good as one and the value stays bounded.
-                if (!tank.shield || tank.shield.hp <= 0) {
-                  tank.shield = { type: 'Shield', hp: spec.aura.shield };
-                } else if (tank.shield.hp < spec.aura.shield) {
-                  tank.shield.hp = spec.aura.shield;
-                }
+              if (spec.aura.shield && spec.aura.shield > bestShieldFloor[t]) {
+                bestShieldFloor[t] = spec.aura.shield;
+              }
+            }
+          }
+          for (let t = 0; t < this.roster.length; t++) {
+            const tank = this.roster[t];
+            if (!tank || tank.hp <= 0) continue;
+            if (bestRepair[t] > 0) {
+              const maxHp = tank.maxHp || chassisOf(tank).hp;
+              tank.hp = Math.min(maxHp, tank.hp + bestRepair[t]);
+            }
+            if (bestShieldFloor[t] > 0) {
+              if (!tank.shield || tank.shield.hp <= 0) {
+                tank.shield = { type: 'Shield', hp: bestShieldFloor[t] };
+              } else if (tank.shield.hp < bestShieldFloor[t]) {
+                tank.shield.hp = bestShieldFloor[t];
               }
             }
           }
@@ -3512,6 +3550,21 @@
             if (s.hp <= 0 && !s.breached) {
               s.breached = true;
               breaches.push({ s: s, spec: spec });
+
+              // A destroyed PURCHASED work is consumed: its inventory count
+              // drops, so the next round's rebuild does not resurrect it for
+              // free. Runs identically on every client (destruction is a
+              // replicated outcome), and the owner's next SHOP_DONE declares
+              // the decremented count, keeping the wire in agreement.
+              if (s.purchased) {
+                const itemKey = 'Structure: ' + s.key;
+                const owner = this.roster && this.roster[s.ownerIdx];
+                if (owner && owner.inventory &&
+                    Number.isInteger(owner.inventory[itemKey]) &&
+                    owner.inventory[itemKey] > 0) {
+                  owner.inventory[itemKey]--;
+                }
+              }
               // An anchor going down pays whoever cracked it — unless they
               // cracked their OWN: demolishing your holding for its bounty
               // was free money.
@@ -3730,6 +3783,15 @@
           if (this.mode === 'online') {
             if (tank.slot !== this.mySlot) return;
             if (this.activeShotId) return;
+            // Input-side throttle: a held key repeats at ~30/s and every
+            // repeat used to be its own MOVE frame — a single driving player
+            // ate a third of the server's whole per-socket window. 40ms
+            // between sends caps a held key at 25/s. Wall-clock is fine
+            // here: this is the INPUT site, not the simulation (the sim only
+            // ever sees the replicated MOVE_SYNCs).
+            const nowMs = Date.now();
+            if (this._lastDriveSendMs && nowMs - this._lastDriveSendMs < 40) return;
+            this._lastDriveSendMs = nowMs;
             if (this.net) this.net.send('MOVE', { dir, steps: 1 });
             return;
           }
@@ -4519,8 +4581,10 @@
               // The hull itself pops. Blast deaths already read clearly from
               // the chain-reaction explosion, but a napalm burn or a fall
               // used to end with the tank simply vanishing — every death now
-              // leaves the same render-only burst at the hull.
-              if (this.explosions) {
+              // leaves the same render-only burst at the hull. Aethercastle
+              // only: the classic replica's deaths look exactly as the
+              // golden build drew them, extra burst included nowhere.
+              if (this.explosions && normaliseMode(this.gameMode) === 'aethercastle') {
                 this.explosions.push({
                   x: tank.x, y: tank.y - 3,
                   maxRadius: 24, currentRadius: 0,
@@ -5074,11 +5138,16 @@
                     detonate = true;
                   }
 
-                  // Check tank collision
+                  // Check tank collision. The vertical window reaches a
+                  // hover hull on its 18px cushion — a ground-seated ±8
+                  // assumed every chassis touched dirt, which made the whole
+                  // Roller tier unable to hit a Scout Drone. Airships at
+                  // cruise altitude stay out of reach on purpose: a rolling
+                  // ball not hitting a flying ship is physics, not a bug.
                   if (this.roster) {
                     for (let i = 0; i < this.roster.length; i++) {
                       const tank = this.roster[i];
-                      if (tank.hp > 0 && Math.abs(proj.x - tank.x) <= 8 && Math.abs(proj.y - tank.y) <= 8) {
+                      if (tank.hp > 0 && Math.abs(proj.x - tank.x) <= 8 && Math.abs(proj.y - tank.y) <= 26) {
                         detonate = true;
                         break;
                       }
@@ -5141,7 +5210,9 @@
                     const shooter = (proj.shooterIdx !== undefined && this.roster) ? this.roster[proj.shooterIdx] : null;
                     if (this.roster) {
                       this.roster.forEach(tank => {
-                        if (tank.hp > 0 && Math.abs(proj.x - tank.x) < 12 && Math.abs(proj.y - tank.y) < 12) {
+                        // Same hover-aware vertical reach as the roller: the
+                        // flame licks up to a hull on its clearance cushion.
+                        if (tank.hp > 0 && Math.abs(proj.x - tank.x) < 12 && Math.abs(proj.y - tank.y) < 30) {
                           this.applyDamageToTank(tank, burnDmg, shooter);
                         }
                       });
@@ -5365,6 +5436,20 @@
 
                 // Below screen bottom
                 if (proj.y > CONST.WORLD_H) {
+                  // A digging round that runs past the world floor
+                  // DETONATES there — the dig was real and paid for.
+                  // Silently deleting it (the plain fall-off-the-map rule)
+                  // meant a Sandhog tunnelling deep terrain simply vanished
+                  // with no explosion at all.
+                  if (proj.digging) {
+                    this.projectiles = this.projectiles.filter(p => p !== proj);
+                    this.onImpact(proj.x, CONST.WORLD_H, proj.weapon, proj.shooterIdx, proj);
+                    if (this.projectiles.length === 0) {
+                      this.nextTurn();
+                    }
+                    impacted = true;
+                    break;
+                  }
                   if (isTracer(proj.weapon) && proj.path) {
                     this.persistentTracers = this.persistentTracers || [];
                     this.persistentTracers.push(proj.path);
@@ -5386,6 +5471,13 @@
                 const terrainX = Math.floor(proj.x);
                 if (terrainX >= 0 && terrainX < CONST.WORLD_W && !proj.digging) {
                   const groundY = CONST.WORLD_H - this.terrain.heightAt(proj.x);
+                  // A shell whose muzzle was buried is still inside the pile
+                  // it spawned in: ground contact only counts once it has
+                  // broken the surface. Cleared the first substep it is in
+                  // open air, after which every collision rule is normal.
+                  if (proj.startedUnderground) {
+                    if (proj.y < groundY) proj.startedUnderground = false;
+                  } else
                   if (proj.y >= groundY) {
                     // A Contact Trigger detonates the shell where it lands.
                     // Every check below this line is a family that would
@@ -5460,29 +5552,45 @@
                     // Deflector shields bounce the shell instead of eating
                     // it. Which types deflect is SHIELD_TYPES' business, not
                     // a name comparison here. The collision surface IS the
-                    // drawn dome — radius 12 at (x, y-6), the same circle
-                    // drawShieldAC renders and the same one the classic arc
-                    // traces — and the dome fully covers the hull box, so a
-                    // deflecting tank can never take a surprise hull hit
-                    // from a shell the picture shows bouncing off.
-                    if (tank.shield && tank.shield.hp > 0 && shieldDeflects(tank.shield.type)) {
+                    // drawn dome — the UPPER semicircle of radius 12 at
+                    // (x, y-6), which is exactly what drawShieldAC renders
+                    // and the classic arc traces. A shell slipping in under
+                    // the rim falls through to the ordinary hull test, so
+                    // the picture and the physics agree in both directions.
+                    // Tracers pass the field entirely: they are aiming aids
+                    // that carry no charge worth bouncing, and letting them
+                    // interact meant a 10-cost round could grind a 4000-cost
+                    // field to nothing.
+                    if (tank.shield && tank.shield.hp > 0 &&
+                        shieldDeflects(tank.shield.type) && !isTracer(proj.weapon)) {
                       const dx = proj.x - tank.x;
                       const dy = proj.y - (tank.y - 6);
                       const distSq = dx * dx + dy * dy;
-                      if (distSq <= 144) {
+                      if (distSq <= 144 && dy <= 2) {
+                        // A shell cannot pogo on the field forever: after
+                        // three bounces the fourth contact detonates it on
+                        // the dome, ending the ~22s hang a vertical lob
+                        // used to cause while it juggled.
+                        proj.deflections = (proj.deflections || 0) + 1;
+                        if (proj.deflections > 3) {
+                          this.projectiles = this.projectiles.filter(p => p !== proj);
+                          this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx, proj);
+                          if (this.projectiles.length === 0) {
+                            this.nextTurn();
+                          }
+                          hitTank = true;
+                          impacted = true;
+                          break;
+                        }
                         const dist = Math.sqrt(distSq);
                         // Dead-centre entry has no radial direction; kick the
                         // shell straight up rather than cancelling the
                         // reflection and grinding the dome from inside.
                         const nx = dist === 0 ? 0 : dx / dist;
                         let ny = dist === 0 ? -1 : dy / dist;
-                        // The lower half of the dome is buried in the hull
-                        // and the ground — unreachable in normal flight, but
-                        // a shell that starts INSIDE the dome can sit below
-                        // its centre, and reflecting off a downward normal
-                        // would fire it into the dirt under the tank it just
-                        // bounced off. A dome never bounces downward: mirror
-                        // the normal into the upper half.
+                        // A shell that starts INSIDE the dome band can sit
+                        // marginally below centre; a dome never bounces
+                        // downward, so mirror the normal into the upper half.
                         if (ny > 0) ny = -ny;
                         const dot = proj.vx * nx + proj.vy * ny;
                         proj.vx = proj.vx - 2 * dot * nx;
@@ -5520,9 +5628,8 @@
                         hitTank = false; // Reflected, don't detonate!
                         break;
                       }
-                      // Outside the dome: no hull check either — the dome
-                      // encloses the whole hull box, so a miss is a miss.
-                      continue;
+                      // Under the rim or outside the dome: the ordinary hull
+                      // test below decides, exactly as the drawn arc implies.
                     }
 
                     if (proj.x >= tank.x - 8 && proj.x <= tank.x + 8 &&
@@ -5911,10 +6018,18 @@
 
         buy(tank, id, packs = 1) {
           const weapon = WEAPONS.find(w => w.id === id);
-          const item = ITEMS.find(i => i.id === id) ||
-            STRUCTURE_ITEMS.find(i => i.id === id);
+          const structureItem = STRUCTURE_ITEMS.find(i => i.id === id);
+          const item = ITEMS.find(i => i.id === id) || structureItem;
           const config = weapon || item;
           if (!config) return false;
+
+          // The layout fields at most MAX_PURCHASED_COPIES of one work;
+          // selling money for copies that can never stand would be a silent
+          // sink, so the shop refuses at the cap.
+          if (structureItem && StructuresLib) {
+            const held = (tank.inventory && tank.inventory[id]) || 0;
+            if (held + packs > StructuresLib.MAX_PURCHASED_COPIES) return false;
+          }
 
           const totalCost = config.cost * packs;
           if (tank.cash < totalCost) {
@@ -6204,7 +6319,16 @@
             buyBtn.style.color = player.color;
             buyBtn.style.cursor = 'pointer';
 
-            if (player.cash < itemConf.cost * opts.bulkMultiplier) {
+            // A work caps at MAX_PURCHASED_COPIES fielded; past it the BUY
+            // button says why instead of silently eating the click.
+            const structureCap = itemConf.kind === 'structure' && StructuresLib
+              ? StructuresLib.MAX_PURCHASED_COPIES
+              : Infinity;
+            const atStructureCap = count !== Infinity &&
+              count + opts.bulkMultiplier > structureCap;
+            if (atStructureCap) buyBtn.textContent = 'MAX ' + structureCap;
+
+            if (player.cash < itemConf.cost * opts.bulkMultiplier || atStructureCap) {
               buyBtn.disabled = true;
               buyBtn.style.borderColor = '#444';
               buyBtn.style.color = '#444';
@@ -6382,6 +6506,15 @@
 
           restartBtn.addEventListener('click', () => {
             shopEl.hidden = true;
+
+            // The finished match's identity must not leak into the next one:
+            // a surviving `spectating` flag killed all input in the next
+            // solo game, and a surviving currentRound made the next online
+            // match's ROUND_START look like a reconnect restatement and get
+            // swallowed whole (both matches say "round 1").
+            this.spectating = false;
+            if (typeof setSpectateBanner === 'function') setSpectateBanner(false);
+            this.currentRound = 0;
 
             // A finished ONLINE room is a dead end server-side: its phase is
             // 'ended' and nothing transitions it back to 'lobby', so START
@@ -6600,9 +6733,12 @@
           }
 
           // Floating damage numbers. Aged by updateParticles; drawn last so
-          // they read over every other layer. The array is empty outside
-          // combat, so the classic golden frame records no extra calls.
-          if (this.damageNumbers && this.damageNumbers.length > 0) {
+          // they read over every other layer. Aethercastle-only: the classic
+          // replica never drew a number over the field, and the golden build
+          // (63de891) is the contract — its combat frames must not grow
+          // calls, not just its pinned scene.
+          if (theme !== THEMES.classic &&
+              this.damageNumbers && this.damageNumbers.length > 0) {
             ctx.save();
             ctx.font = '10px ' + theme.fontMono;
             ctx.textAlign = 'center';
