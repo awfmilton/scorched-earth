@@ -2098,6 +2098,75 @@
         constructor() {
           this.heights = new Float32Array(CONST.WORLD_W);
           this.biome = 'plains';
+          // Bumped by every path that moves a column. The scenery cache in
+          // Game.draw() repaints only when this changes, so a frame that
+          // carves nothing reuses the last bitmap instead of re-hashing
+          // ~326k dither cells and re-issuing ~15k canvas ops.
+          this.revision = 0;
+        }
+
+        // Anything that writes this.heights directly must call this, or the
+        // cached background will keep showing the pre-carve world.
+        touch() {
+          this.revision++;
+        }
+
+        /**
+         * The sky+ground bitmap for the current world, repainted only when the
+         * terrain or the palette actually changed.
+         *
+         * The cache mirrors the DESTINATION canvas exactly — same backing-store
+         * size, same transform — and is blitted back at identity. That matters:
+         * caching at world size and letting the caller's scale stretch the blit
+         * would resample the art, and a smeared 1px dither is precisely the
+         * pixel-art read this kit exists to produce. Painting at the device
+         * scale and copying 1:1 is bit-for-bit what live painting produces.
+         *
+         * Returns null when no real canvas or transform is obtainable (the
+         * headless test DOM), which makes the caller fall back to painting live.
+         */
+        sceneryBitmap(ctx, r) {
+          if (typeof document === 'undefined' || typeof document.createElement !== 'function') {
+            return null;
+          }
+          if (!ctx.canvas || typeof ctx.getTransform !== 'function') return null;
+          let t;
+          try { t = ctx.getTransform(); } catch (e) { return null; }
+          if (!t) return null;
+
+          const devW = ctx.canvas.width, devH = ctx.canvas.height;
+          if (!devW || !devH) return null;
+
+          // Palette, geometry and the exact transform are all part of the
+          // identity: a biome switch, a resize or a DPR change must repaint
+          // even when not a single column moved.
+          const key = this.biome + '|' + r.sky + r.skyLow + r.crust + r.core + r.edge + r.glow +
+            '|' + devW + 'x' + devH + '|' + t.a + ',' + t.b + ',' + t.c + ',' + t.d + ',' + t.e + ',' + t.f;
+
+          let c = this._scenery;
+          if (!c) {
+            const el = document.createElement('canvas');
+            if (!el || typeof el.getContext !== 'function') return null;
+            const cctx = el.getContext('2d');
+            // A real 2D context reports the element it belongs to. The test
+            // DOM's catch-all proxy cannot, and blitting from it would paint
+            // nothing at all — so fall back to live painting there.
+            if (!cctx || cctx.canvas !== el) return null;
+            c = this._scenery = { el: el, ctx: cctx, revision: -1, key: '' };
+          }
+
+          if (c.revision !== this.revision || c.key !== key) {
+            if (c.el.width !== devW) c.el.width = devW;
+            if (c.el.height !== devH) c.el.height = devH;
+            c.ctx.setTransform(1, 0, 0, 1, 0, 0);
+            c.ctx.clearRect(0, 0, devW, devH);
+            c.ctx.setTransform(t.a, t.b, t.c, t.d, t.e, t.f);
+            ACSky.drawSkyAC(c.ctx, r, CONST.WORLD_W, CONST.WORLD_H);
+            ACTerrain.drawTerrainAC(c.ctx, this.heights, r, CONST.WORLD_W, CONST.WORLD_H, this.biome);
+            c.revision = this.revision;
+            c.key = key;
+          }
+          return c.el;
         }
 
         generate(seed, config = {}) {
@@ -2105,6 +2174,7 @@
           const h = TerrainLib.generateTerrain(terrainRNG, CONST.WORLD_W, CONST.WORLD_H, config);
           this.heights.set(h);
           this.biome = h.biome || 'plains';
+          this.touch();
         }
 
         heightAt(x) {
@@ -2137,6 +2207,7 @@
               }
             }
           }
+          this.touch();
         }
 
         deposit(x, y, r) {
@@ -2157,6 +2228,7 @@
               }
             }
           }
+          this.touch();
         }
 
         settle() {
@@ -2191,6 +2263,7 @@
             if (this.heights[i] < minH) this.heights[i] = minH;
             if (this.heights[i] > maxH) this.heights[i] = maxH;
           }
+          this.touch();
         }
 
         /**
@@ -2216,6 +2289,23 @@
           // the bottom of this method uses it: classic ramps carry no glow, so
           // classic cannot reach this branch and its call log is unchanged.
           if (r.glow && ACSky && ACTerrain) {
+            // Painting these two costs ~15k canvas ops and ~326k dither-cell
+            // hashes, and the result is byte-identical until a column moves.
+            // Blit the cached bitmap instead; it repaints only when
+            // this.revision changes (see touch()).
+            const cached = this.sceneryBitmap(ctx, r);
+            if (cached) {
+              // Identity blit: the bitmap is already in device pixels with the
+              // caller's transform baked in, so copying it 1:1 reproduces the
+              // live paint exactly instead of resampling it.
+              ctx.save();
+              ctx.setTransform(1, 0, 0, 1, 0, 0);
+              ctx.drawImage(cached, 0, 0);
+              ctx.restore();
+              return;
+            }
+            // No offscreen canvas here (test DOM stand-in): paint live, so
+            // behaviour is identical wherever the cache cannot be built.
             ACSky.drawSkyAC(ctx, r, CONST.WORLD_W, CONST.WORLD_H);
             ACTerrain.drawTerrainAC(ctx, this.heights, r, CONST.WORLD_W, CONST.WORLD_H, this.biome);
             return;
@@ -4920,6 +5010,7 @@
                 this.terrain.heights[col] = target;
               }
             }
+            this.terrain.touch();
           } else if (kind === 'leapfrog') {
             this.explosion(x, y, radius, damage, shooterIdx, { weapon: wp });
             this.spawnLeapFrogHop(x, y, wp, shooterIdx, proj);
@@ -4934,6 +5025,7 @@
                 this.terrain.heights[col] = Math.max(CONST.WORLD_H * 0.15, this.terrain.heights[col] - 25 * (1 - Math.abs(dx) / collapseRadius));
               }
             }
+            this.terrain.touch();
             this.explosion(x, y, radius, damage, shooterIdx, { weapon: wp });
           } else if (wp === 'Sandstorm') {
             // redistributing terrain
@@ -4946,6 +5038,7 @@
               const srcCol = Math.max(0, Math.min(CONST.WORLD_W - 1, col - shift));
               this.terrain.heights[col] = copy[srcCol];
             }
+            this.terrain.touch();
             if (!this.headless) {
               sfx('explode', { radius: 50 });
               this.pushKindBurst(x, y, 50, wp);
@@ -5187,7 +5280,7 @@
               if (proj.flightTicks > CONST.MAX_FLIGHT_TICKS) {
                 if (isTracer(proj.weapon) && proj.path) {
                   this.persistentTracers = this.persistentTracers || [];
-                  this.persistentTracers.push(proj.path);
+                  this.recordTracer(proj.path);
                 }
                 this.projectiles = this.projectiles.filter(p => p !== proj);
                 this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx, proj);
@@ -5280,6 +5373,7 @@
                     const tx = Math.floor(proj.x);
                     if (tx >= 0 && tx < CONST.WORLD_W) {
                       this.terrain.heights[tx] += 0.4;
+                      this.terrain.touch();
                     }
                   } else if (proj.weapon.includes('Napalm')) {
                     // Napalm damage over time — routed through applyDamageToTank so the
@@ -5323,7 +5417,13 @@
               // 4. Trace line path recording
               if (isTracer(proj.weapon)) {
                 proj.path = proj.path || [];
-                proj.path.push({ x: proj.x, y: proj.y });
+                // One sample per substep, bounded. A shell that skims for a
+                // long time would otherwise bank thousands of points that are
+                // then re-stroked every frame for the rest of the round. The
+                // cap is deterministic, so every client keeps the same path.
+                if (proj.path.length < 2000) {
+                  proj.path.push({ x: proj.x, y: proj.y });
+                }
               }
 
               // 5. Standard projectile gravity & wind integration.
@@ -5432,7 +5532,7 @@
                   if (proj.x < 0 || proj.x > CONST.WORLD_W) {
                     if (isTracer(proj.weapon) && proj.path) {
                       this.persistentTracers = this.persistentTracers || [];
-                      this.persistentTracers.push(proj.path);
+                      this.recordTracer(proj.path);
                     }
                     this.projectiles = this.projectiles.filter(p => p !== proj);
                     if (this.projectiles.length === 0) {
@@ -5530,7 +5630,7 @@
                   }
                   if (isTracer(proj.weapon) && proj.path) {
                     this.persistentTracers = this.persistentTracers || [];
-                    this.persistentTracers.push(proj.path);
+                    this.recordTracer(proj.path);
                   }
                   this.projectiles = this.projectiles.filter(p => p !== proj);
                   if (this.projectiles.length === 0) {
@@ -5615,7 +5715,7 @@
                     // Normal impact
                     if (isTracer(proj.weapon) && proj.path) {
                       this.persistentTracers = this.persistentTracers || [];
-                      this.persistentTracers.push(proj.path);
+                      this.recordTracer(proj.path);
                     }
                     this.projectiles = this.projectiles.filter(p => p !== proj);
                     this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx, proj);
@@ -5724,7 +5824,7 @@
                       // Normal impact on tank
                       if (isTracer(proj.weapon) && proj.path) {
                         this.persistentTracers = this.persistentTracers || [];
-                        this.persistentTracers.push(proj.path);
+                        this.recordTracer(proj.path);
                       }
                       this.projectiles = this.projectiles.filter(p => p !== proj);
                       this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx, proj);
@@ -5750,9 +5850,45 @@
           }
         }
 
+        /**
+         * Keep a finished tracer's flight path on screen, bounded.
+         *
+         * Every retained path is re-stroked in full on EVERY frame, so an
+         * unbounded list meant a long round got progressively heavier to draw
+         * and never recovered until the round ended. Holding the most recent
+         * MAX_TRACERS is enough for the ranging read the tracer exists for.
+         */
+        recordTracer(path) {
+          if (!Array.isArray(path) || path.length < 2) return;
+          this.persistentTracers = this.persistentTracers || [];
+          this.persistentTracers.push(path);
+          const MAX_TRACERS = 12;
+          if (this.persistentTracers.length > MAX_TRACERS) {
+            this.persistentTracers.splice(0, this.persistentTracers.length - MAX_TRACERS);
+          }
+        }
+
         spawnParticle(type, x, y, vx, vy, color, maxLife, size) {
           if (this.headless || !this.particlePool) return;
-          const p = this.particlePool.find(item => !item.active);
+          // Resume the search where the last spawn stopped instead of
+          // rescanning from index 0. A burst spawns dozens of particles back
+          // to back, and find() made each one walk the whole live prefix —
+          // quadratic in the burst size, worst exactly when the pool is
+          // busiest. Free slots cluster, so the cursor lands on one almost
+          // immediately; the loop still visits every slot before giving up,
+          // so a full pool is detected exactly as before.
+          const pool = this.particlePool;
+          const n = pool.length;
+          const start = this._particleCursor || 0;
+          let p = null;
+          for (let i = 0; i < n; i++) {
+            const idx = (start + i) % n;
+            if (!pool[idx].active) {
+              p = pool[idx];
+              this._particleCursor = (idx + 1) % n;
+              break;
+            }
+          }
           if (!p) return; // Hard cap near 600 reached
           p.active = true;
           p.type = type;
@@ -5813,7 +5949,21 @@
             }
           }
 
-          if (!this.headless && this.damageNumbers) {
+        }
+
+        /**
+         * Age the combat-feedback layer: floating damage numbers and turret
+         * attribution bolts.
+         *
+         * Its own method rather than a tail on updateParticles(), which
+         * returns early when there is no particle pool — so on any Game
+         * without one, every damage number and bolt would live forever
+         * despite having nothing to do with particles.
+         */
+        updateFeedback() {
+          if (this.headless) return;
+
+          if (this.damageNumbers) {
             for (let i = this.damageNumbers.length - 1; i >= 0; i--) {
               const dn = this.damageNumbers[i];
               dn.life -= 1;
@@ -5824,7 +5974,7 @@
             }
           }
 
-          if (!this.headless && this.turretBolts) {
+          if (this.turretBolts) {
             for (let i = this.turretBolts.length - 1; i >= 0; i--) {
               const b = this.turretBolts[i];
               b.life -= 1;
@@ -5847,8 +5997,88 @@
          * stored on the structure, so nothing here needs the simulation to
          * carry a field that only a renderer wants.
          */
+        /**
+         * Identity of everything drawStructures() reads. The holding is drawn
+         * from structure state alone — no clock, no frame counter — so while
+         * this string is unchanged the pass is guaranteed to produce the same
+         * pixels and the cached bitmap can stand in for it.
+         *
+         * The terrain revision is part of it because the plinth is drawn down
+         * to the LIVE surface: carve the ground out and the foundation changes
+         * even though no structure did.
+         */
+        structuresFingerprint() {
+          let fp = this.gameMode + '#' +
+            (this.terrain ? this.terrain.revision : 0) + '#';
+          for (let i = 0; i < this.structures.length; i++) {
+            const s = this.structures[i];
+            const owner = this.roster && this.roster[s.ownerIdx];
+            fp += s.key + ',' + s.x + ',' + s.y + ',' + s.hp + ',' + s.ownerIdx + ',' +
+              (s.footing || 0) + ',' + (owner ? owner.color : '-') + ';';
+          }
+          return fp;
+        }
+
         drawStructures(ctx, theme) {
           if (this.headless || !this.structures || !StructuresLib) return;
+
+          // 21 structures at ~11ms a pass, redrawn identically every frame.
+          // Blit instead, and repaint only when the holding or the ground
+          // under it actually changed.
+          const bmp = this.structuresBitmap(ctx, theme);
+          if (bmp) {
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.drawImage(bmp, 0, 0);
+            ctx.restore();
+            return;
+          }
+          this.paintStructures(ctx, theme);
+        }
+
+        /**
+         * The cached holding layer, or null when no real canvas is obtainable
+         * (the headless test DOM) — in which case the caller paints live.
+         *
+         * Device-resolution and transform-matched for the same reason the
+         * scenery cache is: the blit has to be a 1:1 copy, not a resample.
+         */
+        structuresBitmap(ctx, theme) {
+          if (typeof document === 'undefined' || typeof document.createElement !== 'function') {
+            return null;
+          }
+          if (!ctx.canvas || typeof ctx.getTransform !== 'function') return null;
+          let t;
+          try { t = ctx.getTransform(); } catch (e) { return null; }
+          if (!t) return null;
+
+          const devW = ctx.canvas.width, devH = ctx.canvas.height;
+          if (!devW || !devH) return null;
+
+          let c = this._holding;
+          if (!c) {
+            const el = document.createElement('canvas');
+            if (!el || typeof el.getContext !== 'function') return null;
+            const cctx = el.getContext('2d');
+            if (!cctx || cctx.canvas !== el) return null;
+            c = this._holding = { el: el, ctx: cctx, fp: null };
+          }
+
+          const fp = this.structuresFingerprint() +
+            '|' + devW + 'x' + devH + '|' + t.a + ',' + t.b + ',' + t.c + ',' + t.d + ',' + t.e + ',' + t.f;
+          if (c.fp !== fp) {
+            if (c.el.width !== devW) c.el.width = devW;
+            if (c.el.height !== devH) c.el.height = devH;
+            c.ctx.setTransform(1, 0, 0, 1, 0, 0);
+            c.ctx.clearRect(0, 0, devW, devH);
+            c.ctx.setTransform(t.a, t.b, t.c, t.d, t.e, t.f);
+            this.paintStructures(c.ctx, theme);
+            c.fp = fp;
+          }
+          return c.el;
+        }
+
+        paintStructures(ctx, theme) {
           const specs = StructuresLib.STRUCTURES;
           for (let i = 0; i < this.structures.length; i++) {
             const s = this.structures[i];
@@ -5989,10 +6219,17 @@
         }
 
         update(dt) {
-          if (this.roundOver) return;
-          this.stepPhysics(dt);
+          // The SIMULATION stops at the round boundary, but the visual layer
+          // must not: ageing lives in updateParticles/updateExplosions, so
+          // returning early here froze every particle, explosion, damage
+          // number and turret bolt on screen for the whole shop intermission
+          // and carried them into the next round's opening frames.
+          if (!this.roundOver) {
+            this.stepPhysics(dt);
+          }
           if (!this.headless) {
             this.updateParticles(dt);
+            this.updateFeedback();
             this.updateExplosions(dt);
           }
         }
@@ -7434,6 +7671,14 @@
               // local matches and start() clears it for new ones.)
               if (gameInstance && gameInstance.mode === 'local' &&
                   gameInstance.roster && !gameInstance.matchOver) {
+                // Drop the seat credential BEFORE reconnecting. Without this
+                // the fresh socket presents the stored token, the server
+                // re-seats it and replies with another ROOM_STATE, which
+                // lands right back here — an unbounded reconnect loop that
+                // ran a full WebSocket handshake per iteration for as long as
+                // the local match lasted.
+                net.clearSessionToken();
+                mySlot = undefined;
                 net.connect();
                 return;
               }
@@ -7667,6 +7912,16 @@
                  const data = sessionStorage.getItem('scorched_session');
                  return data ? JSON.parse(data) : null;
                } catch (e) { return null; }
+            };
+
+            // ...and its counterpart, or the two halves disagree about where
+            // the credential lives: the class stores 'scorched_online_*' but
+            // the page reads 'scorched_session', so the inherited
+            // clearSessionToken() cleared keys nothing ever reads and left the
+            // real token in place. Any caller trying to DISOWN a seat would
+            // silently reconnect straight back into it.
+            net.clearSessionToken = function() {
+               try { sessionStorage.removeItem('scorched_session'); } catch (e) {}
             };
           }
         });
