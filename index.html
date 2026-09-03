@@ -667,6 +667,8 @@
 
         <div id="multiplayer-slots"></div>
 
+        <button id="btn-leave-lobby" style="width: 100%; padding: 10px; margin: 10px 0; background: #333; color: #aaa; border: 1px solid #555; cursor: pointer;">LEAVE ROOM</button>
+
         <div id="host-settings" class="settings-grid" hidden>
           <div class="form-group">
             <label for="rounds">Rounds (1-20):</label>
@@ -1903,7 +1905,6 @@
 
           this.socket.onopen = () => {
             this.setState('live');
-            this.backoffDelay = 1000; // Reset backoff delay on successful connection
 
             const session = this.getSessionToken();
             if (session) {
@@ -1940,6 +1941,11 @@
 
             console.debug("Received S2C message:", type, msg);
 
+            // A parsed server frame is the real proof the connection is
+            // good — resetting backoff on `open` let a refuse-after-101
+            // server turn the client into a 1 Hz reconnect hammer.
+            this.backoffDelay = 1000;
+
             const handler = type ? this.dispatchTable[type] : null;
             if (!handler) {
               console.warn('Unrecognised S2C message type:', type, msg);
@@ -1962,7 +1968,18 @@
             }
           };
 
-          this.socket.onclose = () => {
+          this.socket.onclose = (event) => {
+            // 1013 = the server refused us for capacity. Retrying at the
+            // normal cadence just burns both ends; hold off a while and
+            // tell the player why.
+            if (event && event.code === 1013) {
+              this.backoffDelay = Math.max(this.backoffDelay, 30000);
+              this.handleError({
+                type: 'ERROR',
+                code: 'RATE_LIMITED',
+                message: 'Server is at capacity for your network - retrying shortly.'
+              });
+            }
             if (this.state !== 'lost') {
               this.setState('reconnecting');
             }
@@ -3195,7 +3212,11 @@
           if (this.turnOrder && this.turnOrder.length) {
             this.setActiveSlot(this.turnOrder[0]);
           }
-          this.raiseShieldForActivePlayer();
+          // No shield raise here: turnOrder[0] is only the PLACEHOLDER
+          // cursor, and rounds 2+ rotate the real opener. Raising for the
+          // placeholder spent a Battery on the wrong player every round;
+          // the TURN_SYNC(1) right behind this frame raises for the player
+          // it actually names.
 
           if (!this.headless && typeof document !== 'undefined') {
             const shopEl = document.getElementById('shop');
@@ -3833,15 +3854,12 @@
           if (this.mode === 'online') {
             if (tank.slot !== this.mySlot) return;
             if (this.activeShotId) return;
-            // Input-side throttle: a held key repeats at ~30/s and every
-            // repeat used to be its own MOVE frame — a single driving player
-            // ate a third of the server's whole per-socket window. 40ms
-            // between sends caps a held key at 25/s. Wall-clock is fine
-            // here: this is the INPUT site, not the simulation (the sim only
-            // ever sees the replicated MOVE_SYNCs).
-            const nowMs = Date.now();
-            if (this._lastDriveSendMs && nowMs - this._lastDriveSendMs < 40) return;
-            this._lastDriveSendMs = nowMs;
+            // No input-side throttle: dropping a too-soon keypress LOSES the
+            // step (the player pressed, nothing happened), and the server's
+            // per-socket window (400/10s) plus the per-address aggregate
+            // budget already absorb a held key's ~30 sends/s. MOVE relays a
+            // tiny MOVE_SYNC — it has none of SET_PROFILE's ROOM_STATE
+            // fanout, which is what the sub-budgets exist for.
             if (this.net) this.net.send('MOVE', { dir, steps: 1 });
             return;
           }
@@ -4139,6 +4157,10 @@
           // match's shop: the guard is per-intermission, not per-lifetime.
           this.shopDoneSentForRound = null;
 
+          // Same leak in the other direction: a finished previous match's
+          // matchOver must not describe this one.
+          this.matchOver = false;
+
           // A 'constant' wind is constant per MATCH: forget the previous
           // match's banked draw so the rematch mints its own.
           this.matchWind = undefined;
@@ -4241,7 +4263,13 @@
           this.activeShotId = null;
           this.reportedShotId = null;
           this.projectile = null; // Will store active projectile { x, y, vx, vy, ... }
-          this.raiseShieldForActivePlayer();
+          // Online, the opener's shield raise belongs to the TURN_SYNC(1)
+          // boundary that always follows ROUND_START (commitTurnSync raises
+          // it there); raising here too spent a second Battery on the same
+          // player. Local play has no boundary frame, so it raises now.
+          if (this.mode !== 'online') {
+            this.raiseShieldForActivePlayer();
+          }
 
           if (!this.headless && typeof document !== 'undefined') {
             const setupEl = document.getElementById('setup');
@@ -6503,6 +6531,10 @@
         }
 
         showMatchSummary() {
+          // The one signal both flows share for 'this match is finished'.
+          // Local play never set it (only the online applyRoundEnd did),
+          // which made every matchOver-keyed guard lie about solo games.
+          this.matchOver = true;
           if (this.headless) return;
           const shopEl = document.getElementById('shop');
           if (!shopEl) return;
@@ -6971,6 +7003,15 @@
         const container = document.getElementById('multiplayer-slots');
         if (!container) return;
 
+        // Any lobby broadcast re-renders these rows, and a re-render used
+        // to eat the name a player was mid-typing. Capture the draft and
+        // caret before the rebuild, restore them after.
+        const activeEl = document.activeElement;
+        const nameDraft = (activeEl && activeEl.classList &&
+            activeEl.classList.contains('player-name'))
+          ? { value: activeEl.value, start: activeEl.selectionStart, end: activeEl.selectionEnd }
+          : null;
+
         container.innerHTML = '';
 
         for (let i = 0; i < 4; i++) {
@@ -7063,6 +7104,15 @@
           }
 
           container.appendChild(row);
+        }
+
+        if (nameDraft) {
+          const input = container.querySelector('.player-name');
+          if (input) {
+            input.value = nameDraft.value;
+            input.focus();
+            try { input.setSelectionRange(nameDraft.start, nameDraft.end); } catch (e) {}
+          }
         }
       }
 
@@ -7260,6 +7310,12 @@
 
             if (btnStartSolo) {
               btnStartSolo.addEventListener('click', () => {
+                // A CREATE/JOIN still queued from before the socket opened
+                // must not fire mid-match — starting solo voids the intent.
+                if (net && Array.isArray(net.pendingSends)) {
+                  net.pendingSends = net.pendingSends.filter(m =>
+                    m.type !== 'CREATE_ROOM' && m.type !== 'JOIN_ROOM');
+                }
                 if (errorMsg) errorMsg.textContent = '';
                 // Solo has no peer to agree with, so the local request IS the
                 // decision here. Applied before the roster is built so the
@@ -7368,6 +7424,19 @@
             });
 
             net.register('ROOM_STATE', (msg) => {
+              // A CREATE/JOIN clicked before the socket opened is queued and
+              // flushed whenever it connects — which can be mid-solo-match.
+              // The reply must not stack the lobby under the running game or
+              // write a ghost session token. Reconnecting DISOWNS the seat:
+              // dropping the frame alone left this socket seated in the
+              // room, and a room with a connected player is never swept.
+              // (matchOver is reliable here: showMatchSummary sets it for
+              // local matches and start() clears it for new ones.)
+              if (gameInstance && gameInstance.mode === 'local' &&
+                  gameInstance.roster && !gameInstance.matchOver) {
+                net.connect();
+                return;
+              }
               if (errorMsg) errorMsg.textContent = '';
               landingView.hidden = true;
               lobbyView.hidden = false;
@@ -7442,8 +7511,14 @@
                gameInstance.spectating = msg.spectating === true;
                setSpectateBanner(gameInstance.spectating);
 
-               // If the client just reconnected and is already in this round, do not reset the board.
-               if (gameInstance.roster && gameInstance.currentRound === msg.round) {
+               // If the client just reconnected and is already in this
+               // round, do not reset the board — UNLESS the seed moved: a
+               // fully-parked room's rejoin re-seeds the CURRENT round, and
+               // a client that kept its old world across the blip must
+               // rebuild on the fresh one or it forks from every later
+               // rejoiner.
+               if (gameInstance.roster && gameInstance.currentRound === msg.round &&
+                   gameInstance.seed === msg.seed) {
                  return;
                }
 
@@ -7527,6 +7602,23 @@
             btnRefreshRooms.addEventListener('click', () => {
               net.send('LIST_ROOMS');
             });
+
+            const btnLeaveLobby = document.getElementById('btn-leave-lobby');
+            if (btnLeaveLobby) {
+              btnLeaveLobby.addEventListener('click', () => {
+                // The lobby used to be a one-way door. Leaving = drop the
+                // seat credential and come back on a fresh socket: the old
+                // socket's close releases the slot server-side (lobby
+                // disconnects delete seats), and the fresh connection's
+                // automatic LIST_ROOMS repopulates the landing view.
+                try { sessionStorage.removeItem('scorched_session'); } catch (e) {}
+                mySlot = undefined;
+                net.connect();
+                if (lobbyView) lobbyView.hidden = true;
+                if (landingView) landingView.hidden = false;
+                if (errorMsg) errorMsg.textContent = '';
+              });
+            }
 
             btnJoin.addEventListener('click', () => {
               const code = joinCodeInput.value.trim().toUpperCase();
