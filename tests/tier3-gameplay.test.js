@@ -87,26 +87,30 @@ test('a Digger burrows ~its dig depth below the surface it touched down on', () 
 });
 
 test('a deflector dome charges 50 per bounce, not 50 per substep', () => {
-  const { SCORCHED, game } = newGame({ wind: 0 });
+  const { game } = newGame({ wind: 0 });
   const target = game.roster[1];
   target.shield = { type: 'Mag Deflector', hp: 150 };
 
-  // Park the shooter close and flat so the shell arrives fast and level —
-  // the exact profile that used to re-trigger the deflect branch on every
-  // remaining substep of the frame.
-  const shooter = game.roster[0];
-  shooter.x = target.x - 120;
-  shooter.y = SCORCHED.CONST.WORLD_H - game.terrain.heightAt(shooter.x);
+  // Drop a shell STRAIGHT INTO the dome — the post-merge review caught the
+  // old version of this test lobbing 250px past the target and asserting on
+  // a shield nothing ever touched. The fast level approach is exactly the
+  // profile that used to re-trigger the deflect branch on every remaining
+  // substep of one frame.
+  game.projectiles = [{
+    x: target.x, y: target.y - 60, vx: 0, vy: 90,
+    weapon: 'Missile', shooterIdx: 0
+  }];
 
-  fireAndSettle(game, 'Missile', 10, 400);
-
-  // One approach = one bounce = exactly one 50hp charge. (The shell may in
-  // principle arc back for a second legitimate bounce; what must be
-  // impossible is the 100/150hp same-frame drain.)
-  const spent = 150 - (target.shield ? target.shield.hp : 0);
-  assert.ok(spent === 0 || spent === 50 || spent === 100,
-    `shield spent ${spent}hp — a same-frame multi-drain`);
-  assert.notStrictEqual(spent, 150, 'the dome was ground to zero by one shell in one pass');
+  // Step tick by tick and stop at FIRST contact: the old bug drained
+  // several 50s inside one tick's substeps.
+  let spent = 0;
+  for (let i = 0; i < 600 && spent === 0; i++) {
+    game.stepPhysics(1 / 60);
+    spent = 150 - (target.shield ? target.shield.hp : 0);
+  }
+  assert.ok(spent > 0, 'the shell never touched the dome — this test is vacuous');
+  assert.strictEqual(spent, 50,
+    `first contact charged ${spent}hp — the same-frame multi-drain is back`);
 });
 
 test('drop damage respects armour, shields and the integer-hp invariant', () => {
