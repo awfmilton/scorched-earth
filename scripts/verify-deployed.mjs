@@ -172,9 +172,13 @@ try {
     `vx=${syncA.vx}, vy=${syncA.vy}, wind=${syncA.wind}`);
 
   // The shooter reports resolution; the server advances the turn for everyone.
+  // Round 1 now ANNOUNCES its cursor with TURN_SYNC(1) right behind
+  // ROUND_START (so a mid-round-1 rejoin's restatement dedupes), so the
+  // post-shot advance is the frame with turnNumber > 1 — the first
+  // TURN_SYNC in the buffer is the opener, not the advance.
   shooter.send({ type: 'RESOLVE_SHOT', shotId: syncA.shotId, eliminated: [] });
-  const turnA = await a.await((f) => f.type === 'TURN_SYNC', 'TURN_SYNC (A)');
-  const turnB = await b.await((f) => f.type === 'TURN_SYNC', 'TURN_SYNC (B)');
+  const turnA = await a.await((f) => f.type === 'TURN_SYNC' && f.turnNumber > 1, 'TURN_SYNC advance (A)');
+  const turnB = await b.await((f) => f.type === 'TURN_SYNC' && f.turnNumber > 1, 'TURN_SYNC advance (B)');
   check('the turn advances to the next player on both clients',
     turnA.activeSlot === turnB.activeSlot && turnA.activeSlot !== firstSlot,
     `activeSlot ${firstSlot} -> ${turnA.activeSlot}, turn ${turnA.turnNumber}`);
