@@ -43,7 +43,7 @@ The active human player can control their tank using the following key bindings:
 
 ## Setup Options
 Before starting a game, you can customise the match settings in the setup screen:
-* **Players:** 2 to 4 players can participate in a game.
+* **Players:** solo play seats you against 1 to 5 AI opponents (up to 6 tanks on the field); online rooms hold 2 to 4 players.
 * **Player Types (AI Opponents):** Each player slot can be configured as a **Human** player or one of four AI profiles:
   * **Human:** Controlled manually via keyboard.
   * **Moron:** Shoots randomly without targeting.
@@ -57,7 +57,7 @@ Before starting a game, you can customise the match settings in the setup screen
   * **Rubber (Bouncing):** Projectiles bounce off the left and right borders of the screen.
   * **Wrap (Screen wrap):** Projectiles wrapping around from one side of the screen to the other.
   * **Concrete (Solid):** Projectiles bounce off the left and right borders **and off the top of the screen** — the ceiling bounce is the only difference from rubber.
-* **Retro Tank Colors:** Choose from 8 retro CGA/EGA-inspired colors: Magenta, Cyan, Red, Green, Yellow, Blue, Orange, and White.
+* **Tank Colors:** the default Æthercastle mode ships its own 8-colour palette (Aether Magenta, Clockwork Cyan, Blood Iron, Acid Green, Guild Brass, Void Violet, Phosphor Fire, Parchment); classic mode keeps the 8 retro CGA/EGA-inspired colours. Colour selection lives in the online lobby — solo seats are auto-assigned.
 * **Weapons Availability:** Toggle between **All Weapons** (full shop arsenal available) or **Basic Only** (restricting weapon types to basic missiles).
 
 ## Arsenal
@@ -95,7 +95,7 @@ Players can purchase weapons and defensive equipment in the intermission shop be
 | **Heavy Mag Deflector** | 6,000 | 1 | 250 | Shield | Heavy-duty deflector field. |
 | **Super Magno Shield** | 8,000 | 1 | 400 | Shield | Top-tier deflector field. |
 | **Force Shield** | 10,000 | 1 | 500 | Shield | The strongest absorbing shield in the game; does not deflect. |
-| **Battery** | 500 | 2 | - | Battery | Recharges a raised shield by +50 (up to that shield's strength) if one is up and below its cap; otherwise restores +30 HP, capped at 100. |
+| **Battery** | 500 | 2 | - | Battery | Recharges a raised shield by +50 (up to that shield's strength) if one is up and below its cap; otherwise restores +30 HP, capped at the chassis's own maximum. |
 | **Parachute** | 500 | 3 | - | Parachute | Prevents fall/drop damage when terrain collapses underneath your tank. |
 | **Guidance Computer** | 2,000 | 1 | - | Utility | Assists in highlighting predicted projectile paths. |
 | **Auto Defense** | 3,000 | 1 | - | Utility | Automatically deploys a replacement shield if a current shield collapses during a turn. |
@@ -127,7 +127,7 @@ On Windows shells that rewrite the trailing path separator, point Node at the fi
 node --test tests/smoke.test.js
 ```
 
-The CI workflow is configured via GitHub Actions (`.github/workflows/ci.yml`) to automatically run the 34-test smoke suite on every push and pull request.
+The CI workflow is configured via GitHub Actions (`.github/workflows/ci.yml`) to automatically run the full `node --test tests/` suite on every push and pull request.
 
 ## Live Demo
 _(pending deploy)_

@@ -83,26 +83,27 @@ describe('RoomManager Room Sweep Tests', () => {
     assert.ok(rm.rooms.has(code));
   });
 
-  it('stale lobby with <2 players is swept past MAX_LOBBY_MS and fresh one is retained', () => {
+  it('an emptied lobby is swept immediately; an occupied one is retained', () => {
+    // CONTRACT CHANGE. Lobby disconnects DELETE seats, so a lobby with no
+    // connected players is always empty — and an empty lobby has nobody who
+    // could come back to it. Letting empties ride out the 15-minute TTL was
+    // what let one attacker hold thousands of codes at once, so they are
+    // reaped on the very next sweep.
     const rm = new RoomManager();
 
-    // Create room 1 (lobby, 1 player)
     rm.createRoom('conn_1');
     const room1 = rm.getRoomByConnection('conn_1');
     const code1 = room1.code;
 
-    // Disconnect the only player to ensure no connected players remain in lobby
-    rm.disconnect('conn_1');
-
-    const baseTime = room1.createdAt;
-
-    // Retained before threshold
-    const resultBefore = rm.sweep(baseTime + RoomManager.MAX_LOBBY_MS - 1000);
-    assert.deepStrictEqual(resultBefore.swept, []);
+    // While its creator is seated, the lobby is untouchable at any age.
+    const farFuture = room1.createdAt + RoomManager.MAX_LOBBY_MS * 10;
+    assert.deepStrictEqual(rm.sweep(farFuture).swept, []);
     assert.ok(rm.rooms.has(code1));
 
-    // Swept past threshold
-    const resultAfter = rm.sweep(baseTime + RoomManager.MAX_LOBBY_MS + 1000);
+    // Disconnect the only player: the seat is deleted, the lobby is empty,
+    // and the very next sweep reaps it — no TTL wait.
+    rm.disconnect('conn_1');
+    const resultAfter = rm.sweep(room1.createdAt + 1000);
     assert.deepStrictEqual(resultAfter.swept, [code1]);
     assert.strictEqual(rm.rooms.has(code1), false);
 

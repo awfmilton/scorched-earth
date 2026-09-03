@@ -146,11 +146,17 @@ describe('RoomManager rejoin() mechanics', () => {
     assert.strictEqual(room.phase, 'paused');
     assert.ok(room.pausedAt);
 
-    // Rejoin player 1
+    // CONTRACT CHANGE: a fully-parked room is RE-SEEDED, not resumed. The
+    // old resume rebuilt the rejoiner's world from the round seed — a
+    // pristine fiction standing in for a half-fought round. Now the server
+    // mints a fresh seed for the same round number and everyone who
+    // returns builds the same real world.
+    const oldSeed = room.seed;
     const rejoinRes = rm.rejoin('conn_1_new', { code, playerToken: tokens['conn_1'] });
     assert.ok(rejoinRes);
     assert.strictEqual(room.phase, 'playing');
     assert.strictEqual(room.pausedAt, undefined);
+    assert.notStrictEqual(room.seed, oldSeed, 'the parked round must be re-seeded');
     // Since only player 1 is connected, player 1 should be the activeSlot
     assert.strictEqual(room.activeSlot, 0);
 
@@ -159,14 +165,17 @@ describe('RoomManager rejoin() mechanics', () => {
       assert.ok(val.ok, `Frame validation failed: ${val.error}`);
     }
 
-    // The un-park moved the cursor to slot 0 — every client must be told
+    const roundStart = rejoinRes.broadcasts.find(b => b.msg.type === 'ROUND_START');
+    assert.ok(roundStart, 're-seed must ship a fresh ROUND_START');
+    assert.strictEqual(roundStart.msg.seed, room.seed);
+
+    // The re-seed announces its cursor to the CONNECTED players — a frame
+    // aimed at a dead socket serves nobody.
     const syncBroadcast = rejoinRes.broadcasts.find(b => b.msg.type === 'TURN_SYNC');
-    assert.ok(syncBroadcast, 'un-park must announce the reassigned cursor to all clients');
+    assert.ok(syncBroadcast, 're-seed must announce the cursor');
     assert.strictEqual(syncBroadcast.msg.activeSlot, 0);
-    assert.deepStrictEqual(
-      syncBroadcast.to,
-      Array.from(room.players.values()).map(p => p.connectionId)
-    );
+    assert.strictEqual(syncBroadcast.msg.turnNumber, 1);
+    assert.deepStrictEqual(syncBroadcast.to, ['conn_1_new']);
   });
 
   it('(5) the reclaimed player can then fire() on their turn', () => {

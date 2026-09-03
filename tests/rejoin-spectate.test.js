@@ -141,8 +141,10 @@ describe('Mid-round rejoin comes back as a spectator', () => {
     const rm = new RoomManager();
     const { room, code, tokens } = setupAndStartRoom(rm, 2);
 
-    // Everyone dropped, so nobody advanced the world past the point this player
-    // remembers. The first one back becomes the reference client.
+    // Everyone dropped, so nobody's in-progress world is being discarded.
+    // CONTRACT CHANGE: instead of resuming the first returner as a
+    // "reference client" on a seed-rebuilt fiction, the server re-seeds
+    // the CURRENT round — a fresh, real world for whoever comes back.
     rm.disconnect('conn_1');
     rm.disconnect('conn_2');
     assert.strictEqual(room.phase, 'paused');
@@ -150,10 +152,12 @@ describe('Mid-round rejoin comes back as a spectator', () => {
     const res = rm.rejoin('conn_1_new', { code, playerToken: tokens['conn_1'] });
     assert.strictEqual(room.players.get(0).spectating, false);
 
-    const roundStart = res.replies.find(r => r.msg.type === 'ROUND_START');
-    assert.strictEqual(roundStart.msg.spectating, false);
+    const roundStart = [...res.replies, ...res.broadcasts]
+      .find(r => r.msg.type === 'ROUND_START');
+    assert.ok(roundStart, 're-seed must ship a ROUND_START');
+    assert.ok(!roundStart.msg.spectating, 'a re-seeded world sidelines nobody');
 
-    // They can take their turn immediately — the un-park is not a sideline.
+    // They can take their turn immediately — the re-seed is not a sideline.
     assert.strictEqual(room.activeSlot, 0);
     assert.ok(rm.fire('conn_1_new', { angle: 45, power: 500 }));
   });
