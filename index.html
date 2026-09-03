@@ -528,7 +528,7 @@
 </head>
 <body>
   <div id="hud"></div>
-  <canvas id="game"></canvas>
+  <canvas id="game" role="img" aria-label="Scorched Earth battlefield"></canvas>
   <!--
     Shown while this client is sitting a round out after reconnecting. The
     board below it is rebuilt from the round seed and will NOT match what the
@@ -564,6 +564,10 @@
           <div class="form-group">
             <label for="solo-name">Your Name:</label>
             <input type="text" id="solo-name" maxlength="12" value="PLAYER">
+          </div>
+          <div class="form-group" id="solo-chassis-group">
+            <label for="solo-chassis">Chassis:</label>
+            <select id="solo-chassis"></select>
           </div>
           <div class="form-group">
             <label for="solo-ai-count">AI Opponents:</label>
@@ -746,12 +750,24 @@
         <button id="start-btn" hidden>START GAME</button>
       </div>
 
-      <div id="error-msg" class="error-msg"></div>
+      <div id="error-msg" class="error-msg" role="alert" aria-live="assertive"></div>
     </div>
   </div>
   <div id="shop" hidden></div>
   <script src="lib/terrain.js"></script>
   <script src="lib/structures.js"></script>
+  <!--
+    Æthercastle sprite kit. Draw-only and Aethercastle-only: every call site
+    below gates on the mode first, so classic still renders from the literal
+    draw calls the golden fixture was recorded from. Order matters — ac-common
+    publishes ACG, which the other five read at load.
+  -->
+  <script src="gfx/ac-common.js"></script>
+  <script src="gfx/ac-sky.js"></script>
+  <script src="gfx/ac-terrain.js"></script>
+  <script src="gfx/ac-chassis.js"></script>
+  <script src="gfx/ac-structures.js"></script>
+  <script src="gfx/ac-weapons.js"></script>
   <script>
     (function() {
       'use strict';
@@ -1146,7 +1162,11 @@
         { id: 'Dirt Ball', name: 'Dirt Ball', cost: 1000, packSize: 4, blast: 24, damage: 0, kind: 'dirt' },
         { id: 'Dirt Bomb', name: 'Dirt Bomb', cost: 1500, packSize: 3, blast: 30, damage: 0, kind: 'dirt' },
         { id: 'Ton of Dirt', name: 'Ton of Dirt', cost: 3000, packSize: 2, blast: 55, damage: 0, kind: 'dirt' },
-        { id: 'Dirt Detonator', name: 'Dirt Detonator', cost: 1000, packSize: 5, blast: 0, damage: 50, kind: 'utility' },
+        // blast was 0, which made the configured 50 damage unreachable —
+        // explosion() gates every tank on dist < radius, and nothing is
+        // closer than zero. 25 gives the detonation a real (small) bite to
+        // match the collapse it triggers.
+        { id: 'Dirt Detonator', name: 'Dirt Detonator', cost: 1000, packSize: 5, blast: 25, damage: 50, kind: 'utility' },
         // Late-tier exotics.
         { id: 'Earth Disrupter', name: 'Earth Disrupter', cost: 4000, packSize: 2, blast: 45, damage: 90, kind: 'disrupter' },
         { id: 'Plasma Blast', name: 'Plasma Blast', cost: 7000, packSize: 1, blast: 120, damage: 220, kind: 'plasma' },
@@ -1162,6 +1182,13 @@
       // the same shot with a trail that stays on screen after it lands.
       function isTracer(weaponId) {
         return weaponId === 'Tracer' || weaponId === 'Smoke Tracer';
+      }
+
+      // The three warheads whose burst is drawn as a mushroom cloud, and which
+      // therefore need longer on screen than a shell burst. PRESENTATION only:
+      // nothing about the blast — radius, damage, carve — reads this.
+      function isNukeFamily(weaponId) {
+        return weaponId === 'Baby Nuke' || weaponId === 'Nuke' || weaponId === 'Meganuke';
       }
 
       // One table instead of the strength constant being repeated at every site
@@ -1462,6 +1489,21 @@
             gain.connect(masterGain);
             osc.start();
             osc.stop(audioCtx.currentTime + 0.5);
+          } else if (name === 'turret') {
+            // A short energy zap, deliberately unlike 'hit' or 'explode':
+            // the turret volley needs its own voice so a struck player can
+            // tell structure fire from an incoming shell.
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(700, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.2);
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.2);
           } else if (name === 'shieldHit') {
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
@@ -1543,15 +1585,59 @@
         }
       }
 
+      // True while the event target is somewhere the player is TYPING —
+      // global single-key shortcuts must not fire from inside a name field.
+      function isTypingTarget(e) {
+        const t = e && e.target;
+        if (!t || !t.tagName) return false;
+        const tag = t.tagName.toUpperCase();
+        return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable === true;
+      }
+
+      function showMuteIndicator() {
+        if (typeof document === 'undefined') return;
+        let el = document.getElementById('mute-indicator');
+        if (!el) {
+          el = document.createElement('div');
+          el.id = 'mute-indicator';
+          el.setAttribute('aria-live', 'polite');
+          el.style.cssText = 'position:fixed;top:10px;right:10px;z-index:99;'
+            + 'padding:4px 10px;background:rgba(0,0,0,0.7);color:#ffd166;'
+            + 'font-family:monospace;font-size:13px;letter-spacing:1px;'
+            + 'border:1px solid #444;pointer-events:none;';
+          document.body.appendChild(el);
+        }
+        el.textContent = isMuted ? '🔇 MUTED — M to unmute' : '';
+        el.hidden = !isMuted;
+      }
+
       if (typeof window !== 'undefined') {
         window.addEventListener('keydown', (e) => {
+          // Typing a name with an M in it used to silence the game.
+          if (isTypingTarget(e)) return;
           if (e.key === 'm' || e.key === 'M') {
             isMuted = !isMuted;
             if (masterGain && audioCtx) {
               masterGain.gain.setValueAtTime(isMuted ? 0 : 1, audioCtx.currentTime);
             }
+            // The toggle used to be invisible: no indicator, so a muted
+            // game just read as broken audio.
+            showMuteIndicator();
           }
         });
+
+        // Browsers gesture-lock the AudioContext. If the FIRST sfx arrives
+        // over the wire (a remote player's shot) before any local gesture,
+        // audioCtx.resume() inside sfx() is refused and stays refused. The
+        // first real gesture unlocks it for good.
+        const unlockAudio = () => {
+          initAudio();
+          if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {});
+          }
+        };
+        window.addEventListener('pointerdown', unlockAudio, { once: true });
+        window.addEventListener('keydown', unlockAudio, { once: true });
       }
 
       let TerrainLib;
@@ -1583,6 +1669,72 @@
         }
       }
 
+      /**
+       * The holding is expandable. Each work is a shop purchase whose
+       * 'Structure: <id>' inventory key is replicated like any other stock
+       * (SHOP_DONE declares it, ROUND_START restates it); lib/structures.js
+       * layoutStructures() reads the counts and adds the works to the
+       * owner's zone at every round rebuild. Costs live here because they
+       * are a SHOP concern — the simulation registry stays a pure spec
+       * table. Aethercastle-only: the shop concatenates these on the AC
+       * path and classic never sees them.
+       */
+      const STRUCTURE_COSTS = {
+        'norman-castle': 5000,
+        'keep-gatehouse': 3500,
+        'aether-forge': 4500,
+        'oil-vats': 2000,
+        'portcullis': 1500,
+        'scorpion-crossbow': 3000,
+        'shield-dome': 3500,
+        'aether-radar': 2000,
+        'repair-bay': 3500,
+        'missile-silo': 7000
+      };
+      const STRUCTURE_ITEMS = (StructuresLib && StructuresLib.STRUCTURE_IDS)
+        ? StructuresLib.STRUCTURE_IDS.map(id => ({
+            id: 'Structure: ' + id,
+            name: StructuresLib.STRUCTURES[id].name + ' (Work)',
+            cost: STRUCTURE_COSTS[id] || 3000,
+            packSize: 1,
+            kind: 'structure'
+          }))
+        : [];
+
+      /**
+       * The Æthercastle sprite kit (gfx/*.js), resolved the way the simulation
+       * libraries above are.
+       *
+       * A bare `ACChassis` reference would work in the browser, where the
+       * script tags publish onto the global object, and fail under the render
+       * harness, which runs this script in a vm where `window` is an ordinary
+       * object and NOT the global. Resolving explicitly keeps one code path
+       * for both.
+       *
+       * Every one of these is Aethercastle-only. Classic reaches none of them.
+       */
+      function resolveKit(name, modulePath) {
+        if (typeof window !== 'undefined' && window[name]) return window[name];
+        if (typeof globalThis !== 'undefined' && globalThis[name]) return globalThis[name];
+        try {
+          return require(modulePath);
+        } catch (e) {
+          return null;
+        }
+      }
+
+      const ACG = resolveKit('ACG', './gfx/ac-common.js');
+      const ACSky = resolveKit('ACSky', './gfx/ac-sky.js');
+      const ACTerrain = resolveKit('ACTerrain', './gfx/ac-terrain.js');
+      const ACChassis = resolveKit('ACChassis', './gfx/ac-chassis.js');
+      const ACStructures = resolveKit('ACStructures', './gfx/ac-structures.js');
+      const ACWeapons = resolveKit('ACWeapons', './gfx/ac-weapons.js');
+
+      // Hand the kit the deterministic trig the simulation fires with, so a
+      // drawn barrel lands on exactly the muzzle a shell spawns from rather
+      // than within a rounding error of it. See ACG.setTrig.
+      if (ACG) ACG.setTrig({ sin: detSin, cos: detCos });
+
       // Player-facing text for each protocol ERROR code in lib/protocol.js.
       // The server builds ERROR frames with roomError(code), which sets
       // `message` to the code itself — so the code, not `message`, is what
@@ -1595,7 +1747,8 @@
         NOT_HOST: 'Only the host can start the game.',
         NOT_ENOUGH_PLAYERS: 'Not enough players to start.',
         COLOUR_TAKEN: 'That colour is already taken.',
-        BAD_MESSAGE: 'The server rejected that message.'
+        BAD_MESSAGE: 'The server rejected that message.',
+        RATE_LIMITED: 'Too many requests — slow down a moment.'
       };
 
       // handleError() emits two different shapes: a flat server ERROR frame
@@ -2041,6 +2194,16 @@
           if (!ctx) return;
           const r = ramp || biomeRampFor(activeMode, this.biome);
 
+          // The sprite kit's sky and ground, on the Aethercastle path only.
+          // `glow` is the discriminator for the same reason the bloom pass at
+          // the bottom of this method uses it: classic ramps carry no glow, so
+          // classic cannot reach this branch and its call log is unchanged.
+          if (r.glow && ACSky && ACTerrain) {
+            ACSky.drawSkyAC(ctx, r, CONST.WORLD_W, CONST.WORLD_H);
+            ACTerrain.drawTerrainAC(ctx, this.heights, r, CONST.WORLD_W, CONST.WORLD_H, this.biome);
+            return;
+          }
+
           // Sky gradient
           const skyGrad = ctx.createLinearGradient(0, 0, 0, CONST.WORLD_H);
           skyGrad.addColorStop(0, r.sky);
@@ -2102,43 +2265,15 @@
        *
        * Brand doctrine (skills/aethercastle-design): metal is beveled and
        * square, aether glows, and the two treatments are never applied to the
-       * same shape. bevelPlate() is the metal half, withGlow() the aether one.
+       * same shape. Both halves now live in the sprite kit as ACG.plate() and
+       * ACG.glow() — the local bevelPlate()/withGlow() pair they replaced was
+       * removed with the placeholder art that was its only caller.
+       *
+       * The functions below are the SEAM, not the sprites: each gates on the
+       * mode and then hands off to gfx/*.js on the Aethercastle path. Classic
+       * draws from the literal calls in place here, which is why it can be
+       * diffed against a recording of the pre-visualisation build.
        */
-
-      // Masonry and metal: square, lit along the top edge, shadowed under.
-      function bevelPlate(ctx, x, y, w, h, fill, lit, shade) {
-        ctx.fillStyle = fill;
-        ctx.fillRect(x, y, w, h);
-        if (h >= 3) {
-          ctx.fillStyle = lit;
-          ctx.fillRect(x, y, w, 1);
-          ctx.fillStyle = shade;
-          ctx.fillRect(x, y + h - 1, w, 1);
-        }
-      }
-
-      // Aether: anything alchemically powered is drawn lit, never beveled.
-      function withGlow(ctx, colour, blur, fn) {
-        ctx.save();
-        ctx.shadowColor = colour;
-        ctx.shadowBlur = blur;
-        fn();
-        ctx.restore();
-      }
-
-      // A destroyed work: a low broken mound where the building stood. Keeps
-      // the footprint readable so a player can still see what they knocked
-      // down and where the ground is no longer blocked.
-      function drawRubble(ctx, left, groundY, w, h, theme) {
-        const rubbleH = Math.max(4, h * 0.18);
-        bevelPlate(ctx, left, groundY - rubbleH, w, rubbleH,
-          theme.stone800, theme.stone600, theme.void900);
-        // Two broken stumps, at fixed fractions so every client draws them
-        // in the same place.
-        ctx.fillStyle = theme.stone700;
-        ctx.fillRect(left + w * 0.12, groundY - rubbleH - h * 0.10, w * 0.14, h * 0.10);
-        ctx.fillRect(left + w * 0.68, groundY - rubbleH - h * 0.07, w * 0.11, h * 0.07);
-      }
 
       /**
        * Draw one structure.
@@ -2149,186 +2284,17 @@
        * not already expose, the fix is to expose it read-only, never to move
        * logic into the renderer.
        *
+       * The sprite itself lives in gfx/ac-structures.js; this stays as the
+       * seam the game calls through, so the call sites read the same whether
+       * the kit or a future replacement is behind it.
+       *
        * @param {Object} s Live structure entry (x, y, hp, maxHp, breached)
        * @param {Object} spec Its STRUCTURES definition (w, h, breach, ...)
        * @param {Object} theme Resolved palette for the match mode
        * @param {string} ownerColour Slot colour of the holding's owner
        */
       function drawStructure(ctx, s, spec, theme, ownerColour) {
-        const w = spec.w;
-        const h = spec.h;
-        const left = s.x - w / 2;
-        const top = s.y - h;
-        const maxHp = s.maxHp || spec.hp || 1;
-        const frac = Math.max(0, Math.min(1, s.hp / maxHp));
-
-        ctx.save();
-
-        if (s.hp <= 0) {
-          drawRubble(ctx, left, s.y, w, h, theme);
-          // A vat that already spent its breach is scorched rather than merely
-          // broken, so a player can tell a spent trap from a live one.
-          if (s.breached && spec.breach) {
-            ctx.globalAlpha = 0.5;
-            ctx.fillStyle = theme.fire600;
-            ctx.fillRect(left, s.y - 2, w, 2);
-          }
-          ctx.restore();
-          return;
-        }
-
-        const stone = theme.stone600;
-        const lit = theme.stone300;
-        const shade = theme.void900;
-
-        switch (s.key) {
-          case 'norman-castle': {
-            // Curtain wall under a crenellated top, with the keep behind it.
-            const wallTop = top + h * 0.34;
-            bevelPlate(ctx, left + w * 0.34, top, w * 0.32, h * 0.5, stone, lit, shade);
-            bevelPlate(ctx, left, wallTop, w, h - (wallTop - top), stone, lit, shade);
-            ctx.fillStyle = stone;
-            for (let m = 0; m < 5; m++) {
-              ctx.fillRect(left + (w / 5) * m + w * 0.02, wallTop - h * 0.09, w * 0.16, h * 0.09);
-            }
-            // Gate mouth.
-            ctx.fillStyle = theme.void800;
-            ctx.fillRect(left + w * 0.44, s.y - h * 0.24, w * 0.12, h * 0.24);
-            break;
-          }
-          case 'keep-gatehouse': {
-            // Twin drum towers over an arch.
-            bevelPlate(ctx, left, top, w * 0.3, h, stone, lit, shade);
-            bevelPlate(ctx, left + w * 0.7, top, w * 0.3, h, stone, lit, shade);
-            bevelPlate(ctx, left + w * 0.3, top + h * 0.18, w * 0.4, h * 0.82, stone, lit, shade);
-            ctx.fillStyle = theme.void800;
-            ctx.beginPath();
-            ctx.arc(s.x, s.y - h * 0.3, w * 0.16, Math.PI, 0);
-            ctx.fill();
-            ctx.fillRect(s.x - w * 0.16, s.y - h * 0.3, w * 0.32, h * 0.3);
-            // The ward it projects, as a brass lintel band.
-            ctx.fillStyle = theme.brass600;
-            ctx.fillRect(left + w * 0.3, top + h * 0.18, w * 0.4, 2);
-            break;
-          }
-          case 'portcullis': {
-            // Iron lattice: three bars down, four across.
-            ctx.fillStyle = theme.brass700;
-            for (let b = 0; b < 3; b++) ctx.fillRect(left + b * (w / 3), top, 3, h);
-            for (let b = 0; b < 4; b++) ctx.fillRect(left, top + b * (h / 4), w, 2);
-            break;
-          }
-          case 'oil-vats': {
-            // Two pressure cylinders. Still-armed vats carry a fire sheen.
-            for (let v = 0; v < 2; v++) {
-              const vx = left + v * (w * 0.55);
-              bevelPlate(ctx, vx, top + h * 0.15, w * 0.45, h * 0.85, theme.stone700, theme.brass600, shade);
-              ctx.fillStyle = theme.brass700;
-              ctx.beginPath();
-              ctx.ellipse(vx + w * 0.225, top + h * 0.15, w * 0.225, h * 0.12, 0, 0, Math.PI * 2);
-              ctx.fill();
-            }
-            withGlow(ctx, theme.fire600, 8, () => {
-              ctx.fillStyle = theme.fire500;
-              ctx.fillRect(left + w * 0.1, top + h * 0.4, w * 0.8, 2);
-            });
-            break;
-          }
-          case 'aether-forge': {
-            bevelPlate(ctx, left, top + h * 0.3, w, h * 0.7, stone, lit, shade);
-            bevelPlate(ctx, left + w * 0.66, top, w * 0.2, h * 0.4, theme.stone700, theme.brass600, shade);
-            withGlow(ctx, theme.magenta600, 12, () => {
-              ctx.fillStyle = theme.magenta500;
-              ctx.fillRect(left + w * 0.12, top + h * 0.5, w * 0.34, h * 0.34);
-            });
-            break;
-          }
-          case 'scorpion-crossbow': {
-            bevelPlate(ctx, left, s.y - h * 0.35, w, h * 0.35, theme.stone700, theme.brass600, shade);
-            ctx.strokeStyle = theme.brass500;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(left + w * 0.2, s.y - h * 0.35);
-            ctx.lineTo(left + w * 0.8, top + h * 0.1);
-            ctx.stroke();
-            withGlow(ctx, theme.cyan600, 8, () => {
-              ctx.strokeStyle = theme.cyan500;
-              ctx.lineWidth = 2;
-              ctx.beginPath();
-              ctx.moveTo(left + w * 0.55, top);
-              ctx.lineTo(left + w * 0.95, top + h * 0.3);
-              ctx.stroke();
-            });
-            break;
-          }
-          case 'shield-dome': {
-            bevelPlate(ctx, left, s.y - h * 0.28, w, h * 0.28, theme.stone700, theme.brass600, shade);
-            withGlow(ctx, theme.cyan600, 14, () => {
-              ctx.strokeStyle = theme.cyan500;
-              ctx.lineWidth = 3;
-              ctx.beginPath();
-              ctx.arc(s.x, s.y - h * 0.28, w * 0.45, Math.PI, 0);
-              ctx.stroke();
-            });
-            break;
-          }
-          case 'aether-radar': {
-            bevelPlate(ctx, s.x - w * 0.12, top + h * 0.3, w * 0.24, h * 0.7, theme.stone700, theme.brass600, shade);
-            withGlow(ctx, theme.cyan600, 10, () => {
-              ctx.strokeStyle = theme.cyan400;
-              ctx.lineWidth = 3;
-              ctx.beginPath();
-              ctx.arc(s.x, top + h * 0.3, w * 0.42, Math.PI * 1.15, Math.PI * 1.85);
-              ctx.stroke();
-            });
-            break;
-          }
-          case 'repair-bay': {
-            bevelPlate(ctx, left, s.y - h * 0.3, w, h * 0.3, theme.stone700, theme.brass600, shade);
-            ctx.strokeStyle = theme.brass500;
-            ctx.lineWidth = 2;
-            ctx.strokeRect(left + w * 0.1, top, w * 0.8, h * 0.7);
-            withGlow(ctx, theme.acid500, 10, () => {
-              ctx.fillStyle = theme.acid400;
-              ctx.fillRect(left + w * 0.38, top + h * 0.2, w * 0.24, 3);
-              ctx.fillRect(left + w * 0.46, top + h * 0.06, 3, h * 0.31);
-            });
-            break;
-          }
-          case 'missile-silo': {
-            bevelPlate(ctx, left, s.y - h * 0.35, w, h * 0.35, stone, lit, shade);
-            bevelPlate(ctx, s.x - w * 0.22, top, w * 0.44, h * 0.68, theme.stone700, theme.brass600, shade);
-            withGlow(ctx, theme.violet600, 12, () => {
-              ctx.fillStyle = theme.violet500;
-              ctx.beginPath();
-              ctx.arc(s.x, top, w * 0.22, Math.PI, 0);
-              ctx.fill();
-            });
-            break;
-          }
-          default:
-            bevelPlate(ctx, left, top, w, h, stone, lit, shade);
-        }
-
-        // Owner banner: a slot-coloured pip on the ridge, so a glance tells
-        // you whose holding you are about to shell.
-        if (ownerColour) {
-          ctx.fillStyle = ownerColour;
-          ctx.fillRect(s.x - 3, top - 6, 6, 4);
-        }
-
-        // Damage readout, only once something has actually hit it.
-        if (frac < 1) {
-          const barW = Math.max(16, w * 0.7);
-          const barX = s.x - barW / 2;
-          const barY = top - 12;
-          ctx.fillStyle = theme.void900;
-          ctx.fillRect(barX, barY, barW, 3);
-          ctx.fillStyle = frac > 0.6 ? theme.hpFull : (frac > 0.3 ? theme.hpMid : theme.hpLow);
-          ctx.fillRect(barX, barY, barW * frac, 3);
-        }
-
-        ctx.restore();
+        ACStructures.drawStructureAC(ctx, s, spec, theme, ownerColour);
       }
 
       /**
@@ -2376,88 +2342,27 @@
           return;
         }
 
-        // Aethercastle: the hull dimensions and accent that have been sitting
-        // in the CHASSIS table unused since it was written.
-        const hw = chassis.hullW;
-        const hh = chassis.hullH;
-        const accent = chassis.accent;
-        const left = tank.x - hw / 2;
-        const hullTop = tank.y - hh;
+        // Aethercastle: the sprite kit draws the hull, the running gear,
+        // the dome, the barrel and the active marker. It is handed the same
+        // CHASSIS row the simulation uses, so hullW/hullH stay the wire
+        // contract they were and differentiation lives inside that box.
+        ACChassis.drawTankAC(ctx, tank, chassis, isActive, theme);
 
-        ctx.save();
-        switch (chassis.locomotion) {
-          case 'tracked': {
-            // Track band under the hull, road wheels inside it.
-            ctx.fillStyle = theme.stone700;
-            ctx.fillRect(left - 1, tank.y - 3, hw + 2, 3);
-            ctx.fillStyle = accent;
-            for (let wI = 0; wI < 3; wI++) {
-              ctx.fillRect(left + 1 + wI * ((hw - 2) / 3), tank.y - 2, 2, 2);
-            }
-            bevelPlate(ctx, left, hullTop, hw, hh, tank.color, accent, theme.void900);
-            break;
-          }
-          case 'legged': {
-            // Two legs planted at full stride, which is what a mech's
-            // strideClearance actually looks like on the ground.
-            ctx.strokeStyle = accent;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(tank.x - hw * 0.3, hullTop + hh);
-            ctx.lineTo(tank.x - hw * 0.5, tank.y);
-            ctx.moveTo(tank.x + hw * 0.3, hullTop + hh);
-            ctx.lineTo(tank.x + hw * 0.5, tank.y);
-            ctx.stroke();
-            bevelPlate(ctx, left, hullTop - 2, hw, hh, tank.color, accent, theme.void900);
-            break;
-          }
-          case 'aerial': {
-            // Envelope over a gondola. Drawn around tank.y, which for an
-            // airship is already its cruise altitude, not the ground.
-            ctx.fillStyle = tank.color;
-            ctx.beginPath();
-            ctx.ellipse(tank.x, tank.y - hh - 3, hw / 2, hh * 0.7, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = accent;
-            ctx.lineWidth = 1;
-            ctx.stroke();
-            bevelPlate(ctx, tank.x - hw * 0.22, tank.y - 6, hw * 0.44, 5, theme.stone700, accent, theme.void900);
-            break;
-          }
-          case 'hover':
-          default: {
-            bevelPlate(ctx, left, hullTop, hw, hh, tank.color, accent, theme.void900);
-            // The skirt is the only part of a drone that glows.
-            withGlow(ctx, accent, 8, () => {
-              ctx.fillStyle = accent;
-              ctx.fillRect(left + 1, tank.y - 1, hw - 2, 2);
-            });
-            break;
-          }
-        }
-
-        // Turret dome and barrel, on the muzzle contract above.
-        ctx.fillStyle = tank.color;
-        ctx.beginPath();
-        ctx.arc(tank.x, tank.y - 6, 4, Math.PI, 0);
-        ctx.fill();
-        ctx.strokeStyle = accent;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(tank.x, tank.y - 6);
-        ctx.lineTo(bx, by);
-        ctx.stroke();
-        ctx.restore();
-
-        if (isActive) {
-          ctx.fillStyle = theme.fx.activeMarker;
-          ctx.beginPath();
-          ctx.moveTo(tank.x - 4, tank.y - 20);
-          ctx.lineTo(tank.x + 4, tank.y - 20);
-          ctx.lineTo(tank.x, tank.y - 14);
-          ctx.closePath();
-          ctx.fill();
-        }
+        // Per-hull hp bar. Classic never had one (the replica constraint
+        // above keeps that branch clean), but Aethercastle needs it: turret
+        // volleys, burns and drop damage land on hulls the HUD is not
+        // showing, and a hit with no visible bar reads as damage from
+        // nowhere. Sits above the kit's active marker so neither occludes
+        // the other.
+        const barMaxHp = tank.maxHp || (chassis && chassis.hp) || 100;
+        const hpFrac = Math.max(0, Math.min(1, tank.hp / barMaxHp));
+        const barW = 18, barH = 3;
+        const barX = tank.x - barW / 2;
+        const barY = tank.y - 27;
+        ctx.fillStyle = theme.void800;
+        ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+        ctx.fillStyle = hpFrac > 0.5 ? theme.hpFull : (hpFrac > 0.25 ? theme.hpMid : theme.hpLow);
+        ctx.fillRect(barX, barY, barW * hpFrac, barH);
       }
 
       class Game {
@@ -2554,6 +2459,8 @@
 
         setupInput() {
           window.addEventListener('keydown', (e) => {
+            // Never steal keys from a text field (lobby name, join code).
+            if (isTypingTarget(e)) return;
             if (!this.roster || this.activePlayerIdx === undefined) return;
             const activeTank = this.roster[this.activePlayerIdx];
             if (!activeTank || activeTank.hp <= 0 || activeTank.type !== 'Human') return;
@@ -2599,6 +2506,8 @@
             }
 
             if (changed) {
+              // A handled aim key must not also scroll the page.
+              e.preventDefault();
               this.updateHUD();
             }
           });
@@ -2614,6 +2523,11 @@
           if (!activeTank || activeTank.hp <= 0 || this.projectile) return;
 
           const weapon = activeTank.selectedWeapon || 'Baby Missile';
+          // Refuse to fire anything that is not a registered weapon. With
+          // cycling filtered this is belt-and-braces, but a stale selection
+          // (or a test poking selectedWeapon directly) must not launch an
+          // item as a fallback shell.
+          if (!WEAPONS_BY_ID.has(weapon)) return;
           const ammo = activeTank.inventory[weapon];
           if (ammo !== undefined && ammo <= 0) return;
 
@@ -2660,7 +2574,12 @@
             vy: vy,
             weapon: weapon,
             shooterIdx: this.activePlayerIdx,
-            trigger: trigger
+            trigger: trigger,
+            // A buried hull's muzzle sits INSIDE the pile; the shell must
+            // tunnel out before terrain contact means anything, or firing
+            // while buried detonates the round in your own lap. Derived
+            // from replicated state, so every client agrees.
+            startedUnderground: startY >= CONST.WORLD_H - this.terrain.heightAt(startX)
           };
 
           if (!this.headless && typeof sfx === 'function') {
@@ -2675,6 +2594,45 @@
         // watchers integrate trajectories that differ in the last few bits, and
         // one flipped `Math.floor(x)` terrain column is a permanent desync.
         applyFireSync(msg) {
+          if (!this.roster) return;
+
+          /*
+           * Hold until the world is at rest, exactly like applyTurnSync. The
+           * server lets the NEXT player fire the moment the shooter's own
+           * simulation resolves, so on a lagging client this frame can land
+           * while the previous shell is still mid-air HERE — and the
+           * projectile setter replaces the whole array, deleting that shell
+           * (with every MIRV sub, bomblet and napalm particle) before it
+           * lands. The damage and craters it caused on every other client
+           * would then never happen on this one: a permanent fork. Queue
+           * behind whatever the world is still waiting on and spawn in
+           * arrival order.
+           */
+          if (msg.shotId !== undefined && (this.activeShotId === msg.shotId ||
+              this.pendingTurnSyncs.some(p => p.kind === 'fire' && p.msg && p.msg.shotId === msg.shotId))) {
+            return; // restated frame: already live or already queued
+          }
+          // A frozen simulation must never be handed a live shell. Once this
+          // client's local sim has ended the round, stepPhysics returns
+          // early, so a projectile spawned now would hang mid-air forever
+          // and jam the FIFO behind it for the rest of the round. Queue it:
+          // either applyRoundEnd/ROUND_START resolves the disagreement and
+          // clears the queue, or the round is genuinely still live elsewhere
+          // and the entry commits when the local state catches up.
+          if (this.roundOver || this.projectile || this.anyTankFalling() || this.pendingTurnSyncs.length) {
+            this.pendingTurnSyncs.push({ kind: 'fire', msg });
+            // Drain immediately if the world is actually at rest (the hold
+            // may be nothing but an already-drainable queue). The physics
+            // step remains the drain site for the in-flight case; this just
+            // removes the dependency on a frame tick that a backgrounded or
+            // starved tab may not get for seconds.
+            this.flushPendingTurnSync();
+            return;
+          }
+          this.commitFireSync(msg);
+        }
+
+        commitFireSync(msg) {
           if (!this.roster) return;
           const shooterIdx = this.roster.findIndex(t => t.slot === msg.shooterSlot);
           if (shooterIdx === -1) return;
@@ -2746,7 +2704,9 @@
             weapon: weapon,
             shooterIdx: shooterIdx,
             shotId: msg.shotId,
-            trigger: trigger
+            trigger: trigger,
+            // Same buried-muzzle escape as the local fire() spawn.
+            startedUnderground: startY >= CONST.WORLD_H - this.terrain.heightAt(startX)
           };
 
           if (!this.headless && typeof sfx === 'function') {
@@ -2779,7 +2739,7 @@
             this.turnNumber !== undefined &&
             msg.turnNumber === this.turnNumber;
           const alreadyPending = this.pendingTurnSyncs.some(
-            p => p.turnNumber === msg.turnNumber);
+            p => p.kind === 'turn' && p.msg && p.msg.turnNumber === msg.turnNumber);
           if (alreadyApplied || alreadyPending) return;
 
           /*
@@ -2808,7 +2768,8 @@
            * the physics step drain them once the world settles.
            */
           if (this.projectile || this.anyTankFalling() || this.pendingTurnSyncs.length) {
-            this.pendingTurnSyncs.push(msg);
+            this.pendingTurnSyncs.push({ kind: 'turn', msg });
+            this.flushPendingTurnSync(); // see applyFireSync
             return;
           }
 
@@ -2823,6 +2784,12 @@
           this.turnNumber = msg.turnNumber;
           this.activeShotId = null;
           this.reportedShotId = null;
+          // Mid-round wind rides the boundary frame (server-minted, like the
+          // per-shot wind on FIRE_SYNC), and must land before the drift that
+          // consumes it.
+          if (Number.isFinite(msg.wind)) {
+            this.wind = msg.wind;
+          }
           // Wind moves the airships before the new shooter takes aim. Online
           // this is the one place every client advances a turn, so applying
           // the drift here keeps all of them on the same pixel.
@@ -2876,13 +2843,25 @@
         // Called from the physics step once the shell has resolved and every
         // tank has finished falling.
         flushPendingTurnSync() {
-          // Drain in arrival order, re-checking rest between each: a boundary
-          // can fire a turret volley that puts a shell back in the air or
-          // knocks a tank into a fall, and the next boundary has to wait for
-          // that to settle exactly as the first one did.
+          // Drain in arrival order, re-checking rest between each entry: a
+          // boundary can fire a turret volley that puts a shell back in the
+          // air or knocks a tank into a fall — and a queued FIRE_SYNC puts a
+          // shell in the air by design — so every later entry waits exactly
+          // as the first one did. The queue carries every kind of gameplay
+          // sync (turn, fire, move, teleport) in one FIFO because ORDER is
+          // the contract: applying a move before the shell it queued behind
+          // would walk the tank through the blast on this client only.
           while (this.pendingTurnSyncs.length) {
-            if (this.projectile || this.anyTankFalling()) return;
-            this.commitTurnSync(this.pendingTurnSyncs.shift());
+            // roundOver holds the queue closed too: a commit against a
+            // frozen simulation (see applyFireSync) could strand a shell.
+            if (this.roundOver || this.projectile || this.anyTankFalling()) return;
+            const entry = this.pendingTurnSyncs.shift();
+            const kind = entry.kind || 'turn';
+            const msg = entry.msg || entry;
+            if (kind === 'turn') this.commitTurnSync(msg);
+            else if (kind === 'fire') this.commitFireSync(msg);
+            else if (kind === 'move') this.commitMoveSync(msg);
+            else if (kind === 'teleport') this.commitTeleportSync(msg);
           }
         }
 
@@ -2926,6 +2905,14 @@
           const matchOver = !msg || msg.matchOver === undefined ? true : msg.matchOver;
           this.matchOver = matchOver;
 
+          // Every ROUND_END legitimately (re)opens the shop — including the
+          // one the server re-sends to a player who reconnected mid-shop. The
+          // per-intermission DONE guard resets with it, so that player's
+          // second DONE actually goes to the wire (the server's SHOP_DONE is
+          // a Set.add and dedupes resends); without this reset the guard ate
+          // the resend and the whole room waited on them forever.
+          this.shopDoneSentForRound = null;
+
           if (this.headless) return;
           if (matchOver) {
             this.showMatchSummary();
@@ -2961,7 +2948,17 @@
           if (this.shopDoneSentForRound === this.currentRound) return;
           this.shopDoneSentForRound = this.currentRound;
           if (this.net) {
-            this.net.send('SHOP_DONE', { inventory: this.declaredInventory() });
+            // Cash is declared alongside the kit: the server restates both in
+            // the next ROUND_START so every client carries the same numbers.
+            const mine = this.roster && this.roster.find(t => t.slot === this.mySlot);
+            const payload = { inventory: this.declaredInventory() };
+            if (mine && Number.isFinite(mine.cash) && mine.cash >= 0) {
+              // Clamped to the protocol bound: an HONEST bankroll past it
+              // would fail validation and the rejected SHOP_DONE would wedge
+              // the whole room waiting on this player.
+              payload.cash = Math.min(100000000, Math.floor(mine.cash));
+            }
+            this.net.send('SHOP_DONE', payload);
           }
         }
 
@@ -3044,6 +3041,22 @@
           });
         }
 
+        // Cash and chassis ride the same ROUND_START.tanks entries as the
+        // inventory, for the same reason: each is owned by one client and
+        // read by all of them. Restating both at every round boundary means
+        // a client rebuilt from scratch mid-match converges instead of
+        // ranking, paying and armouring a fiction.
+        applyServerTankMeta(tanks) {
+          if (!this.roster || !Array.isArray(tanks)) return;
+          tanks.forEach(t => {
+            if (!t) return;
+            const tank = this.roster.find(r => r.slot === t.slot);
+            if (!tank) return;
+            if (Number.isFinite(t.cash) && t.cash >= 0) tank.cash = t.cash;
+            if (t.chassis && CHASSIS[t.chassis]) tank.chassis = t.chassis;
+          });
+        }
+
         showWaitingForPlayers() {
           if (this.headless || typeof document === 'undefined') return;
           const shopEl = document.getElementById('shop');
@@ -3070,6 +3083,8 @@
         // progression the shop just bought.
         applyServerRoundStart(msg) {
           this.currentRound = Number.isFinite(msg.round) ? msg.round : (this.currentRound || 1) + 1;
+          // The intermission is over; whatever DONE state it held is spent.
+          this.shopDoneSentForRound = null;
           if (Number.isFinite(msg.totalRounds)) this.rounds = msg.totalRounds;
           if (Array.isArray(msg.turnOrder)) this.turnOrder = msg.turnOrder.slice();
           this.matchOver = false;
@@ -3086,6 +3101,8 @@
           // bought in the shop has to be in place by then or the allowance
           // silently overwrites it.
           this.applyServerInventories(msg.tanks);
+          // Likewise before the reset: maxHp below reads chassisOf(tank).
+          this.applyServerTankMeta(msg.tanks);
 
           const N = this.roster.length;
           const zoneW = CONST.WORLD_W / N;
@@ -3178,8 +3195,15 @@
           const activeTank = this.roster[this.activePlayerIdx];
           if (!activeTank) return;
 
-          const weapons = Object.keys(activeTank.inventory);
-          if (weapons.length <= 1) return;
+          // Only FIREABLE entries. The inventory also holds items (Fuel,
+          // Parachute, Battery, Teleport…) and spent stock sitting at zero —
+          // cycling used to offer both, and firing an "item" launched a
+          // fallback shell solo while the server silently downgraded it
+          // online: two different games from one keypress.
+          const weapons = Object.keys(activeTank.inventory).filter(id =>
+            WEAPONS_BY_ID.has(id) &&
+            (activeTank.inventory[id] === Infinity || activeTank.inventory[id] > 0));
+          if (weapons.length === 0) return;
 
           let idx = weapons.indexOf(activeTank.selectedWeapon);
           idx = (idx + dir + weapons.length) % weapons.length;
@@ -3196,8 +3220,21 @@
           // holding layout cannot shift wind or tank placement.
           structureRNG.seed((roundSeed ^ STRUCTURE_SEED_SALT) >>> 0);
           this.persistentTracers = [];
-          // Regenerate wind: signed horizontal acceleration, let's say between -150 and 150
-          this.wind = gameplayRNG.range(-150, 150);
+          // Regenerate wind under the match's wind policy. The stream draw
+          // ALWAYS happens, so gameplayRNG advances identically in every mode
+          // and the draws after it (tank placement) stay aligned.
+          const drawnWind = gameplayRNG.range(-150, 150);
+          const windMode = (this.config && this.config.windVariability) || 'changing-per-round';
+          if (windMode === 'none') {
+            this.wind = 0;
+          } else if (windMode === 'constant') {
+            // First round of the match banks the draw; every later round
+            // reuses it. matchWind clears in start(), so a rematch redraws.
+            if (!Number.isFinite(this.matchWind)) this.matchWind = drawnWind;
+            this.wind = this.matchWind;
+          } else {
+            this.wind = drawnWind;
+          }
 
           if (!this.headless) {
             if (this.particlePool) {
@@ -3207,6 +3244,9 @@
               this.explosions.length = 0;
             }
             this.damageNumbers = [];
+            // A bolt from last round's final volley must not hang over the
+            // fresh terrain.
+            this.turretBolts = [];
           }
         }
 
@@ -3356,7 +3396,15 @@
         applyStructureTurnEffects() {
           if (!this.structures || !this.roster || !StructuresLib) return;
 
-          // Pass 1 — auras, in structure order, over the roster in slot order.
+          // Pass 1 — auras. Collected FIRST, applied ONCE per tank: every
+          // aura effect is non-stacking. Shields always topped to a floor;
+          // repair used to add per structure, which let purchasable
+          // repair-bay copies compound to 42hp/turn — the collect-then-apply
+          // shape gives repair the same best-single-source rule. Iteration
+          // stays (structure order × roster order), so the numbers every
+          // client computes are identical.
+          const bestRepair = new Array(this.roster.length).fill(0);
+          const bestShieldFloor = new Array(this.roster.length).fill(0);
           for (let i = 0; i < this.structures.length; i++) {
             const s = this.structures[i];
             if (!StructuresLib.isStanding(s)) continue;
@@ -3373,18 +3421,26 @@
               const dist = Math.sqrt(dx * dx + dy * dy);
               if (dist > spec.aura.radius) continue;
 
-              if (spec.aura.repair) {
-                const maxHp = tank.maxHp || chassisOf(tank).hp;
-                tank.hp = Math.min(maxHp, tank.hp + spec.aura.repair);
+              if (spec.aura.repair && spec.aura.repair > bestRepair[t]) {
+                bestRepair[t] = spec.aura.repair;
               }
-              if (spec.aura.shield) {
-                // Tops up to a FLOOR rather than stacking, so two domes are
-                // not twice as good as one and the value stays bounded.
-                if (!tank.shield || tank.shield.hp <= 0) {
-                  tank.shield = { type: 'Shield', hp: spec.aura.shield };
-                } else if (tank.shield.hp < spec.aura.shield) {
-                  tank.shield.hp = spec.aura.shield;
-                }
+              if (spec.aura.shield && spec.aura.shield > bestShieldFloor[t]) {
+                bestShieldFloor[t] = spec.aura.shield;
+              }
+            }
+          }
+          for (let t = 0; t < this.roster.length; t++) {
+            const tank = this.roster[t];
+            if (!tank || tank.hp <= 0) continue;
+            if (bestRepair[t] > 0) {
+              const maxHp = tank.maxHp || chassisOf(tank).hp;
+              tank.hp = Math.min(maxHp, tank.hp + bestRepair[t]);
+            }
+            if (bestShieldFloor[t] > 0) {
+              if (!tank.shield || tank.shield.hp <= 0) {
+                tank.shield = { type: 'Shield', hp: bestShieldFloor[t] };
+              } else if (tank.shield.hp < bestShieldFloor[t]) {
+                tank.shield.hp = bestShieldFloor[t];
               }
             }
           }
@@ -3405,6 +3461,22 @@
             if (Math.sqrt(dx * dx + dy * dy) > spec.turret.range) continue;
 
             s.cooldown = spec.turret.cooldown;
+
+            // Render-only attribution BEFORE the blast: a visible bolt from
+            // the turret head to its victim plus a distinct report, so the
+            // volley cannot be mistaken for part of whatever shell just
+            // landed. Nothing here is simulation state — headless clients
+            // skip straight to the explosion and stay in lockstep.
+            if (!this.headless) {
+              if (!this.turretBolts) this.turretBolts = [];
+              this.turretBolts.push({
+                x1: s.x, y1: s.y - (spec.h || 16),
+                x2: target.x, y2: target.y - 3,
+                life: 24, maxLife: 24
+              });
+              if (typeof sfx === 'function') sfx('turret');
+            }
+
             // Credited to the owner so kills and damage-dealt still add up.
             this.explosion(
               target.x, target.y - 3,
@@ -3457,9 +3529,14 @@
 
             // Distance to the footprint, not to its centre: a wide castle
             // should be hit when its wall is clipped, not only its middle.
+            // Vertically the same rule applies to the structure's EXTENT
+            // (s.y - h .. s.y): the old one-sided expression treated every
+            // blast below the midpoint as vertical distance zero, so a shell
+            // detonating at bedrock full-damaged a keep on the surface.
             const halfW = spec.w / 2;
+            const halfH = spec.h / 2;
             const dx = Math.max(0, Math.abs(x - s.x) - halfW);
-            const dy = Math.max(0, (s.y - spec.h / 2) - y);
+            const dy = Math.max(0, Math.abs(y - (s.y - halfH)) - halfH);
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist >= radius) continue;
 
@@ -3473,10 +3550,31 @@
             if (s.hp <= 0 && !s.breached) {
               s.breached = true;
               breaches.push({ s: s, spec: spec });
-              // An anchor going down pays whoever cracked it.
+
+              // A destroyed PURCHASED work is consumed: its inventory count
+              // drops, so the next round's rebuild does not resurrect it for
+              // free. Runs identically on every client (destruction is a
+              // replicated outcome), and the owner's next SHOP_DONE declares
+              // the decremented count, keeping the wire in agreement.
+              if (s.purchased) {
+                const itemKey = 'Structure: ' + s.key;
+                const owner = this.roster && this.roster[s.ownerIdx];
+                if (owner && owner.inventory &&
+                    Number.isInteger(owner.inventory[itemKey]) &&
+                    owner.inventory[itemKey] > 0) {
+                  owner.inventory[itemKey]--;
+                }
+              }
+              // An anchor going down pays whoever cracked it — unless they
+              // cracked their OWN: demolishing your holding for its bounty
+              // was free money.
               if (spec.bounty && shooterIdx !== undefined && shooterIdx !== null) {
                 const shooter = this.roster && this.roster[shooterIdx];
-                if (shooter) shooter.cash = (shooter.cash || 0) + spec.bounty;
+                const ownStructure = shooter &&
+                  (shooterIdx === s.ownerIdx || shooter.slot === s.owner);
+                if (shooter && !ownStructure) {
+                  shooter.cash = (shooter.cash || 0) + spec.bounty;
+                }
               }
             }
           }
@@ -3685,6 +3783,15 @@
           if (this.mode === 'online') {
             if (tank.slot !== this.mySlot) return;
             if (this.activeShotId) return;
+            // Input-side throttle: a held key repeats at ~30/s and every
+            // repeat used to be its own MOVE frame — a single driving player
+            // ate a third of the server's whole per-socket window. 40ms
+            // between sends caps a held key at 25/s. Wall-clock is fine
+            // here: this is the INPUT site, not the simulation (the sim only
+            // ever sees the replicated MOVE_SYNCs).
+            const nowMs = Date.now();
+            if (this._lastDriveSendMs && nowMs - this._lastDriveSendMs < 40) return;
+            this._lastDriveSendMs = nowMs;
             if (this.net) this.net.send('MOVE', { dir, steps: 1 });
             return;
           }
@@ -3717,6 +3824,22 @@
 
         applyMoveSync(msg) {
           if (!this.roster || !msg) return;
+          // An order for a world at rest. The server only blocks moves during
+          // ITS shot window; on a lagging client the previous shell can still
+          // be mid-air here, and driving now would walk the tank through the
+          // blast column and across ground the impact has not yet carved on
+          // this client. Same hold, same queue, same order as every other
+          // gameplay sync.
+          if (this.projectile || this.anyTankFalling() || this.pendingTurnSyncs.length) {
+            this.pendingTurnSyncs.push({ kind: 'move', msg });
+            this.flushPendingTurnSync(); // see applyFireSync
+            return;
+          }
+          this.commitMoveSync(msg);
+        }
+
+        commitMoveSync(msg) {
+          if (!this.roster || !msg) return;
           const tank = this.roster.find(t => t.slot === msg.slot);
           if (!tank) return;
           this.driveTank(tank, msg.dir, msg.steps);
@@ -3724,6 +3847,17 @@
         }
 
         applyTeleportSync(msg) {
+          if (!this.roster || !msg) return;
+          // Same at-rest hold as applyMoveSync, for the same reason.
+          if (this.projectile || this.anyTankFalling() || this.pendingTurnSyncs.length) {
+            this.pendingTurnSyncs.push({ kind: 'teleport', msg });
+            this.flushPendingTurnSync(); // see applyFireSync
+            return;
+          }
+          this.commitTeleportSync(msg);
+        }
+
+        commitTeleportSync(msg) {
           if (!this.roster || !msg) return;
           const tank = this.roster.find(t => t.slot === msg.slot);
           if (!tank) return;
@@ -3951,6 +4085,14 @@
           this.turnNumber = null;
           this.pendingTurnSyncs = [];
 
+          // A DONE sent in the PREVIOUS match's intermission must not gag this
+          // match's shop: the guard is per-intermission, not per-lifetime.
+          this.shopDoneSentForRound = null;
+
+          // A 'constant' wind is constant per MATCH: forget the previous
+          // match's banked draw so the rematch mints its own.
+          this.matchWind = undefined;
+
           // Online setup must land BEFORE newRound(), because the seed decides
           // the terrain, the biome and every tank spawn position.
           if (config.isMultiplayer) {
@@ -4011,7 +4153,10 @@
               maxHp: ((p.chassis && CHASSIS[p.chassis]) || CHASSIS[DEFAULT_CHASSIS]).hp,
               angle: 45,
               power: 500,
-              cash: this.startingCash,
+              // Server-restated cash wins over the starting bankroll: a
+              // client rebuilt mid-match (refresh + rejoin) must not hand its
+              // player a fresh fortune, or lose an earned one.
+              cash: Number.isFinite(p.cash) && p.cash >= 0 ? p.cash : this.startingCash,
               // Base loadout, then whatever the server says this tank bought.
               // Round 1 has no purchases and the overlay is empty, so every
               // client builds the same kit either way.
@@ -4111,6 +4256,13 @@
           if (this.mode === 'online') {
             this.reportShotResolved();
             return;
+          }
+
+          // Mid-round wind changes at every boundary, drawn from the shared
+          // gameplay stream BEFORE the drift that consumes it. Config-gated,
+          // and config is identical everywhere, so the stream stays aligned.
+          if (this.config && this.config.windVariability === 'changing-mid-round') {
+            this.wind = gameplayRNG.range(-150, 150);
           }
 
           // Local play advances its own turn, so the drift is applied here
@@ -4385,8 +4537,11 @@
           tank.damageCarry -= remaining;
           if (remaining <= 0) return false;
 
-          // Damage dealt counts the full hit, including whatever the shield eats
-          if (shooter) {
+          // Damage dealt counts the full hit, including whatever the shield
+          // eats — but never against yourself: damageDealt is paid out at
+          // round end, and crediting self-inflicted hits paid players for
+          // shooting their own feet.
+          if (shooter && shooter !== tank) {
             shooter.damageDealt = (shooter.damageDealt || 0) + remaining;
           }
 
@@ -4417,10 +4572,27 @@
             }
           }
 
-          // Mark dead and credit kill
+          // Mark dead and credit kill. A self-kill is a death, not a kill:
+          // kills are paid and ranked, and nuking your own hull must not
+          // climb the scoreboard.
           if (prevHp > 0 && tank.hp <= 0) {
-            if (!this.headless && typeof sfx === 'function') sfx('death');
-            if (shooter) {
+            if (!this.headless) {
+              if (typeof sfx === 'function') sfx('death');
+              // The hull itself pops. Blast deaths already read clearly from
+              // the chain-reaction explosion, but a napalm burn or a fall
+              // used to end with the tank simply vanishing — every death now
+              // leaves the same render-only burst at the hull. Aethercastle
+              // only: the classic replica's deaths look exactly as the
+              // golden build drew them, extra burst included nowhere.
+              if (this.explosions && normaliseMode(this.gameMode) === 'aethercastle') {
+                this.explosions.push({
+                  x: tank.x, y: tank.y - 3,
+                  maxRadius: 24, currentRadius: 0,
+                  life: 0.5, maxLife: 0.5
+                });
+              }
+            }
+            if (shooter && shooter !== tank) {
               shooter.kills = (shooter.kills || 0) + 1;
             }
             return true;
@@ -4468,15 +4640,27 @@
           if (!this.headless) {
             sfx('explode', { radius });
 
-            // Push expanding fireball ring
+            // Push expanding fireball ring.
+            //
+            // `weapon` is render-visible only: the Aethercastle burst picks its
+            // sprite tier from it (mushroom cloud, void implosion, napalm...).
+            // It is not simulation state — this whole block is behind the
+            // !headless guard and nothing reads it back.
             if (this.explosions) {
+              // A nuke-family burst needs longer on screen than a shell burst
+              // for the cloud to read. The timer is per-entry, so this changes
+              // no shared constant — and it is Aethercastle-only, because the
+              // classic replica's burst timing is part of the replica.
+              const life = (isNukeFamily(opts.weapon) &&
+                normaliseMode(this.gameMode) === 'aethercastle') ? 1 : 0.5;
               this.explosions.push({
                 x: x,
                 y: y,
                 maxRadius: radius,
                 currentRadius: 0,
-                life: 0.5,
-                maxLife: 0.5
+                life: life,
+                maxLife: life,
+                weapon: opts.weapon
               });
             }
 
@@ -4504,14 +4688,31 @@
           if (!this.roster) return;
           this.roster.forEach(tank => {
             if (tank.hp <= 0) return;
+            const spec = chassisOf(tank);
+
+            // Aerial hulls re-derive their station; the blast that moved the
+            // ground under them does not move them.
+            if (spec.locomotion === 'aerial') {
+              tank.y = this.restingY(tank, tank.x);
+              tank.falling = false;
+              tank.vy = 0;
+              return;
+            }
+
+            const restY = this.restingY(tank, tank.x);
             const groundY = CONST.WORLD_H - this.terrain.heightAt(tank.x);
-            if (tank.y < groundY - 0.01) {
+            if (tank.y < restY - 0.01) {
+              // Ground carved away below: start falling.
               tank.falling = true;
               if (tank.vy === undefined || tank.vy === null) {
                 tank.vy = 0;
               }
+            } else if (tank.y > groundY + 0.01) {
+              // Dirt deposited above: buried. Stays put — see stepPhysics.
+              tank.falling = false;
+              tank.vy = 0;
             } else {
-              tank.y = groundY;
+              tank.y = restY;
               tank.falling = false;
               tank.vy = 0;
             }
@@ -4592,8 +4793,6 @@
           else if (wp === 'Cluster Bomblet') { radius = 12; damage = 24; }
           else if (wp === 'Funky Bomblet') { radius = 15; damage = 30; }
 
-          this.lastShooterIdx = shooterIdx;
-
           const kind = wConf.kind;
 
           // Perform specific actions based on weapon type
@@ -4605,22 +4804,26 @@
             if (!this.headless) {
               sfx('explode', { radius });
               this.spawnCraterEffects(x, y, radius);
+              this.pushKindBurst(x, y, radius, wp);
             }
           } else if (kind === 'riot') {
-            // Clears dirt, harms nobody — deliberately routed around
-            // explosion() so there is no code path that can damage a tank.
+            // Clears dirt with no BLAST damage — deliberately routed around
+            // explosion(). A tank undermined by the carve still falls under
+            // the normal physics and takes normal drop damage; that is the
+            // terrain acting, not the charge.
             this.terrain.carve(x, y, radius);
             if (!this.headless) {
               sfx('explode', { radius });
               this.spawnCraterEffects(x, y, radius);
+              this.pushKindBurst(x, y, radius, wp);
             }
           } else if (kind === 'plasma') {
             // Energy blast: huge damage radius, terrain left intact.
-            this.explosion(x, y, radius, damage, shooterIdx, { carve: false });
+            this.explosion(x, y, radius, damage, shooterIdx, { carve: false, weapon: wp });
           } else if (kind === 'disrupter') {
             // Ordinary blast, plus a narrow shaft punched all the way down to
             // bedrock — the classic way to drop a hilltop tank into a pit.
-            this.explosion(x, y, radius, damage, shooterIdx);
+            this.explosion(x, y, radius, damage, shooterIdx, { weapon: wp });
             // The shaft is cut to bedrock across a solid core and tapered at the
             // edges, wide enough that settle() cannot simply pour it shut again.
             const coreHalfWidth = 22;
@@ -4640,7 +4843,7 @@
               }
             }
           } else if (kind === 'leapfrog') {
-            this.explosion(x, y, radius, damage, shooterIdx);
+            this.explosion(x, y, radius, damage, shooterIdx, { weapon: wp });
             this.spawnLeapFrogHop(x, y, wp, shooterIdx, proj);
           } else if (wp === 'Dirt Detonator') {
             // collapse deposited dirt: flatten heights within radius 40
@@ -4653,7 +4856,7 @@
                 this.terrain.heights[col] = Math.max(CONST.WORLD_H * 0.15, this.terrain.heights[col] - 25 * (1 - Math.abs(dx) / collapseRadius));
               }
             }
-            this.explosion(x, y, radius, damage, shooterIdx);
+            this.explosion(x, y, radius, damage, shooterIdx, { weapon: wp });
           } else if (wp === 'Sandstorm') {
             // redistributing terrain
             const redistributionRadius = 200;
@@ -4667,6 +4870,7 @@
             }
             if (!this.headless) {
               sfx('explode', { radius: 50 });
+              this.pushKindBurst(x, y, 50, wp);
             }
           } else if (isTracer(wp)) {
             // Tracers deal exactly zero damage and zero blast
@@ -4675,11 +4879,17 @@
             }
           } else {
             // standard explosion
-            this.explosion(x, y, radius, damage, shooterIdx);
+            this.explosion(x, y, radius, damage, shooterIdx, { weapon: wp });
           }
 
           this.terrain.settle();
           this.reSeatTanks();
+          // Every impact path that edits terrain OUTSIDE explosion() — the
+          // dirt deposit, the riot carve, the disrupter shaft, Sandstorm's
+          // redistribution, the Dirt Detonator collapse — reaches here, and
+          // the holding has to ride the new surface exactly as it does after
+          // a blast crater.
+          this.reSeatStructures();
 
           // Spawning post-impact sub-projectiles (e.g. Cluster Bomb / Funky Bomb / Liquid)
           if (wp === 'Cluster Bomb') {
@@ -4739,6 +4949,28 @@
           }
         }
 
+        /**
+         * Render-only burst for the detonations that bypass explosion() —
+         * the dirt deposit, the riot carve and Sandstorm. Their kit tiers
+         * (soil fountain, acid puff) were finished art that no code path
+         * could ever reach, because only explosion() pushed burst entries.
+         * Aethercastle-only: the classic replica's dirt-family visuals are
+         * its crater particles, exactly as the golden build drew them.
+         */
+        pushKindBurst(x, y, radius, weaponId) {
+          if (this.headless || !this.explosions) return;
+          if (normaliseMode(this.gameMode) !== 'aethercastle') return;
+          this.explosions.push({
+            x: x,
+            y: y,
+            maxRadius: radius,
+            currentRadius: 0,
+            life: 0.5,
+            maxLife: 0.5,
+            weapon: weaponId
+          });
+        }
+
         anyTankFalling() {
           if (!this.roster) return false;
           return this.roster.some(tank => tank.hp > 0 && tank.falling);
@@ -4748,13 +4980,32 @@
           if (this.roundOver) return;
           this.roundState.ticks++;
 
-          // Update falling tanks
+          // Update falling tanks. Every hull falls toward ITS OWN rest
+          // altitude, not the raw surface: an airship holds station at cruise
+          // height, a hover hull sits on its clearance cushion, and only the
+          // ground hulls actually touch dirt. Measuring everyone against
+          // groundY dragged the aerial chassis out of the sky and made them
+          // take fall damage every turn.
           if (this.roster) {
             this.roster.forEach(tank => {
               if (tank.hp <= 0) return;
+              const spec = chassisOf(tank);
+
+              // An airship is held aloft by its envelope, not by support from
+              // below: gravity never applies and neither does drop damage.
+              if (spec.locomotion === 'aerial') {
+                const station = this.restingY(tank, tank.x);
+                if (tank.y !== station) tank.y = station;
+                tank.falling = false;
+                tank.vy = 0;
+                return;
+              }
+
+              const restY = this.restingY(tank, tank.x);
               const groundY = CONST.WORLD_H - this.terrain.heightAt(tank.x);
 
-              if (tank.y < groundY - 0.01) {
+              if (tank.y < restY - 0.01) {
+                // Airborne above the rest altitude: fall.
                 if (!tank.falling) {
                   tank.falling = true;
                   tank.vy = 0;
@@ -4762,35 +5013,47 @@
                 tank.vy += this.gravity * dt;
                 tank.y += tank.vy * dt;
 
-                const newGroundY = CONST.WORLD_H - this.terrain.heightAt(tank.x);
-                if (tank.y >= newGroundY) {
-                  tank.y = newGroundY;
+                const newRestY = this.restingY(tank, tank.x);
+                if (tank.y >= newRestY) {
+                  tank.y = newRestY;
                   tank.falling = false;
                   const impactVy = tank.vy;
                   tank.vy = 0;
 
-                  // Parachute consumption check defensively
-                  const hasParachute = tank.inventory && tank.inventory['Parachute'] > 0;
-                  if (hasParachute) {
-                    tank.inventory['Parachute']--;
-                  } else {
-                    // Drop damage proportional to impact velocity, capped
-                    const dropDmg = Math.min(80, Math.max(0, impactVy * 0.15));
-                    if (dropDmg > 5) {
-                      const prevHp = tank.hp;
-                      tank.hp = Math.max(0, tank.hp - dropDmg);
-                      if (prevHp > 0 && tank.hp <= 0) {
-                        if (this.lastShooterIdx !== undefined && this.roster[this.lastShooterIdx]) {
-                          this.roster[this.lastShooterIdx].kills = (this.roster[this.lastShooterIdx].kills || 0) + 1;
-                        }
-                      }
+                  // Damage is computed FIRST, and the chute is spent only on
+                  // a landing that would actually have hurt — a hop off a
+                  // kerb used to burn a 999-cost Parachute for 0 damage.
+                  const dropDmg = Math.min(80, Math.max(0, impactVy * 0.15));
+                  if (dropDmg > 5) {
+                    const hasParachute = tank.inventory && tank.inventory['Parachute'] > 0;
+                    if (hasParachute) {
+                      tank.inventory['Parachute']--;
+                    } else {
+                      // Routed through applyDamageToTank so armour scaling,
+                      // shield absorption and the integer-hp invariant all
+                      // hold for falls exactly as they do for blasts. No
+                      // shooter: the ground earns no kill credit, which also
+                      // retires the stale-lastShooterIdx misattribution.
+                      this.applyDamageToTank(tank, Math.round(dropDmg), null);
                     }
                   }
                 }
+              } else if (tank.y > groundY + 0.01) {
+                // BELOW the surface: buried under deposited dirt. Being
+                // buried IS the dirt tier's punishment (see onImpact), so the
+                // hull stays exactly where it is — no teleport to the top of
+                // the pile. Digging out works through the normal channels:
+                // driving or teleporting re-derives restingY at the new
+                // column, and a riot charge that carves the pile away drops
+                // the surface below the hull, which puts it in the falling
+                // branch above.
+                tank.falling = false;
+                tank.vy = 0;
               } else {
-                if (tank.y > groundY) {
-                  tank.y = groundY;
-                }
+                // Within the rest band: seat exactly. For ground hulls this
+                // is the old snap-to-surface; for hover hulls it is the
+                // rotor lift back onto the clearance cushion.
+                if (tank.y !== restY) tank.y = restY;
                 tank.falling = false;
                 tank.vy = 0;
               }
@@ -4875,11 +5138,16 @@
                     detonate = true;
                   }
 
-                  // Check tank collision
+                  // Check tank collision. The vertical window reaches a
+                  // hover hull on its 18px cushion — a ground-seated ±8
+                  // assumed every chassis touched dirt, which made the whole
+                  // Roller tier unable to hit a Scout Drone. Airships at
+                  // cruise altitude stay out of reach on purpose: a rolling
+                  // ball not hitting a flying ship is physics, not a bug.
                   if (this.roster) {
                     for (let i = 0; i < this.roster.length; i++) {
                       const tank = this.roster[i];
-                      if (tank.hp > 0 && Math.abs(proj.x - tank.x) <= 8 && Math.abs(proj.y - tank.y) <= 8) {
+                      if (tank.hp > 0 && Math.abs(proj.x - tank.x) <= 8 && Math.abs(proj.y - tank.y) <= 26) {
                         detonate = true;
                         break;
                       }
@@ -4942,7 +5210,9 @@
                     const shooter = (proj.shooterIdx !== undefined && this.roster) ? this.roster[proj.shooterIdx] : null;
                     if (this.roster) {
                       this.roster.forEach(tank => {
-                        if (tank.hp > 0 && Math.abs(proj.x - tank.x) < 12 && Math.abs(proj.y - tank.y) < 12) {
+                        // Same hover-aware vertical reach as the roller: the
+                        // flame licks up to a hull on its clearance cushion.
+                        if (tank.hp > 0 && Math.abs(proj.x - tank.x) < 12 && Math.abs(proj.y - tank.y) < 30) {
                           this.applyDamageToTank(tank, burnDmg, shooter);
                         }
                       });
@@ -5166,6 +5436,20 @@
 
                 // Below screen bottom
                 if (proj.y > CONST.WORLD_H) {
+                  // A digging round that runs past the world floor
+                  // DETONATES there — the dig was real and paid for.
+                  // Silently deleting it (the plain fall-off-the-map rule)
+                  // meant a Sandhog tunnelling deep terrain simply vanished
+                  // with no explosion at all.
+                  if (proj.digging) {
+                    this.projectiles = this.projectiles.filter(p => p !== proj);
+                    this.onImpact(proj.x, CONST.WORLD_H, proj.weapon, proj.shooterIdx, proj);
+                    if (this.projectiles.length === 0) {
+                      this.nextTurn();
+                    }
+                    impacted = true;
+                    break;
+                  }
                   if (isTracer(proj.weapon) && proj.path) {
                     this.persistentTracers = this.persistentTracers || [];
                     this.persistentTracers.push(proj.path);
@@ -5178,10 +5462,22 @@
                   break;
                 }
 
-                // Terrain Collision
+                // Terrain Collision. A digging projectile is INSIDE the
+                // ground by design — its life ends at digDepth, not at the
+                // surface it already passed through. Without this skip the
+                // very next substep after the dig trigger read as a fresh
+                // terrain hit and detonated every Digger and Sandhog one
+                // pixel under the surface.
                 const terrainX = Math.floor(proj.x);
-                if (terrainX >= 0 && terrainX < CONST.WORLD_W) {
+                if (terrainX >= 0 && terrainX < CONST.WORLD_W && !proj.digging) {
                   const groundY = CONST.WORLD_H - this.terrain.heightAt(proj.x);
+                  // A shell whose muzzle was buried is still inside the pile
+                  // it spawned in: ground contact only counts once it has
+                  // broken the surface. Cleared the first substep it is in
+                  // open air, after which every collision rule is normal.
+                  if (proj.startedUnderground) {
+                    if (proj.y < groundY) proj.startedUnderground = false;
+                  } else
                   if (proj.y >= groundY) {
                     // A Contact Trigger detonates the shell where it lands.
                     // Every check below this line is a family that would
@@ -5251,39 +5547,32 @@
                 if (this.roster) {
                   for (let i = 0; i < this.roster.length; i++) {
                     const tank = this.roster[i];
-                    if (tank.hp > 0) {
-                      if (proj.x >= tank.x - 8 && proj.x <= tank.x + 8 &&
-                          proj.y >= tank.y - 6 && proj.y <= tank.y) {
+                    if (tank.hp <= 0) continue;
 
-                        // Deflector shields bounce the shell instead of eating
-                        // it. Which types deflect is SHIELD_TYPES' business, not
-                        // a name comparison here.
-                        if (tank.shield && tank.shield.hp > 0 && shieldDeflects(tank.shield.type)) {
-                          const dx = proj.x - tank.x;
-                          const dy = proj.y - (tank.y - 3);
-                          let dist = Math.sqrt(dx * dx + dy * dy);
-                          if (dist === 0) dist = 1;
-                          const nx = dx / dist;
-                          const ny = dy / dist;
-                          const dot = proj.vx * nx + proj.vy * ny;
-                          proj.vx = proj.vx - 2 * dot * nx;
-                          proj.vy = proj.vy - 2 * dot * ny;
-                          proj.x = tank.x + nx * 12;
-                          proj.y = (tank.y - 3) + ny * 12;
-                          tank.shield.hp -= 50;
-                          if (!this.headless) sfx('bounce');
-                          if (tank.shield.hp <= 0) {
-                            tank.shield = null;
-                            this.raiseAutoDefenseShield(tank);
-                          }
-                          hitTank = false; // Reflected, don't detonate!
-                          break;
-                        } else {
-                          // Normal impact on tank
-                          if (isTracer(proj.weapon) && proj.path) {
-                            this.persistentTracers = this.persistentTracers || [];
-                            this.persistentTracers.push(proj.path);
-                          }
+                    // Deflector shields bounce the shell instead of eating
+                    // it. Which types deflect is SHIELD_TYPES' business, not
+                    // a name comparison here. The collision surface IS the
+                    // drawn dome — the UPPER semicircle of radius 12 at
+                    // (x, y-6), which is exactly what drawShieldAC renders
+                    // and the classic arc traces. A shell slipping in under
+                    // the rim falls through to the ordinary hull test, so
+                    // the picture and the physics agree in both directions.
+                    // Tracers pass the field entirely: they are aiming aids
+                    // that carry no charge worth bouncing, and letting them
+                    // interact meant a 10-cost round could grind a 4000-cost
+                    // field to nothing.
+                    if (tank.shield && tank.shield.hp > 0 &&
+                        shieldDeflects(tank.shield.type) && !isTracer(proj.weapon)) {
+                      const dx = proj.x - tank.x;
+                      const dy = proj.y - (tank.y - 6);
+                      const distSq = dx * dx + dy * dy;
+                      if (distSq <= 144 && dy <= 2) {
+                        // A shell cannot pogo on the field forever: after
+                        // three bounces the fourth contact detonates it on
+                        // the dome, ending the ~22s hang a vertical lob
+                        // used to cause while it juggled.
+                        proj.deflections = (proj.deflections || 0) + 1;
+                        if (proj.deflections > 3) {
                           this.projectiles = this.projectiles.filter(p => p !== proj);
                           this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx, proj);
                           if (this.projectiles.length === 0) {
@@ -5293,7 +5582,71 @@
                           impacted = true;
                           break;
                         }
+                        const dist = Math.sqrt(distSq);
+                        // Dead-centre entry has no radial direction; kick the
+                        // shell straight up rather than cancelling the
+                        // reflection and grinding the dome from inside.
+                        const nx = dist === 0 ? 0 : dx / dist;
+                        let ny = dist === 0 ? -1 : dy / dist;
+                        // A shell that starts INSIDE the dome band can sit
+                        // marginally below centre; a dome never bounces
+                        // downward, so mirror the normal into the upper half.
+                        if (ny > 0) ny = -ny;
+                        const dot = proj.vx * nx + proj.vy * ny;
+                        proj.vx = proj.vx - 2 * dot * nx;
+                        proj.vy = proj.vy - 2 * dot * ny;
+                        // The SUBSTEP vector must reflect too, or the
+                        // remaining substeps keep flying the old direction
+                        // through the dome — one shell used to trigger this
+                        // branch on every substep of the frame, draining 50
+                        // shield hp each time. Reflecting the step in place
+                        // preserves the laser's speed scaling.
+                        const sdot = step_vx * nx + step_vy * ny;
+                        step_vx = step_vx - 2 * sdot * nx;
+                        step_vy = step_vy - 2 * sdot * ny;
+                        // Just OUTSIDE the dome, so the next substep cannot
+                        // start inside the trigger radius it just left.
+                        proj.x = tank.x + nx * 12.5;
+                        proj.y = (tank.y - 6) + ny * 12.5;
+                        tank.shield.hp -= 50;
+                        if (!this.headless) {
+                          sfx('bounce');
+                          // The 50hp the field just paid is real damage the
+                          // player needs to see — a silent chip left shields
+                          // dying with no visible cause.
+                          if (this.damageNumbers) {
+                            this.damageNumbers.push({
+                              x: tank.x, y: tank.y - 20,
+                              text: '50', color: THEME.shieldCharge, life: 45
+                            });
+                          }
+                        }
+                        if (tank.shield.hp <= 0) {
+                          tank.shield = null;
+                          this.raiseAutoDefenseShield(tank);
+                        }
+                        hitTank = false; // Reflected, don't detonate!
+                        break;
                       }
+                      // Under the rim or outside the dome: the ordinary hull
+                      // test below decides, exactly as the drawn arc implies.
+                    }
+
+                    if (proj.x >= tank.x - 8 && proj.x <= tank.x + 8 &&
+                        proj.y >= tank.y - 6 && proj.y <= tank.y) {
+                      // Normal impact on tank
+                      if (isTracer(proj.weapon) && proj.path) {
+                        this.persistentTracers = this.persistentTracers || [];
+                        this.persistentTracers.push(proj.path);
+                      }
+                      this.projectiles = this.projectiles.filter(p => p !== proj);
+                      this.onImpact(proj.x, proj.y, proj.weapon, proj.shooterIdx, proj);
+                      if (this.projectiles.length === 0) {
+                        this.nextTurn();
+                      }
+                      hitTank = true;
+                      impacted = true;
+                      break;
                     }
                   }
                 }
@@ -5383,6 +5736,16 @@
               }
             }
           }
+
+          if (!this.headless && this.turretBolts) {
+            for (let i = this.turretBolts.length - 1; i >= 0; i--) {
+              const b = this.turretBolts[i];
+              b.life -= 1;
+              if (b.life <= 0) {
+                this.turretBolts.splice(i, 1);
+              }
+            }
+          }
         }
 
         /**
@@ -5405,6 +5768,18 @@
             const spec = specs[s.key];
             if (!spec) continue;
             const owner = this.roster && this.roster[s.ownerIdx];
+            // Masonry footing FIRST, so the building sits on top of its own
+            // plinth. layoutStructures seats a work on the highest ground under
+            // its footprint, which leaves it floating over the low side of a
+            // slope; the plinth fills that gap down to the live surface.
+            //
+            // Depth is capped at the gap recorded AT PLACEMENT (s.footing), not
+            // re-derived from current heights, so ground blown out from under a
+            // holding later leaves it visibly hanging over the crater. That read
+            // is the point: a mined base should look mined.
+            ACStructures.drawFoundationAC(
+              ctx, s, spec, theme, this.terrain && this.terrain.heights, CONST.WORLD_H
+            );
             drawStructure(ctx, s, spec, theme, owner && owner.color);
           }
         }
@@ -5488,6 +5863,20 @@
           theme = theme || themeFor(this.gameMode);
           for (let i = 0; i < this.explosions.length; i++) {
             const exp = this.explosions[i];
+
+            if (theme !== THEMES.classic) {
+              // The kit fades a burst itself off `frac`, and escalates the
+              // sprite by weapon family, so it gets the raw progress rather
+              // than a pre-multiplied globalAlpha it would then compound.
+              const frac = Math.max(0, Math.min(1, 1 - exp.life / exp.maxLife));
+              ctx.save();
+              ACWeapons.drawExplosionAC(
+                ctx, exp.x, exp.y, exp.maxRadius, frac, theme, exp.weapon
+              );
+              ctx.restore();
+              continue;
+            }
+
             ctx.save();
             const alpha = Math.max(0, Math.min(1, exp.life / exp.maxLife));
             ctx.globalAlpha = alpha;
@@ -5629,9 +6018,18 @@
 
         buy(tank, id, packs = 1) {
           const weapon = WEAPONS.find(w => w.id === id);
-          const item = ITEMS.find(i => i.id === id);
+          const structureItem = STRUCTURE_ITEMS.find(i => i.id === id);
+          const item = ITEMS.find(i => i.id === id) || structureItem;
           const config = weapon || item;
           if (!config) return false;
+
+          // The layout fields at most MAX_PURCHASED_COPIES of one work;
+          // selling money for copies that can never stand would be a silent
+          // sink, so the shop refuses at the cap.
+          if (structureItem && StructuresLib) {
+            const held = (tank.inventory && tank.inventory[id]) || 0;
+            if (held + packs > StructuresLib.MAX_PURCHASED_COPIES) return false;
+          }
 
           const totalCost = config.cost * packs;
           if (tank.cash < totalCost) {
@@ -5654,7 +6052,9 @@
         }
 
         sell(tank, id, itemsToSell = 1) {
-          const config = WEAPONS.find(w => w.id === id) || ITEMS.find(i => i.id === id);
+          const config = WEAPONS.find(w => w.id === id) ||
+            ITEMS.find(i => i.id === id) ||
+            STRUCTURE_ITEMS.find(i => i.id === id);
           if (!config) return false;
 
           tank.inventory = tank.inventory || {};
@@ -5876,7 +6276,11 @@
 
           const availableWeapons = this.availableWeapons();
           const isBasicOnly = this.isBasicTier();
-          const availableItems = ITEMS;
+          // Structures are an Aethercastle concern; classic's shop sells the
+          // classic catalogue only.
+          const availableItems = normaliseMode(this.gameMode) === 'aethercastle'
+            ? ITEMS.concat(STRUCTURE_ITEMS)
+            : ITEMS;
 
           // Helper to add rows
           const addRow = (itemConf) => {
@@ -5915,7 +6319,16 @@
             buyBtn.style.color = player.color;
             buyBtn.style.cursor = 'pointer';
 
-            if (player.cash < itemConf.cost * opts.bulkMultiplier) {
+            // A work caps at MAX_PURCHASED_COPIES fielded; past it the BUY
+            // button says why instead of silently eating the click.
+            const structureCap = itemConf.kind === 'structure' && StructuresLib
+              ? StructuresLib.MAX_PURCHASED_COPIES
+              : Infinity;
+            const atStructureCap = count !== Infinity &&
+              count + opts.bulkMultiplier > structureCap;
+            if (atStructureCap) buyBtn.textContent = 'MAX ' + structureCap;
+
+            if (player.cash < itemConf.cost * opts.bulkMultiplier || atStructureCap) {
               buyBtn.disabled = true;
               buyBtn.style.borderColor = '#444';
               buyBtn.style.color = '#444';
@@ -6092,10 +6505,39 @@
           restartBtn.style.transition = 'background 0.2s';
 
           restartBtn.addEventListener('click', () => {
-            // Hide shop
             shopEl.hidden = true;
-            // Show setup modal
+
+            // The finished match's identity must not leak into the next one:
+            // a surviving `spectating` flag killed all input in the next
+            // solo game, and a surviving currentRound made the next online
+            // match's ROUND_START look like a reconnect restatement and get
+            // swallowed whole (both matches say "round 1").
+            this.spectating = false;
+            if (typeof setSpectateBanner === 'function') setSpectateBanner(false);
+            this.currentRound = 0;
+
+            // A finished ONLINE room is a dead end server-side: its phase is
+            // 'ended' and nothing transitions it back to 'lobby', so START
+            // GAME from its stale lobby can only ever be rejected. Tear the
+            // session down instead — forget the token, reconnect for a fresh
+            // connectionId (which also lets the server sweep the ended room),
+            // and land on the entry view.
+            if (this.mode === 'online') {
+              try { sessionStorage.removeItem('scorched_session'); } catch (e) {}
+              if (this.net) this.net.connect();
+            }
+
+            // Land on the entry view with every sub-view in a known state.
+            // PLAY AGAIN used to show #setup with whatever sub-view was last
+            // visible — a dead lobby after an online match, or nothing at all
+            // after solo (every sub-view hidden).
             const setupEl = document.getElementById('setup');
+            const landing = document.getElementById('landing-view');
+            const lobby = document.getElementById('lobby-view');
+            const solo = document.getElementById('solo-view');
+            if (lobby) lobby.hidden = true;
+            if (solo) solo.hidden = true;
+            if (landing) landing.hidden = false;
             if (setupEl) setupEl.hidden = false;
           });
 
@@ -6147,10 +6589,17 @@
           // Draw active projectiles
           if (this.projectiles && this.projectiles.length > 0) {
             this.projectiles.forEach(p => {
-              ctx.fillStyle = theme.fx.projectile;
-              ctx.beginPath();
-              ctx.arc(p.x, p.y, p.weapon && p.weapon.includes('Particle') ? 1.5 : 3, 0, Math.PI * 2);
-              ctx.fill();
+              if (theme === THEMES.classic) {
+                ctx.fillStyle = theme.fx.projectile;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.weapon && p.weapon.includes('Particle') ? 1.5 : 3, 0, Math.PI * 2);
+                ctx.fill();
+              } else {
+                // Per-family shell sprites. Orientation comes off the live
+                // vx/vy the physics step already wrote, so a sprite points
+                // where the shell is actually going.
+                ACWeapons.drawProjectileAC(ctx, p, theme);
+              }
             });
           }
 
@@ -6179,13 +6628,22 @@
               if (tank.hp > 0 && tank.shield && tank.shield.hp > 0) {
                 ctx.save();
                 const shieldConf = SHIELD_TYPES[tank.shield.type];
-                ctx.strokeStyle = shieldConf ? shieldConf.colour : theme.fx.shieldFallback;
-                // A deflector reads as a thicker arc, so you can tell at a
-                // glance whether the next shell will bounce or be absorbed.
-                ctx.lineWidth = shieldDeflects(tank.shield.type) ? 4 : 3;
-                ctx.beginPath();
-                ctx.arc(tank.x, tank.y - 6, 12, Math.PI, 0);
-                ctx.stroke();
+                const shieldColour = shieldConf ? shieldConf.colour : theme.fx.shieldFallback;
+                if (theme === THEMES.classic) {
+                  ctx.strokeStyle = shieldColour;
+                  // A deflector reads as a thicker arc, so you can tell at a
+                  // glance whether the next shell will bounce or be absorbed.
+                  ctx.lineWidth = shieldDeflects(tank.shield.type) ? 4 : 3;
+                  ctx.beginPath();
+                  ctx.arc(tank.x, tank.y - 6, 12, Math.PI, 0);
+                  ctx.stroke();
+                } else {
+                  // Same radius-12 dome at (x, y-6) the collision maths uses;
+                  // a deflector is drawn doubled rather than merely thicker.
+                  ACWeapons.drawShieldAC(
+                    ctx, tank, shieldColour, shieldDeflects(tank.shield.type), theme
+                  );
+                }
                 ctx.restore();
               }
             });
@@ -6248,6 +6706,49 @@
 
           // Draw explosions
           this.drawExplosions(ctx, theme);
+
+          // Turret volley bolts — the attribution line from a structure's
+          // turret to the tank it just struck. Structures exist only in
+          // Aethercastle, so this pass is empty in classic.
+          if (this.turretBolts && this.turretBolts.length > 0) {
+            ctx.save();
+            this.turretBolts.forEach(b => {
+              const t = Math.max(0, b.life / b.maxLife);
+              ctx.globalAlpha = t;
+              ctx.strokeStyle = theme.fx.aimMarker;
+              ctx.lineWidth = 2;
+              ctx.setLineDash([6, 3]);
+              ctx.beginPath();
+              ctx.moveTo(b.x1, b.y1);
+              ctx.lineTo(b.x2, b.y2);
+              ctx.stroke();
+              ctx.setLineDash([]);
+              // Muzzle flash at the turret head, shrinking as the bolt fades.
+              ctx.fillStyle = theme.fx.burstFlash;
+              ctx.beginPath();
+              ctx.arc(b.x1, b.y1, 3 * t, 0, Math.PI * 2);
+              ctx.fill();
+            });
+            ctx.restore();
+          }
+
+          // Floating damage numbers. Aged by updateParticles; drawn last so
+          // they read over every other layer. Aethercastle-only: the classic
+          // replica never drew a number over the field, and the golden build
+          // (63de891) is the contract — its combat frames must not grow
+          // calls, not just its pinned scene.
+          if (theme !== THEMES.classic &&
+              this.damageNumbers && this.damageNumbers.length > 0) {
+            ctx.save();
+            ctx.font = '10px ' + theme.fontMono;
+            ctx.textAlign = 'center';
+            this.damageNumbers.forEach(dn => {
+              ctx.globalAlpha = Math.max(0, Math.min(1, dn.life / 30));
+              ctx.fillStyle = dn.color;
+              ctx.fillText(dn.text, dn.x, dn.y);
+            });
+            ctx.restore();
+          }
 
           ctx.restore();
         }
@@ -6395,6 +6896,22 @@
                 `<option value="${c.value}" ${c.value === player.colour ? 'selected' : ''} style="color: ${safeColour(c.value)}; background: #000;">${escapeHtml(c.name)}</option>`
               ).join('');
 
+              // Chassis are an Aethercastle concept. The room's mode is the
+              // authority (the server rejects a chassis the mode disallows),
+              // so a classic room simply shows no picker.
+              const roomIsAC = (roomState.mode || activeMode) !== 'classic';
+              const chassisOptionsHtml = roomIsAC
+                ? Object.keys(CHASSIS).map(id =>
+                    `<option value="${id}" ${id === player.chassis ? 'selected' : ''}>${escapeHtml(CHASSIS[id].name)} — ${CHASSIS[id].hp}hp, ${escapeHtml(CHASSIS[id].locomotion)}</option>`
+                  ).join('')
+                : '';
+              const chassisRowHtml = roomIsAC
+                ? `<div class="form-group">
+                    <label>Chassis:</label>
+                    <select class="player-chassis">${chassisOptionsHtml}</select>
+                  </div>`
+                : '';
+
               row.innerHTML = `
                 <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 8px; color: ${safeColour(player.colour)};">
                   <span>PLAYER ${i + 1} (YOU) ${isHost ? '👑' : ''}</span>
@@ -6410,25 +6927,39 @@
                     ${colorOptionsHtml}
                   </select>
                 </div>
+                ${chassisRowHtml}
               `;
 
               const nameInput = row.querySelector('.player-name');
               const colorSelect = row.querySelector('.player-color');
+              const chassisSelect = row.querySelector('.player-chassis');
 
               const updateProfile = () => {
-                net.send('SET_PROFILE', { name: nameInput.value, colour: colorSelect.value });
+                const profile = { name: nameInput.value, colour: colorSelect.value };
+                // Only send what the mode supports; the field is optional on
+                // the wire and the server validates it against the room mode.
+                if (chassisSelect && CHASSIS[chassisSelect.value]) {
+                  profile.chassis = chassisSelect.value;
+                }
+                net.send('SET_PROFILE', profile);
               };
 
               nameInput.addEventListener('change', updateProfile);
               colorSelect.addEventListener('change', updateProfile);
+              if (chassisSelect) chassisSelect.addEventListener('change', updateProfile);
 
             } else {
+              const chassisLabel = ((roomState.mode || activeMode) !== 'classic' &&
+                player.chassis && CHASSIS[player.chassis])
+                ? `<div style="font-size: 12px; color: #888;">${escapeHtml(CHASSIS[player.chassis].name)}</div>`
+                : '';
               row.innerHTML = `
                 <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 8px; color: ${safeColour(player.colour)};">
                   <span>PLAYER ${i + 1} ${isHost ? '👑' : ''}</span>
                   ${!player.connected ? '<span style="color: red;">DISCONNECTED</span>' : ''}
                 </div>
                 <div style="font-size: 18px;">${escapeHtml(player.name)}</div>
+                ${chassisLabel}
               `;
             }
           } else {
@@ -6537,8 +7068,41 @@
             const soloAiCount = document.getElementById('solo-ai-count');
             const soloAiList = document.getElementById('solo-ai-list');
 
+            // AI seats get a chassis by PROFILE — a fixed map, not a random
+            // draw, so the opponent's silhouette telegraphs its behaviour.
+            const AI_CHASSIS = {
+              Poolshark: 'brass-plated-tank',
+              Cyborg: 'airship-platform',
+              Shooter: 'walker-mech',
+              Moron: 'scout-drone'
+            };
+
+            function renderSoloChassisPicker() {
+              const group = document.getElementById('solo-chassis-group');
+              const select = document.getElementById('solo-chassis');
+              if (!group || !select) return;
+              // Chassis are an Aethercastle concept; the classic replica
+              // fields the one original tank and shows no picker.
+              if (activeMode === 'classic') {
+                group.hidden = true;
+                return;
+              }
+              group.hidden = false;
+              const previous = select.value;
+              select.innerHTML = '';
+              Object.keys(CHASSIS).forEach(id => {
+                const opt = document.createElement('option');
+                opt.value = id;
+                const spec = CHASSIS[id];
+                opt.textContent = spec.name + ' — ' + spec.hp + 'hp, ' + spec.locomotion;
+                select.appendChild(opt);
+              });
+              if (previous && CHASSIS[previous]) select.value = previous;
+            }
+
             function renderSoloAiList() {
               if (!soloAiList) return;
+              renderSoloChassisPicker();
               const count = soloAiCount ? (parseInt(soloAiCount.value, 10) || 2) : 2;
               soloAiList.innerHTML = '';
               for (let i = 0; i < count; i++) {
@@ -6612,11 +7176,16 @@
                 const humanName = (nameEl && nameEl.value.trim()) || 'PLAYER';
                 const count = soloAiCount ? (parseInt(soloAiCount.value, 10) || 2) : 2;
 
+                // Chassis only ride along in Aethercastle; classic seats the
+                // one original hull and start() defaults it.
+                const isAC = activeMode !== 'classic';
+                const chassisEl = document.getElementById('solo-chassis');
                 const players = [{
                   name: humanName.toUpperCase().slice(0, 12),
                   type: 'Human',
                   color: paletteFor(activeMode)[0].value,
-                  slot: 0
+                  slot: 0,
+                  chassis: (isAC && chassisEl && CHASSIS[chassisEl.value]) ? chassisEl.value : undefined
                 }];
                 for (let i = 0; i < count; i++) {
                   const sel = document.getElementById('solo-ai-' + i);
@@ -6625,7 +7194,8 @@
                     name: 'CPU ' + (i + 1) + ' (' + type.toUpperCase() + ')',
                     type,
                     color: paletteFor(activeMode)[(i + 1) % paletteFor(activeMode).length].value,
-                    slot: i + 1
+                    slot: i + 1,
+                    chassis: isAC ? AI_CHASSIS[type] : undefined
                   });
                 }
 
@@ -6800,6 +7370,15 @@
                  type: 'Human', // All multiplayer players are Human or Network
                  color: t.colour,
                  slot: t.slot,
+                 // The server sends this in every tankEntry and the client
+                 // used to quietly drop it — which turned every online hull
+                 // into DEFAULT_CHASSIS: no armour scaling, no per-chassis
+                 // hp, no locomotion. start() validates it against CHASSIS.
+                 chassis: t.chassis,
+                 // Declared at SHOP_DONE, restated here, so a client rebuilt
+                 // from scratch (mid-match refresh) does not reset its owner
+                 // to startingCash and shop with money it no longer has.
+                 cash: t.cash,
                  // What this tank left the last shop holding. start() raises a
                  // shield from it before the first turn, so it has to arrive
                  // with the roster rather than being overlaid afterwards.
@@ -6825,6 +7404,15 @@
                config.net = net;
 
                gameInstance.start(config);
+
+               // A refreshed page reaching here mid-match went down the fresh
+               // start() path (no roster survived the reload), which resets
+               // currentRound to 1. The server's round number is the truth —
+               // without it the client pays itself a bogus round-1 survival
+               // bonus and mislabels every later ROUND_END.
+               if (Number.isFinite(msg.round)) {
+                 gameInstance.currentRound = msg.round;
+               }
             });
 
             btnCreate.addEventListener('click', () => {
@@ -6908,6 +7496,7 @@
         Terrain,
         WEAPONS,
         ITEMS,
+        STRUCTURE_ITEMS,
         SHIELD_TYPES,
         SHIELD_PRIORITY,
         PROXIMITY_FUSE_RADIUS,

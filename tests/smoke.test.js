@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const terrainLib = require('../lib/terrain.js');
+const { loadKitInto } = require('./helpers/gfx-kit.js');
 
 // 1. Read and extract the script block from index.html
 // Resolve relative to this file so the suite runs from any working directory.
@@ -295,6 +296,10 @@ function evaluateScript(customGlobals = {}) {
   };
   context.globalThis = context;
   vm.createContext(context);
+  // Stands in for the page's <script src="gfx/..."> tags: only the inline page
+  // script is evaluated here, so the sprite kit has to be published onto the
+  // same `window` the page resolves it through, before that script runs.
+  if (context.window) loadKitInto(context);
   vm.runInContext(code, context);
   return context;
 }
@@ -1595,7 +1600,8 @@ describe('Scorched Earth Smoke & Integration Tests', () => {
 
       // Assert: onImpact fired
       assert.strictEqual(onImpactCalled, true, 'Expected onImpact to be called on flight lifetime timeout');
-      assert.strictEqual(game.lastShooterIdx, 0, 'Expected shooterIdx to be 0');
+      // (lastShooterIdx was retired: it fed stale kill credit for fall
+      // deaths. Attribution now travels only inside the impact call chain.)
 
       // Assert: a fired Tracer path was pushed to persistentTracers
       assert.ok(game.persistentTracers && game.persistentTracers.length > 0, 'Expected tracer path to be pushed to persistentTracers');

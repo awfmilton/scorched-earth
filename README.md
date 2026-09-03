@@ -1,7 +1,9 @@
 # Scorched Earth
 
 ## What It Is
-A single-file HTML5 Canvas replica of the MS-DOS classic artillery game *Scorched Earth*. Built with pure vanilla ES6, single-player runs with no build step; multiplayer requires the Node relay. The entire gameplay engine, sound synthesis via Web Audio API, physics, terrain generator, and intermission shop are self-contained in a single lightweight file.
+An HTML5 Canvas artillery game in two modes. The default is **Æthercastle: Armored Alchemists** — six selectable chassis (tracked, legged, hover and aerial), a defendable holding of castles, turrets and works, purchasable structures, and a full pixel-art sprite kit. Typing `CLASSIC` on the setup screen (or visiting `?mode=classic`) switches to a pixel-faithful replica of the MS-DOS classic *Scorched Earth*, protected by a golden-frame test.
+
+Built with pure vanilla ES6, single-player runs with no build step; multiplayer requires the Node relay. The entire gameplay engine, sound synthesis via Web Audio API, physics, terrain generator, and intermission shop are self-contained in a single lightweight file. A keyboard is required — touch devices can browse the lobby but cannot yet play.
 
 ## How to Run
 There are two ways to launch the game depending on your desired game mode:
@@ -34,8 +36,10 @@ The active human player can control their tank using the following key bindings:
 | **Arrow Up** | Increase velocity/power. Adjusts by **5** units (or **25** units with **Shift** held, up to 1000). |
 | **Arrow Down** | Decrease velocity/power. Adjusts by **5** units (or **25** units with **Shift** held, down to 0). |
 | **Space** / **Spacebar** | Fire the active weapon. |
-| **\[** / **\]** / **Tab** | Cycle through available weapons in your inventory (**\[** cycles backward, **\]** and **Tab** cycle forward). |
-| **M** | Toggle mute for all synthesised game sounds. |
+| **\[** / **\]** / **Tab** | Cycle through your FIREABLE weapons (**\[** cycles backward, **\]** and **Tab** cycle forward). Items and empty stock are skipped. |
+| **A** / **D** | Drive the tank left / right (costs Fuel; blocked by standing masonry; each chassis has its own stride and climb). |
+| **T** | Teleport to a random column (consumes a Teleport item). |
+| **M** | Toggle mute for all synthesised game sounds (an on-screen indicator shows the muted state). |
 
 ## Setup Options
 Before starting a game, you can customise the match settings in the setup screen:

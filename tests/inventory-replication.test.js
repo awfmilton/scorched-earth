@@ -145,7 +145,10 @@ describe('SHOP_DONE carries the kit the server has no other way to learn', () =>
   it('bounds the object so one client cannot push arbitrary weight at the room', () => {
     const huge = {};
     for (let i = 0; i < 200; i++) huge[`item${i}`] = 1;
-    assert.strictEqual(Object.keys(sanitiseInventory(huge)).length, 64);
+    // 128, not 64: the honest catalogue (weapons + items + purchasable
+    // structure keys) sat 4 keys from the old cap, and a full kit whose
+    // declaration failed validation wedged the room. Still bounded.
+    assert.strictEqual(Object.keys(sanitiseInventory(huge)).length, 128);
 
     const longKey = {};
     longKey['x'.repeat(500)] = 1;

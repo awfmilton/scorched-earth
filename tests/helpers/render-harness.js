@@ -15,6 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { loadKitInto } = require('./gfx-kit.js');
 
 const REPO = path.join(__dirname, '..', '..');
 
@@ -125,6 +126,11 @@ function loadScorchedFrom(html, opts = {}) {
   };
   context.globalThis = context;
   vm.createContext(context);
+  // The sprite kit stands in for the six <script src="gfx/..."> tags the page
+  // carries. It has to be in place before the page script runs, because that
+  // script resolves the kit into consts at load. Running it in-context (rather
+  // than require()ing it) keeps it inside the banRandom probe's reach.
+  loadKitInto(context);
   compileOnce(code).runInContext(context);
   return context.globalThis.SCORCHED;
 }
@@ -292,9 +298,13 @@ function richScene(game, biome) {
     { x: 640.19, y: 220.73, weapon: 'Particle Beam' }
   ];
   game.persistentTracers = [[{ x: 1.5, y: 2.25 }, { x: 3.75, y: 4.5 }, { x: 5.125, y: 6.875 }]];
+  // Weapon-tagged entries route the Aethercastle frame through the kit's
+  // burst TIERS (mushroom cloud, acid puff), which used to escape the
+  // purity/banRandom harness entirely. Classic ignores the field, so the
+  // golden log records exactly the calls it always did.
   game.explosions = [
-    { x: 100.5, y: 100.25, currentRadius: 20.4, maxRadius: 40, life: 0.5, maxLife: 1 },
-    { x: 700.75, y: 260.125, currentRadius: 5.6, maxRadius: 40, life: 1, maxLife: 1 }
+    { x: 100.5, y: 100.25, currentRadius: 20.4, maxRadius: 40, life: 0.5, maxLife: 1, weapon: 'Nuke' },
+    { x: 700.75, y: 260.125, currentRadius: 5.6, maxRadius: 40, life: 1, maxLife: 1, weapon: 'Riot Charge' }
   ];
 
   // All three particle branches, spawned with explicit values so the pool

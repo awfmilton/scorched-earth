@@ -269,6 +269,19 @@ describe('Multiplayer Flow', () => {
     const A = bootClientGame(start1, c1);
     const B = bootClientGame(start2, c2);
 
+    // Round 1 now announces its cursor with a TURN_SYNC(1), exactly like
+    // every later round — consume and apply it on both clients so the later
+    // post-shot TURN_SYNC wait sees the ADVANCE, not the announcement.
+    const open1 = await c1.waitFor(S2C.TURN_SYNC);
+    const open2 = await c2.waitFor(S2C.TURN_SYNC);
+    assert.strictEqual(open1.turnNumber, 1, 'round 1 must open on boundary 1');
+    A.game.applyTurnSync(open1);
+    B.game.applyTurnSync(open2);
+    // waitFor scans without consuming; drop the openers so the post-shot
+    // TURN_SYNC wait below finds the ADVANCE, not this announcement again.
+    c1.messages.splice(c1.messages.indexOf(open1), 1);
+    c2.messages.splice(c2.messages.indexOf(open2), 1);
+
     // 1. Same world BEFORE anyone shoots. This is the check that caught
     //    Game.start() ignoring the server seed and building from seed 42.
     const initialHash = hashTerrain(A.game);

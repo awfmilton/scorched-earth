@@ -13,6 +13,7 @@ const vm = require('vm');
 const { WebSocket } = require('ws');
 const terrainLib = require('../../lib/terrain.js');
 const structuresLib = require('../../lib/structures.js');
+const { loadKitInto } = require('./gfx-kit.js');
 
 const html = fs.readFileSync(path.join(__dirname, '..', '..', 'index.html'), 'utf8');
 const code = html.match(/<script>([\s\S]*?)<\/script>/)[1];
@@ -158,6 +159,9 @@ function bootBrowser(port) {
   ctx.globalThis = ctx;
   ctx.window.document = dom.document;
   vm.createContext(ctx);
+  // Stands in for the page's <script src="gfx/..."> tags, which this harness
+  // does not execute because it runs only the inline page script.
+  loadKitInto(ctx);
   vm.runInContext(code, ctx);
   dom.fire();
   return {
@@ -274,7 +278,10 @@ const tanksOf = (game) => game.roster.map(t => `${t.slot}:${t.x}:${t.y}:${t.hp}`
 const structuresOf = (game) => (game.structures || [])
   .map(s => `${s.key}@${s.owner}:${s.x.toFixed(4)}:${s.y.toFixed(4)}:${s.hp}` +
     `:cd${s.cooldown === undefined ? 'n' : s.cooldown}` +
-    `:br${s.breached ? 1 : 0}`)
+    `:br${s.breached ? 1 : 0}` +
+    // Placement-time footing is derived from replicated inputs, so two
+    // clients disagreeing on it IS a lockstep fault — hash it like the rest.
+    `:ft${s.footing === undefined ? 'n' : s.footing.toFixed(4)}`)
   .join('|');
 
 const gameOf = (b) => b.ctx.globalThis.SCORCHED.gameInstance;

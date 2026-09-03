@@ -113,16 +113,26 @@ describe('RoomManager rejoin() mechanics', () => {
     assert.strictEqual(beforePlayers, afterPlayers);
   });
 
-  it('(3) still-connected token rejected', () => {
+  it('(3) still-connected token supersedes the stale socket', () => {
+    // CONTRACT CHANGE. This used to assert the rejoin was REFUSED — which
+    // stranded a player whose socket died uncleanly: the dead socket stays
+    // "connected" until the heartbeat reaps it (up to two cycles), while
+    // their fresh socket rejoins immediately and was turned away with no
+    // retry. The token proves identity, so the fresh socket now takes over
+    // the seat and the stale socket's eventual close is a no-op.
     const rm = new RoomManager();
-    const { code, tokens } = setupAndStartRoom(rm, 2);
+    const { room, code, tokens } = setupAndStartRoom(rm, 2);
 
-    // Try to rejoin conn_2 when they are still connected
-    assert.throws(() => {
-      rm.rejoin('conn_2_new', { code, playerToken: tokens['conn_2'] });
-    }, (err) => {
-      return err.code === 'UNKNOWN_ROOM';
-    });
+    const res = rm.rejoin('conn_2_new', { code, playerToken: tokens['conn_2'] });
+    const seat = Array.from(room.players.values())
+      .find(p => p.playerToken === tokens['conn_2']);
+    assert.strictEqual(seat.connectionId, 'conn_2_new');
+    assert.strictEqual(seat.connected, true);
+    assert.ok(res.replies.some(r => r.to === 'conn_2_new' && r.msg.type === 'ROOM_STATE'));
+
+    // The old socket's close must not unseat the superseding one.
+    rm.disconnect('conn_2');
+    assert.strictEqual(seat.connected, true);
   });
 
   it('(4) rejoin into a parked room restores phase === "playing"', () => {

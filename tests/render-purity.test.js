@@ -187,17 +187,30 @@ test('the barrel stays on the simulated muzzle for every chassis', () => {
 
 test('the active-player marker is drawn for the active tank only', () => {
   const SCORCHED = loadScorched();
-  const theme = SCORCHED.themeFor('aethercastle');
   const chassis = SCORCHED.CHASSIS['clockwork-tank'];
   const tank = { x: 300, y: 400, angle: 45, color: '#ff0000', hp: 100, chassis: 'clockwork-tank' };
 
-  const idle = recordingContext();
-  SCORCHED.drawTank(idle, tank, chassis, false, theme);
-  const active = recordingContext();
-  SCORCHED.drawTank(active, tank, chassis, true, theme);
+  // The two modes mark the active player with two different shapes, and both
+  // are pinned: classic's flat triangle sits at y-20 because that is what the
+  // pre-visualisation build drew, and Aethercastle's gonfalon chevron sits at
+  // y-21 because the sprite kit draws a pennant with a lit top edge. Asserting
+  // only that "a marker appeared" is what let the classic one drift before.
+  const START = {
+    classic: 'moveTo(296,380)',
+    aethercastle: 'moveTo(296,379)'
+  };
 
-  assert.ok(active.__log.length > idle.__log.length, 'the active marker drew nothing');
-  assert.ok(active.__log.includes('moveTo(296,380)'), 'the active marker triangle moved');
+  for (const [mode, firstPoint] of Object.entries(START)) {
+    const theme = SCORCHED.themeFor(mode);
+
+    const idle = recordingContext();
+    SCORCHED.drawTank(idle, tank, chassis, false, theme);
+    const active = recordingContext();
+    SCORCHED.drawTank(active, tank, chassis, true, theme);
+
+    assert.ok(active.__log.length > idle.__log.length, `${mode}: the active marker drew nothing`);
+    assert.ok(active.__log.includes(firstPoint), `${mode}: the active marker moved`);
+  }
 });
 
 test('a spectating client draws the same frame as a seated one', () => {

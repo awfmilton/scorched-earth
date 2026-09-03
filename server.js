@@ -7,6 +7,17 @@ const { C2S, ERRORS, validate } = require('./lib/protocol.js');
 
 // A client frame larger than this is refused before it is parsed.
 const MAX_PAYLOAD_BYTES = 4096;
+// Flood control, per connection: a rolling window with a message budget,
+// plus a much tighter budget for JOIN_ROOM so 4-letter room codes cannot be
+// brute-forced through one socket. The general budget is sized for the
+// chattiest HONEST client — a held drive key at keyboard repeat rate is
+// ~30 MOVE/s (~300 per window) before the client-side throttle — with
+// headroom for the turn's FIRE/RESOLVE_SHOT/ELIMINATED singletons, which
+// must never be starved: a dropped RESOLVE_SHOT is never retried and
+// stalls the whole room until the sweep timeout.
+const RATE_WINDOW_MS = 10000;
+const MAX_MESSAGES_PER_WINDOW = 400;
+const MAX_JOINS_PER_WINDOW = 8;
 // Ping every client on this cadence; a client that misses a whole cycle is half-open.
 const HEARTBEAT_INTERVAL_MS = 30000;
 // Sweep abandoned and stale rooms on this cadence.
@@ -21,6 +32,13 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon'
 };
+
+// Only the files the game client actually loads are served. The resolver
+// used to serve ANY file under the repo root — .git/, .claude/, docs,
+// salvage files — to anyone who asked for it by name; on the live host that
+// meant the whole repository was publicly downloadable. The traversal
+// checks below still run, but the allowlist is the real gate.
+const STATIC_ALLOWLIST = /^\/(index\.html|favicon\.ico|lib\/[\w-]+\.js|gfx\/[\w-]+\.js)$/;
 
 function createServer() {
   return http.createServer((req, res) => {
@@ -50,13 +68,29 @@ function createServer() {
       return;
     }
 
-    // Parse URL and clean/normalize pathname
-    const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    // Parse only the request path against a fixed base. The Host header is
+    // attacker-controlled and `new URL` throws on malformed values
+    // (`Host: foo bar` is accepted by Node's parser), which used to escape
+    // this handler as an uncaught exception and kill the whole process.
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(req.url, 'http://localhost');
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.end('Bad Request');
+      return;
+    }
     let reqPath = parsedUrl.pathname;
 
     // Default to index.html for root or index.html requests
     if (reqPath === '/' || reqPath === '/index.html') {
       reqPath = '/index.html';
+    }
+
+    if (!STATIC_ALLOWLIST.test(reqPath)) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not Found');
+      return;
     }
 
     // Resolve absolute path and verify it doesn't escape __dirname
@@ -127,7 +161,11 @@ function attachWebSocketServer(httpServer, options = {}) {
     heartbeatIntervalMs = HEARTBEAT_INTERVAL_MS
   } = options;
 
-  const wss = new WebSocketServer({ server: httpServer });
+  // Hard cap at the protocol layer: ws refuses to buffer a frame larger
+  // than this (1009 close) instead of allocating it, so a hostile 100MiB
+  // frame never reaches memory. Kept well above maxPayloadBytes so the
+  // polite in-band error below still answers merely-oversized frames.
+  const wss = new WebSocketServer({ server: httpServer, maxPayload: 64 * 1024 });
   const clients = new Map(); // connectionId -> ws
 
   function send(connectionId, msg) {
@@ -165,15 +203,46 @@ function attachWebSocketServer(httpServer, options = {}) {
     // An errored socket never reliably emits 'close' first — clean up here too.
     ws.on('error', handleClose);
 
+    // Flood control state, per socket. Reconnecting resets it, which is
+    // fine: the cost of a reconnect (TCP + upgrade) already dwarfs the
+    // budget it buys back.
+    ws.rateWindowStart = 0;
+    ws.rateCount = 0;
+    ws.joinCount = 0;
+
     ws.on('message', (raw, isBinary) => {
+      // Rolling-window flood control runs FIRST, so every inbound frame —
+      // binary, oversize, or well-formed — spends budget. When binary and
+      // oversize frames bypassed the counter, each one earned a 1:1 ERROR
+      // reply forever: a free reflection/memory amplifier through a socket
+      // that never reads. Past the cap everything is dropped in silence
+      // after a single RATE_LIMITED notice.
+      const now = Date.now();
+      if (now - ws.rateWindowStart > RATE_WINDOW_MS) {
+        ws.rateWindowStart = now;
+        ws.rateCount = 0;
+        ws.joinCount = 0;
+      }
+      ws.rateCount++;
+      if (ws.rateCount > MAX_MESSAGES_PER_WINDOW) {
+        if (ws.rateCount === MAX_MESSAGES_PER_WINDOW + 1) {
+          sendError(connectionId, ERRORS.RATE_LIMITED, 'Slow down');
+        }
+        return;
+      }
+
+      // Never reply into a socket that is not draining: an unread socket
+      // turns every polite error into buffered server memory.
+      const canReply = ws.bufferedAmount < 64 * 1024;
+
       if (isBinary) {
-        sendError(connectionId, ERRORS.BAD_MESSAGE, 'Binary frames are not accepted');
+        if (canReply) sendError(connectionId, ERRORS.BAD_MESSAGE, 'Binary frames are not accepted');
         return;
       }
 
       // Size is checked on the raw bytes, before any parse work is done.
       if (raw.length > maxPayloadBytes) {
-        sendError(connectionId, ERRORS.BAD_MESSAGE, 'Payload too large');
+        if (canReply) sendError(connectionId, ERRORS.BAD_MESSAGE, 'Payload too large');
         return;
       }
 
@@ -195,6 +264,14 @@ function attachWebSocketServer(httpServer, options = {}) {
       if (!Object.values(C2S).includes(msg.type)) {
         sendError(connectionId, ERRORS.BAD_MESSAGE, `Not a client message type: ${msg.type}`);
         return;
+      }
+
+      if (msg.type === C2S.JOIN_ROOM) {
+        ws.joinCount++;
+        if (ws.joinCount > MAX_JOINS_PER_WINDOW) {
+          sendError(connectionId, ERRORS.RATE_LIMITED, 'Too many join attempts');
+          return;
+        }
       }
 
       if (onMessage) onMessage({ connectionId, msg, send, broadcast });
@@ -346,4 +423,12 @@ if (require.main === module) {
   });
 }
 
-module.exports = { createServer, attachWebSocketServer, MAX_PAYLOAD_BYTES, createRoomManagerHandlers };
+module.exports = {
+  createServer,
+  attachWebSocketServer,
+  MAX_PAYLOAD_BYTES,
+  RATE_WINDOW_MS,
+  MAX_MESSAGES_PER_WINDOW,
+  MAX_JOINS_PER_WINDOW,
+  createRoomManagerHandlers
+};
