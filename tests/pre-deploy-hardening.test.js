@@ -73,10 +73,15 @@ test('rejoining a fully-parked room re-seeds the round instead of resuming a fic
 
   const t1 = Array.from(room.players.values()).find(p => p.connectionId === 'c1');
   const t2 = Array.from(room.players.values()).find(p => p.connectionId === 'c2');
+  // A fought round (virgin rounds resume on their own seed instead).
+  rm.fire('c1', { angle: 45, power: 500, weapon: 'Baby Missile' });
+  rm.resolveShot('c1', { shotId: room.nextShotId });
   t2.spectating = true; // mid-round artifact that must NOT survive the re-seed
   rm.disconnect('c1');
   rm.disconnect('c2');
   assert.strictEqual(room.phase, 'paused', 'precondition: the room must park');
+  // The re-seed gate: everyone must have been gone for a real while.
+  room.pausedAt -= RoomManager.RESEED_MIN_PARK_MS + 1000;
 
   const res = rm.rejoin('c1-back', { code: room.code, playerToken: t1.playerToken });
 
@@ -107,9 +112,16 @@ test('concurrent sockets from one address are capped', async () => {
     sockets.push(await openSocket(port));
   }
 
-  const extra = await openSocket(port);
-  const code = await new Promise(resolve => extra.on('close', c => resolve(c)));
-  assert.strictEqual(code, 1013, `socket ${MAX_CONNECTIONS_PER_IP + 1} was not refused`);
+  // The refusal happens at the UPGRADE (HTTP 503), so the client never
+  // even fires `open` — a post-101 refusal used to reset the browser's
+  // reconnect backoff and crash the server on aborted closes.
+  const refused = await new Promise((resolve) => {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}`);
+    ws.on('open', () => resolve(false));
+    ws.on('error', () => resolve(true));
+  });
+  assert.strictEqual(refused, true,
+    `socket ${MAX_CONNECTIONS_PER_IP + 1} completed its handshake`);
 
   for (const ws of sockets) ws.close();
   await attached.close();
@@ -169,4 +181,111 @@ test('SET_PROFILE has its own sub-budget against ROOM_STATE fanout', async () =>
   ws.close();
   await attached.close();
   await new Promise(res => server.close(res));
+});
+
+
+test('the connection index reclaims on disconnect, sweep and rejoin churn', () => {
+  const rm = new RoomManager();
+
+  // Lobby churn: create -> disconnect -> sweep, 50 times.
+  for (let i = 0; i < 50; i++) {
+    rm.createRoom('churn-' + i);
+    rm.disconnect('churn-' + i);
+    rm.sweep(Date.now());
+  }
+  assert.strictEqual(rm.rooms.size, 0);
+  assert.strictEqual(rm.roomsByConnection.size, 0,
+    `lobby churn leaked ${rm.roomsByConnection.size} index entries`);
+
+  // Rejoin churn on one seat: the superseded ids must not accumulate.
+  rm.createRoom('h');
+  const room = rm.getRoomByConnection('h');
+  rm.join('g', room.code);
+  rm.start('h');
+  const seat = Array.from(room.players.values()).find(p => p.connectionId === 'g');
+  for (let i = 0; i < 50; i++) {
+    rm.rejoin('g-' + i, { code: room.code, playerToken: seat.playerToken });
+  }
+  assert.ok(rm.roomsByConnection.size <= 2,
+    `rejoin churn left ${rm.roomsByConnection.size} index entries for 2 seats`);
+});
+
+test('a virgin parked round resumes on its own seed — no pointless re-seed', () => {
+  const rm = new RoomManager();
+  rm.createRoom('c1');
+  const room = rm.getRoomByConnection('c1');
+  rm.join('c2', room.code);
+  rm.start('c1', { rounds: 3 });
+  const seed = room.seed;
+  const t1 = Array.from(room.players.values()).find(p => p.connectionId === 'c1');
+
+  rm.disconnect('c1');
+  rm.disconnect('c2');
+  room.pausedAt -= RoomManager.RESEED_MIN_PARK_MS + 1000; // even parked long
+  rm.rejoin('c1-back', { code: room.code, playerToken: t1.playerToken });
+
+  assert.strictEqual(room.seed, seed, 'a virgin round was re-seeded for nothing');
+  assert.strictEqual(room.phase, 'playing');
+});
+
+test('after a re-seed the second returner takes a full seat, not a bench', () => {
+  const rm = new RoomManager();
+  rm.createRoom('c1');
+  const room = rm.getRoomByConnection('c1');
+  rm.join('c2', room.code);
+  rm.start('c1', { rounds: 3 });
+  rm.fire('c1', { angle: 45, power: 500, weapon: 'Baby Missile' });
+  rm.resolveShot('c1', { shotId: room.nextShotId });
+  const t1 = Array.from(room.players.values()).find(p => p.slot === 0);
+  const t2 = Array.from(room.players.values()).find(p => p.slot === 1);
+  rm.disconnect(t1.connectionId);
+  rm.disconnect(t2.connectionId);
+  room.pausedAt -= RoomManager.RESEED_MIN_PARK_MS + 1000;
+
+  rm.rejoin('back-1', { code: room.code, playerToken: t1.playerToken });
+  assert.strictEqual(room.roundVirgin, true, 're-seed must reset the virgin flag');
+  rm.rejoin('back-2', { code: room.code, playerToken: t2.playerToken });
+
+  assert.strictEqual(t2.spectating, false,
+    'the second returner was benched against a world both can rebuild exactly');
+});
+
+test('an all-spectator parked room is re-seeded by the sweep, not wedged', () => {
+  const rm = new RoomManager();
+  rm.createRoom('c1');
+  const room = rm.getRoomByConnection('c1');
+  rm.join('c2', room.code);
+  rm.start('c1', { rounds: 3 });
+  room.roundVirgin = false;
+
+  // Force the wedge shape the review demonstrated: parked, with the only
+  // connected player a spectator.
+  const t1 = Array.from(room.players.values()).find(p => p.slot === 0);
+  const t2 = Array.from(room.players.values()).find(p => p.slot === 1);
+  rm.disconnect(t1.connectionId);
+  t2.spectating = true;
+  room.phase = 'paused';
+  room.pausedAt = Date.now() - RoomManager.TURN_TIMEOUT_MS - 60000;
+
+  const res = rm.sweep(Date.now());
+  assert.strictEqual(room.phase, 'playing', 'the sweep left the spectators wedged');
+  assert.strictEqual(t2.spectating, false);
+  assert.ok(res.broadcasts.some(b => b.msg && b.msg.type === 'ROUND_START'),
+    'the rescue must ship a fresh world');
+});
+
+test('a never-started lobby expires even while its creator stays connected', () => {
+  const rm = new RoomManager();
+  rm.createRoom('squatter');
+  const room = rm.getRoomByConnection('squatter');
+
+  // Young and seated: untouchable.
+  assert.deepStrictEqual(rm.sweep(room.createdAt + 60000).swept, []);
+
+  // Old and still just one seat: reaped, seat notified.
+  const res = rm.sweep(room.createdAt + RoomManager.MAX_CONNECTED_LOBBY_MS + 1000);
+  assert.ok(res.swept.includes(room.code), 'a held socket squatted the code forever');
+  assert.ok(res.replies.some(r => r.to === 'squatter' && r.msg.code === 'ROOM_CLOSED'),
+    'the seated creator must be told the room closed');
+  assert.strictEqual(rm.roomsByConnection.size, 0, 'the reap leaked its index entry');
 });

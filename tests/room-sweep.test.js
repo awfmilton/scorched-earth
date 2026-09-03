@@ -95,9 +95,11 @@ describe('RoomManager Room Sweep Tests', () => {
     const room1 = rm.getRoomByConnection('conn_1');
     const code1 = room1.code;
 
-    // While its creator is seated, the lobby is untouchable at any age.
-    const farFuture = room1.createdAt + RoomManager.MAX_LOBBY_MS * 10;
-    assert.deepStrictEqual(rm.sweep(farFuture).swept, []);
+    // While its creator is seated, the lobby is retained — up to the
+    // connected-lobby TTL (a held socket must not squat a code forever;
+    // that expiry is pinned in tests/pre-deploy-hardening.test.js).
+    const nearTtl = room1.createdAt + RoomManager.MAX_CONNECTED_LOBBY_MS - 60000;
+    assert.deepStrictEqual(rm.sweep(nearTtl).swept, []);
     assert.ok(rm.rooms.has(code1));
 
     // Disconnect the only player: the seat is deleted, the lobby is empty,

@@ -49,6 +49,7 @@ describe('Mid-round rejoin comes back as a spectator', () => {
   it('marks the returning player as spectating while the round is still live', () => {
     const rm = new RoomManager();
     const { room, code, tokens } = setupAndStartRoom(rm, 3);
+    room.roundVirgin = false; // a fought round — virgin rounds seat rejoiners fully
 
     // Slot 1 drops while slots 0 and 2 keep playing — the room is still 'playing',
     // so there is a live peer world this client would be out of step with.
@@ -76,6 +77,7 @@ describe('Mid-round rejoin comes back as a spectator', () => {
   it('never hands the turn to a spectator', () => {
     const rm = new RoomManager();
     const { room, code, tokens } = setupAndStartRoom(rm, 3);
+    room.roundVirgin = false; // a fought round — virgin rounds seat rejoiners fully
 
     rm.disconnect('conn_2');
     rm.rejoin('conn_2_new', { code, playerToken: tokens['conn_2'] });
@@ -111,6 +113,7 @@ describe('Mid-round rejoin comes back as a spectator', () => {
   it('puts them back in play at the next round, where a fresh seed makes it safe', () => {
     const rm = new RoomManager();
     const { room, code, tokens } = setupAndStartRoom(rm, 2);
+    room.roundVirgin = false; // a fought round — virgin rounds seat rejoiners fully
     room.totalRounds = 3;
 
     rm.disconnect('conn_2');
@@ -191,6 +194,7 @@ describe('Mid-round rejoin comes back as a spectator', () => {
   it('un-parks onto a player who can actually move, not one who cannot', () => {
     const rm = new RoomManager();
     const { room, code, tokens } = setupAndStartRoom(rm, 3);
+    room.roundVirgin = false; // a fought round — virgin rounds seat rejoiners fully
 
     // Slot 1 reconnects mid-round as a spectator, then everyone able to act
     // drops. Nothing can advance the room, so it parks.

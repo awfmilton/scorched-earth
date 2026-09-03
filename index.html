@@ -1905,7 +1905,6 @@
 
           this.socket.onopen = () => {
             this.setState('live');
-            this.backoffDelay = 1000; // Reset backoff delay on successful connection
 
             const session = this.getSessionToken();
             if (session) {
@@ -1942,6 +1941,11 @@
 
             console.debug("Received S2C message:", type, msg);
 
+            // A parsed server frame is the real proof the connection is
+            // good — resetting backoff on `open` let a refuse-after-101
+            // server turn the client into a 1 Hz reconnect hammer.
+            this.backoffDelay = 1000;
+
             const handler = type ? this.dispatchTable[type] : null;
             if (!handler) {
               console.warn('Unrecognised S2C message type:', type, msg);
@@ -1964,7 +1968,18 @@
             }
           };
 
-          this.socket.onclose = () => {
+          this.socket.onclose = (event) => {
+            // 1013 = the server refused us for capacity. Retrying at the
+            // normal cadence just burns both ends; hold off a while and
+            // tell the player why.
+            if (event && event.code === 1013) {
+              this.backoffDelay = Math.max(this.backoffDelay, 30000);
+              this.handleError({
+                type: 'ERROR',
+                code: 'RATE_LIMITED',
+                message: 'Server is at capacity for your network - retrying shortly.'
+              });
+            }
             if (this.state !== 'lost') {
               this.setState('reconnecting');
             }
@@ -3839,15 +3854,12 @@
           if (this.mode === 'online') {
             if (tank.slot !== this.mySlot) return;
             if (this.activeShotId) return;
-            // Input-side throttle: a held key repeats at ~30/s and every
-            // repeat used to be its own MOVE frame — a single driving player
-            // ate a third of the server's whole per-socket window. 40ms
-            // between sends caps a held key at 25/s. Wall-clock is fine
-            // here: this is the INPUT site, not the simulation (the sim only
-            // ever sees the replicated MOVE_SYNCs).
-            const nowMs = Date.now();
-            if (this._lastDriveSendMs && nowMs - this._lastDriveSendMs < 40) return;
-            this._lastDriveSendMs = nowMs;
+            // No input-side throttle: dropping a too-soon keypress LOSES the
+            // step (the player pressed, nothing happened), and the server's
+            // per-socket window (400/10s) plus the per-address aggregate
+            // budget already absorb a held key's ~30 sends/s. MOVE relays a
+            // tiny MOVE_SYNC — it has none of SET_PROFILE's ROOM_STATE
+            // fanout, which is what the sub-budgets exist for.
             if (this.net) this.net.send('MOVE', { dir, steps: 1 });
             return;
           }
@@ -4144,6 +4156,10 @@
           // A DONE sent in the PREVIOUS match's intermission must not gag this
           // match's shop: the guard is per-intermission, not per-lifetime.
           this.shopDoneSentForRound = null;
+
+          // Same leak in the other direction: a finished previous match's
+          // matchOver must not describe this one.
+          this.matchOver = false;
 
           // A 'constant' wind is constant per MATCH: forget the previous
           // match's banked draw so the rematch mints its own.
@@ -6515,6 +6531,10 @@
         }
 
         showMatchSummary() {
+          // The one signal both flows share for 'this match is finished'.
+          // Local play never set it (only the online applyRoundEnd did),
+          // which made every matchOver-keyed guard lie about solo games.
+          this.matchOver = true;
           if (this.headless) return;
           const shopEl = document.getElementById('shop');
           if (!shopEl) return;
@@ -7290,6 +7310,12 @@
 
             if (btnStartSolo) {
               btnStartSolo.addEventListener('click', () => {
+                // A CREATE/JOIN still queued from before the socket opened
+                // must not fire mid-match — starting solo voids the intent.
+                if (net && Array.isArray(net.pendingSends)) {
+                  net.pendingSends = net.pendingSends.filter(m =>
+                    m.type !== 'CREATE_ROOM' && m.type !== 'JOIN_ROOM');
+                }
                 if (errorMsg) errorMsg.textContent = '';
                 // Solo has no peer to agree with, so the local request IS the
                 // decision here. Applied before the roster is built so the
@@ -7401,10 +7427,14 @@
               // A CREATE/JOIN clicked before the socket opened is queued and
               // flushed whenever it connects — which can be mid-solo-match.
               // The reply must not stack the lobby under the running game or
-              // write a ghost session token; the abandoned room empties out
-              // and the server sweeps it.
+              // write a ghost session token. Reconnecting DISOWNS the seat:
+              // dropping the frame alone left this socket seated in the
+              // room, and a room with a connected player is never swept.
+              // (matchOver is reliable here: showMatchSummary sets it for
+              // local matches and start() clears it for new ones.)
               if (gameInstance && gameInstance.mode === 'local' &&
                   gameInstance.roster && !gameInstance.matchOver) {
+                net.connect();
                 return;
               }
               if (errorMsg) errorMsg.textContent = '';

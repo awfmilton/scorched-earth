@@ -34,6 +34,9 @@ test('round 1 announces its cursor with TURN_SYNC(1), like every later round', (
 
 test('superseding the ACTIVE player mid-round advances the cursor off the spectator', () => {
   const { rm, room } = startedRoom();
+  // A VIRGIN round never sidelines a rejoiner (the seed world is exact), so
+  // mark the round fought before superseding.
+  room.roundVirgin = false;
   const seat = Array.from(room.players.values()).find(p => p.connectionId === 'c1');
   assert.strictEqual(room.activeSlot, seat.slot, 'precondition: c1 holds the cursor');
 
@@ -309,6 +312,7 @@ test('superseding the LAST eligible actor makes them the reference client, not a
   const room = rm.getRoomByConnection('c1');
   rm.join('c2', room.code);
   rm.start('c1', { rounds: 3 });
+  room.roundVirgin = false; // fought round — the interesting case
 
   // The other seat is already spectating; superseding this one too would
   // have parked the room in `paused` with players connected — unreachable

@@ -139,8 +139,12 @@ describe('Online economy across rounds', () => {
     await endRound(host, guest);
 
     // Both clients must land in the intermission, not the match summary.
-    await until(() => gameOf(host).matchOver === false, 10000, 'host intermission');
-    await until(() => gameOf(guest).matchOver === false, 10000, 'guest intermission');
+    // Poll the SHOP itself: matchOver === false stopped being a usable
+    // sentinel once start() began initialising it (it used to be undefined
+    // until ROUND_END).
+    await until(() => /CASH:/.test(allText(host.el('shop'))), 10000, 'host intermission');
+    await until(() => /CASH:/.test(allText(guest.el('shop'))), 10000, 'guest intermission');
+    assert.strictEqual(gameOf(host).matchOver, false, 'this must be an intermission, not the summary');
 
     for (const [label, b] of [['host', host], ['guest', guest]]) {
       const shopEl = b.el('shop');
@@ -162,8 +166,8 @@ describe('Online economy across rounds', () => {
   it('carries cash and inventory bought in the shop into the next round', async () => {
     const { host, guest } = await setupMatch(port, 2);
     await endRound(host, guest);
-    await until(() => gameOf(host).matchOver === false, 10000, 'host intermission');
-    await until(() => gameOf(guest).matchOver === false, 10000, 'guest intermission');
+    await until(() => /CASH:/.test(allText(host.el('shop'))), 10000, 'host intermission');
+    await until(() => /CASH:/.test(allText(guest.el('shop'))), 10000, 'guest intermission');
 
     const hostGame = gameOf(host);
     const myTank = hostGame.roster.find(t => t.slot === hostGame.mySlot);

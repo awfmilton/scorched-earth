@@ -146,17 +146,16 @@ describe('RoomManager rejoin() mechanics', () => {
     assert.strictEqual(room.phase, 'paused');
     assert.ok(room.pausedAt);
 
-    // CONTRACT CHANGE: a fully-parked room is RE-SEEDED, not resumed. The
-    // old resume rebuilt the rejoiner's world from the round seed — a
-    // pristine fiction standing in for a half-fought round. Now the server
-    // mints a fresh seed for the same round number and everyone who
-    // returns builds the same real world.
+    // A VIRGIN parked round RESUMES on its original seed: no input was
+    // ever accepted, so the seed world IS the real world and the returner
+    // rebuilds it exactly. (A fought round parked long enough re-seeds
+    // instead — pinned in tests/pre-deploy-hardening.test.js.)
     const oldSeed = room.seed;
     const rejoinRes = rm.rejoin('conn_1_new', { code, playerToken: tokens['conn_1'] });
     assert.ok(rejoinRes);
     assert.strictEqual(room.phase, 'playing');
     assert.strictEqual(room.pausedAt, undefined);
-    assert.notStrictEqual(room.seed, oldSeed, 'the parked round must be re-seeded');
+    assert.strictEqual(room.seed, oldSeed, 'a virgin round must keep its seed');
     // Since only player 1 is connected, player 1 should be the activeSlot
     assert.strictEqual(room.activeSlot, 0);
 
@@ -165,17 +164,10 @@ describe('RoomManager rejoin() mechanics', () => {
       assert.ok(val.ok, `Frame validation failed: ${val.error}`);
     }
 
-    const roundStart = rejoinRes.broadcasts.find(b => b.msg.type === 'ROUND_START');
-    assert.ok(roundStart, 're-seed must ship a fresh ROUND_START');
-    assert.strictEqual(roundStart.msg.seed, room.seed);
-
-    // The re-seed announces its cursor to the CONNECTED players — a frame
-    // aimed at a dead socket serves nobody.
+    // The un-park moved the cursor to slot 0 — every client must be told
     const syncBroadcast = rejoinRes.broadcasts.find(b => b.msg.type === 'TURN_SYNC');
-    assert.ok(syncBroadcast, 're-seed must announce the cursor');
+    assert.ok(syncBroadcast, 'un-park must announce the reassigned cursor');
     assert.strictEqual(syncBroadcast.msg.activeSlot, 0);
-    assert.strictEqual(syncBroadcast.msg.turnNumber, 1);
-    assert.deepStrictEqual(syncBroadcast.to, ['conn_1_new']);
   });
 
   it('(5) the reclaimed player can then fire() on their turn', () => {

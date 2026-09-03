@@ -29,10 +29,21 @@ const MAX_LIST_PER_WINDOW = 30;
 // host's reverse proxy the address arrives in X-Forwarded-For; bare
 // deployments fall back to the socket peer.
 const IP_WINDOW_MS = 10 * 60 * 1000;
-const MAX_CONNECTIONS_PER_IP = 8;
+// 32, not 8: schools, offices and CGNAT put whole populations behind one
+// address, and a household's simultaneous reconnect transiently doubles its
+// seat count. Still bounds an attacker's CONCURRENT sockets hard.
+const MAX_CONNECTIONS_PER_IP = 32;
 const MAX_JOINS_PER_IP_WINDOW = 30;
 const MAX_CREATES_PER_IP_WINDOW = 10;
+const MAX_REJOINS_PER_IP_WINDOW = 60;
 const MAX_MESSAGES_PER_IP_WINDOW = 20000;
+// X-Forwarded-For is only meaningful behind a proxy that OVERWRITES or
+// appends to it; on a bare deployment the client authors it freely and one
+// header would bypass every per-IP budget. Trust it only when the operator
+// says so (the live host sits behind one and sets this in its Dockerfile),
+// and then take the RIGHTMOST entry — the hop our proxy appended — never
+// the client-authored head of the list.
+const TRUST_PROXY = process.env.TRUST_PROXY === '1';
 // Ping every client on this cadence; a client that misses a whole cycle is half-open.
 const HEARTBEAT_INTERVAL_MS = 30000;
 // Sweep abandoned and stale rooms on this cadence.
@@ -180,16 +191,35 @@ function attachWebSocketServer(httpServer, options = {}) {
   // than this (1009 close) instead of allocating it, so a hostile 100MiB
   // frame never reaches memory. Kept well above maxPayloadBytes so the
   // polite in-band error below still answers merely-oversized frames.
-  const wss = new WebSocketServer({ server: httpServer, maxPayload: 64 * 1024 });
+  const wss = new WebSocketServer({
+    server: httpServer,
+    maxPayload: 64 * 1024,
+    // Refuse over-cap addresses at the UPGRADE, not after the handshake:
+    // a post-101 refusal fired the browser's `open` first (resetting its
+    // reconnect backoff into a 1 Hz hammer) and constructed a WebSocket
+    // with no error listener yet — one aborted close crashed the process.
+    verifyClient: (info, done) => {
+      const now = Date.now();
+      const st = ipStatsFor(ipOf(info.req), now);
+      if (st.conns >= MAX_CONNECTIONS_PER_IP) {
+        done(false, 503, 'Too many connections');
+        return;
+      }
+      done(true);
+    }
+  });
   const clients = new Map(); // connectionId -> ws
 
   // ip -> { windowStart, msgs, joins, creates, conns }. Pruned on the
   // heartbeat cadence once the last socket is gone and the window lapsed.
   const ipStats = new Map();
   function ipOf(req) {
-    const fwd = req && req.headers && req.headers['x-forwarded-for'];
-    if (typeof fwd === 'string' && fwd.length) {
-      return fwd.split(',')[0].trim().slice(0, 64);
+    if (TRUST_PROXY) {
+      const fwd = req && req.headers && req.headers['x-forwarded-for'];
+      if (typeof fwd === 'string' && fwd.length) {
+        const parts = fwd.split(',');
+        return parts[parts.length - 1].trim().slice(0, 64);
+      }
     }
     return (req && req.socket && req.socket.remoteAddress) || 'unknown';
   }
@@ -204,6 +234,7 @@ function attachWebSocketServer(httpServer, options = {}) {
       st.msgs = 0;
       st.joins = 0;
       st.creates = 0;
+      st.rejoins = 0;
     }
     return st;
   }
@@ -230,8 +261,13 @@ function attachWebSocketServer(httpServer, options = {}) {
     const ipst = ipStatsFor(ip, Date.now());
     // Concurrent-socket ceiling per address: reconnecting resets every
     // per-SOCKET budget for free, so this is the bound that makes socket
-    // minting cost something.
+    // minting cost something. verifyClient already refused over-cap
+    // upgrades; this belt covers the race where several handshakes passed
+    // the check together. The error listener MUST land before the close —
+    // an aborted refusal used to raise an unhandled 'error' and kill the
+    // whole process.
     if (ipst.conns >= MAX_CONNECTIONS_PER_IP) {
+      ws.on('error', () => {});
       ws.close(1013, 'Too many connections');
       return;
     }
@@ -343,6 +379,14 @@ function attachWebSocketServer(httpServer, options = {}) {
         // resets free on reconnect, which made it decorative on its own.
         if (ws.joinCount > MAX_JOINS_PER_WINDOW || ipst2.joins > MAX_JOINS_PER_IP_WINDOW) {
           if (canReply) sendError(connectionId, ERRORS.RATE_LIMITED, 'Too many join attempts');
+          return;
+        }
+      }
+
+      if (msg.type === C2S.REJOIN) {
+        ipst2.rejoins = (ipst2.rejoins || 0) + 1;
+        if (ipst2.rejoins > MAX_REJOINS_PER_IP_WINDOW) {
+          if (canReply) sendError(connectionId, ERRORS.RATE_LIMITED, 'Too many rejoin attempts');
           return;
         }
       }
@@ -539,6 +583,7 @@ module.exports = {
   MAX_CONNECTIONS_PER_IP,
   MAX_JOINS_PER_IP_WINDOW,
   MAX_CREATES_PER_IP_WINDOW,
+  MAX_REJOINS_PER_IP_WINDOW,
   MAX_MESSAGES_PER_IP_WINDOW,
   createRoomManagerHandlers
 };
