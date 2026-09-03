@@ -150,19 +150,25 @@ test('a token-proven rejoin supersedes a half-open socket instead of being refus
 
 test('the SHOP_DONE guard is per-intermission, not per-lifetime', () => {
   const { game } = newGame();
+  // A real wire to observe: the post-merge review showed the old flag-only
+  // assertions stayed green with the guard deleted.
+  let wireSends = 0;
+  game.net = { send: (type) => { if (type === 'SHOP_DONE') wireSends++; } };
 
   // A DONE sent during round 2's intermission…
   game.currentRound = 2;
   game.sendShopDone();
-  assert.strictEqual(game.shopDoneSentForRound, 2);
+  assert.strictEqual(wireSends, 1);
   // …gags an immediate duplicate…
   game.sendShopDone();
-  assert.strictEqual(game.shopDoneSentForRound, 2);
+  assert.strictEqual(wireSends, 1, 'the duplicate DONE reached the wire');
 
   // …but a re-fired ROUND_END (mid-shop reconnect) re-arms the guard so the
   // player's second DONE reaches the wire.
   game.applyRoundEnd({ round: 2, matchOver: false, totalRounds: 5, standings: [] });
   assert.strictEqual(game.shopDoneSentForRound, null, 'ROUND_END must reset the guard');
+  game.sendShopDone();
+  assert.strictEqual(wireSends, 2, 'the re-armed DONE never reached the wire');
 
   // A fresh match clears it too.
   game.shopDoneSentForRound = 4;

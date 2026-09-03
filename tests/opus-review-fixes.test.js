@@ -55,18 +55,23 @@ test('a spectating seat cannot FIRE even if the cursor somehow points at it', ()
 });
 
 test('a rejected START_GAME leaves the round-1 wind untouched', () => {
+  // The pre-fix hole was ORDERING: the HOST's own rejected attempt (too few
+  // players) wrote config and zeroed the wind before the throw. The
+  // post-merge review caught this test's first draft using NOT_HOST, which
+  // threw before the mutation even on the broken code.
   const rm = new RoomManager();
   rm.createRoom('h');
   const room = rm.getRoomByConnection('h');
-  rm.join('g', room.code);
   const windBefore = room.wind;
 
-  // A non-host tries to zero the breeze and eats NOT_HOST.
-  assert.throws(() => rm.start('g', { windVariability: 'none' }),
-    (err) => err.code === 'NOT_HOST' || err.message === 'NOT_HOST');
-  assert.strictEqual(room.wind, windBefore, 'the failed attempt mutated the room');
+  assert.throws(() => rm.start('h', { windVariability: 'none' }),
+    (err) => err.code === 'NOT_ENOUGH_PLAYERS' || err.message === 'NOT_ENOUGH_PLAYERS');
+  assert.strictEqual(room.wind, windBefore, 'the rejected attempt mutated the wind');
+  assert.ok(!room.config || room.config.windVariability === undefined,
+    'the rejected attempt stored its config');
 
-  // The host's real policy then applies cleanly.
+  // With a second player seated, the host's real policy applies cleanly.
+  rm.join('g', room.code);
   rm.start('h', { rounds: 1 });
   assert.notStrictEqual(room.wind, 0, 'seedless default should keep a live breeze (minted non-zero)');
 });
@@ -132,9 +137,11 @@ test('a deflected shell settles within a bounded number of bounces', () => {
     `shell still pogoing after ${ticks} ticks`);
   // At most 3 bounces are charged (150hp) before the 4th contact detonates;
   // the detonation's own blast is then absorbed like any blast (< 100hp for
-  // a Missile). What must be impossible is the old unbounded 50/bounce grind.
-  assert.ok(!target.shield || target.shield.hp >= 400 - 250,
-    `shield spent ${400 - (target.shield ? target.shield.hp : 0)}hp — unbounded pogo grind`);
+  // a Missile). The field must SURVIVE — the old `!target.shield ||` guard
+  // turned the worst outcome (field ground to nothing) into a pass.
+  assert.ok(target.shield, 'the field was ground to nothing');
+  assert.ok(target.shield.hp >= 400 - 250,
+    `shield spent ${400 - target.shield.hp}hp — unbounded pogo grind`);
 });
 
 test('a tracer never chips a deflector field', () => {
@@ -229,4 +236,144 @@ test('the shop refuses structure purchases past the fielding cap', () => {
   assert.strictEqual(game.buy(buyer, 'Structure: aether-radar', 1), false,
     'a fourth copy was sold that can never be fielded');
   assert.strictEqual(buyer.cash, cashAtCap, 'money was taken for nothing');
+});
+
+// ── Post-merge review regressions ──────────────────────────────────────────
+
+test('the buried-muzzle escape is a slope-blind pile exit, not a terrain bypass', () => {
+  const { SCORCHED, game, impacts } = newGame({ wind: 0 });
+  // Flat shelf, then a 200px mountain, then flat again — the reviewer's
+  // shoot-through-cover repro. The shooter stands on FLAT ground right at
+  // the foot of the rise, not buried in anything.
+  for (let c = 0; c < 1200; c++) {
+    let h = 100;
+    if (c >= 300 && c < 460) h = 100 + (c - 300) * (200 / 160);
+    game.terrain.heights[c] = h;
+  }
+  const shooter = game.roster[game.activePlayerIdx];
+  shooter.x = 296;
+  shooter.y = SCORCHED.CONST.WORLD_H - game.terrain.heightAt(shooter.x);
+
+  fireAndSettle(game, 'Missile', 2, 900);
+
+  assert.strictEqual(impacts.length, 1, 'the shot vanished without detonating');
+  assert.ok(impacts[0].x < 480,
+    `impact at x=${impacts[0].x.toFixed(1)} — the shell flew straight through the mountain`);
+});
+
+test('a FIRE_SYNC arriving after local round-end queues instead of spawning a frozen shell', () => {
+  const { game } = newGame();
+  game.roundOver = true;
+
+  game.applyFireSync({
+    shotId: 42, shooterSlot: game.roster[0].slot,
+    angle: 45, power: 500, vx: 100, vy: -100, wind: 0, weapon: 'Baby Missile'
+  });
+
+  assert.strictEqual(game.projectile, null,
+    'a shell was spawned into a frozen simulation');
+  // Dropped, not held: a fire belonging to a round this client has already
+  // finished can never legally integrate here; ROUND_START re-seeds the
+  // world it would have flown in.
+  assert.strictEqual(game.pendingTurnSyncs.length, 0,
+    'a dead round\'s fire frame was kept in the queue');
+});
+
+test('superseding the shooter mid-flight leaves the pending shot for the sweep, never discards it', () => {
+  const rm = new RoomManager();
+  rm.createRoom('c1');
+  const room = rm.getRoomByConnection('c1');
+  rm.join('c2', room.code);
+  rm.join('c3', room.code);
+  rm.start('c1', { rounds: 3 });
+  rm.fire('c1', { angle: 45, power: 500, weapon: 'Baby Missile' });
+  assert.strictEqual(room.awaitingResolution, true);
+
+  const seat = Array.from(room.players.values()).find(p => p.connectionId === 'c1');
+  rm.rejoin('c1-fresh', { code: room.code, playerToken: seat.playerToken });
+
+  // The old fix force-cleared awaitingResolution and advanced the cursor,
+  // which made the eventual RESOLVE_SHOT a silently-dropped frame. The
+  // shot stays pending; the sweep's 90s deadline is the resolver now.
+  assert.strictEqual(room.awaitingResolution, true,
+    'the in-flight shot was silently discarded');
+  const res = rm.sweep(Date.now() + RoomManager.SHOT_RESOLUTION_TIMEOUT_MS + 31000);
+  assert.strictEqual(room.awaitingResolution, false);
+  assert.ok(res.broadcasts.some(b => b.msg && b.msg.type === 'TURN_SYNC'),
+    'the sweep never resolved the orphaned shot');
+});
+
+test('superseding the LAST eligible actor makes them the reference client, not a spectator', () => {
+  const rm = new RoomManager();
+  rm.createRoom('c1');
+  const room = rm.getRoomByConnection('c1');
+  rm.join('c2', room.code);
+  rm.start('c1', { rounds: 3 });
+
+  // The other seat is already spectating; superseding this one too would
+  // have parked the room in `paused` with players connected — unreachable
+  // by both the sweep's un-wedge and its reaper.
+  const other = Array.from(room.players.values()).find(p => p.connectionId === 'c2');
+  other.spectating = true;
+  const seat = Array.from(room.players.values()).find(p => p.connectionId === 'c1');
+  rm.rejoin('c1-fresh', { code: room.code, playerToken: seat.playerToken });
+
+  assert.strictEqual(seat.spectating, false, 'the last actor was spectated into a dead room');
+  assert.strictEqual(room.phase, 'playing');
+});
+
+test("a spectator's SHOP_DONE counts for readiness but its fiction is not stored", () => {
+  const rm = new RoomManager();
+  rm.createRoom('c1');
+  const room = rm.getRoomByConnection('c1');
+  rm.join('c2', room.code);
+  rm.start('c1', { rounds: 3 });
+  room.phase = 'shopping';
+  room.readyForNextRound = new Set();
+
+  const seat = Array.from(room.players.values()).find(p => p.connectionId === 'c2');
+  seat.spectating = true;
+  seat.cash = 4200;
+  seat.inventory = { 'Missile': 3 };
+
+  rm.shopDone('c2', { inventory: { 'Nuke': 99 }, cash: 99999999 });
+
+  assert.ok(room.readyForNextRound.has(seat.slot), 'the spectator was not counted as ready');
+  assert.strictEqual(seat.cash, 4200, "the spectator's fictional bankroll was stored");
+  assert.deepStrictEqual(seat.inventory, { 'Missile': 3 },
+    "the spectator's fictional kit was stored");
+});
+
+test('a paused room with a connected eligible actor is un-parked by the sweep', () => {
+  const rm = new RoomManager();
+  rm.createRoom('c1');
+  const room = rm.getRoomByConnection('c1');
+  rm.join('c2', room.code);
+  rm.start('c1', { rounds: 3 });
+
+  room.phase = 'paused';
+  room.pausedAt = Date.now() - RoomManager.TURN_TIMEOUT_MS - 60000;
+
+  const res = rm.sweep(Date.now());
+  assert.strictEqual(room.phase, 'playing', 'the sweep left a live room parked');
+  assert.ok(res.broadcasts.some(b => b.msg && b.msg.type === 'TURN_SYNC'),
+    'the un-park never announced a cursor');
+});
+
+test('the layout grants purchased copies round-robin, so late-registry works still field', () => {
+  const { SCORCHED } = newGame();
+  const S = SCORCHED.StructuresLib;
+  // Four players (budget 5 each), one of them stacked with early ids AND a
+  // paid missile-silo — the old sequential walk spent the whole budget
+  // before reaching the silo, every round.
+  const inv = { 'Structure: missile-silo': 3 };
+  for (const id of S.STRUCTURE_IDS.slice(0, 4)) inv['Structure: ' + id] = 3;
+  const roster = [0, 1, 2, 3].map(slot => ({ slot, inventory: slot === 0 ? inv : {} }));
+  const rng = { range: () => 0.5 };
+  const heights = new Float32Array(1200).fill(300);
+  const out = S.layoutStructures(rng, 'aethercastle', roster, heights, 1200, 700);
+
+  const silos = out.filter(s => s.ownerIdx === 0 && s.purchased && s.key === 'missile-silo');
+  assert.ok(silos.length >= 1,
+    'a paid-for missile-silo fielded zero copies — the budget starved the late registry');
 });

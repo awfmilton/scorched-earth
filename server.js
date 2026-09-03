@@ -250,26 +250,29 @@ function attachWebSocketServer(httpServer, options = {}) {
       try {
         msg = JSON.parse(raw.toString('utf8'));
       } catch {
-        sendError(connectionId, ERRORS.BAD_MESSAGE, 'Malformed JSON');
+        // Every rejection reply below honours canReply: an attacker who
+        // never reads their socket must not turn ANY error path — parse,
+        // validate, wrong type, join budget — into buffered server memory.
+        if (canReply) sendError(connectionId, ERRORS.BAD_MESSAGE, 'Malformed JSON');
         return;
       }
 
       const result = validate(msg);
       if (!result.ok) {
-        sendError(connectionId, ERRORS.BAD_MESSAGE, result.error);
+        if (canReply) sendError(connectionId, ERRORS.BAD_MESSAGE, result.error);
         return;
       }
 
       // validate() also accepts server->client types; a client may only send C2S.
       if (!Object.values(C2S).includes(msg.type)) {
-        sendError(connectionId, ERRORS.BAD_MESSAGE, `Not a client message type: ${msg.type}`);
+        if (canReply) sendError(connectionId, ERRORS.BAD_MESSAGE, `Not a client message type: ${msg.type}`);
         return;
       }
 
       if (msg.type === C2S.JOIN_ROOM) {
         ws.joinCount++;
         if (ws.joinCount > MAX_JOINS_PER_WINDOW) {
-          sendError(connectionId, ERRORS.RATE_LIMITED, 'Too many join attempts');
+          if (canReply) sendError(connectionId, ERRORS.RATE_LIMITED, 'Too many join attempts');
           return;
         }
       }

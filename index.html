@@ -2577,9 +2577,15 @@
             trigger: trigger,
             // A buried hull's muzzle sits INSIDE the pile; the shell must
             // tunnel out before terrain contact means anything, or firing
-            // while buried detonates the round in your own lap. Derived
-            // from replicated state, so every client agrees.
-            startedUnderground: startY >= CONST.WORLD_H - this.terrain.heightAt(startX)
+            // while buried detonates the round in your own lap. The test is
+            // the ground under the SHOOTER — sampling under the muzzle
+            // turned this into a forward-slope test that let low shots
+            // tunnel through mountains from flat ground. Bounded by
+            // spawnX below: the escape can only ever free a shell from its
+            // own pile. Derived from replicated state, so clients agree.
+            startedUnderground:
+              activeTank.y - 6 >= CONST.WORLD_H - this.terrain.heightAt(activeTank.x),
+            spawnX: startX
           };
 
           if (!this.headless && typeof sfx === 'function') {
@@ -2705,8 +2711,11 @@
             shooterIdx: shooterIdx,
             shotId: msg.shotId,
             trigger: trigger,
-            // Same buried-muzzle escape as the local fire() spawn.
-            startedUnderground: startY >= CONST.WORLD_H - this.terrain.heightAt(startX)
+            // Same buried-muzzle escape as the local fire() spawn: tested
+            // under the SHOOTER, bounded by spawnX.
+            startedUnderground:
+              shooter.y - 6 >= CONST.WORLD_H - this.terrain.heightAt(shooter.x),
+            spawnX: startX
           };
 
           if (!this.headless && typeof sfx === 'function') {
@@ -2852,9 +2861,24 @@
           // the contract: applying a move before the shell it queued behind
           // would walk the tank through the blast on this client only.
           while (this.pendingTurnSyncs.length) {
-            // roundOver holds the queue closed too: a commit against a
-            // frozen simulation (see applyFireSync) could strand a shell.
-            if (this.roundOver || this.projectile || this.anyTankFalling()) return;
+            const head = this.pendingTurnSyncs[0];
+            const headKind = head.kind || 'turn';
+            if (this.roundOver) {
+              // roundOver drops gameplay frames rather than holding them —
+              // the round they belong to is over locally and ROUND_START
+              // would discard them wholesale anyway — EXCEPT a ROUND END,
+              // which is the one frame that belongs to a finished round.
+              // It commits even over a frozen fall or stranded shell:
+              // physics is not coming back this round, and holding it left
+              // the shop and the match summary unreachable whenever the
+              // local sim ended the round a beat before the server frame.
+              if (headKind !== 'roundend') {
+                this.pendingTurnSyncs.shift();
+                continue;
+              }
+            } else if (this.projectile || this.anyTankFalling()) {
+              return;
+            }
             const entry = this.pendingTurnSyncs.shift();
             const kind = entry.kind || 'turn';
             const msg = entry.msg || entry;
@@ -2862,6 +2886,7 @@
             else if (kind === 'fire') this.commitFireSync(msg);
             else if (kind === 'move') this.commitMoveSync(msg);
             else if (kind === 'teleport') this.commitTeleportSync(msg);
+            else if (kind === 'roundend') this.commitRoundEnd(msg);
           }
         }
 
@@ -2878,6 +2903,31 @@
         // locally-simulated damage numbers, which agree because the simulation
         // agrees.
         applyRoundEnd(msg) {
+          /*
+           * ROUND_END joins the same at-rest queue as every other gameplay
+           * frame. The server sends it the moment the SHOOTER's simulation
+           * settles; on a lagging client the fatal shell can still be
+           * mid-air here, and committing immediately did two wrong things
+           * at once: handleRoundEnd() paid out from PRE-impact stats
+           * (damage and kills the landing was about to add), and roundOver
+           * froze stepPhysics with the shell alive — a permanently
+           * suspended board. Queued, it commits the tick the world settles,
+           * after the impact that ends the round has actually happened.
+           *
+           * Deliberately held ONLY behind a live shell. A mid-fall tank
+           * cannot change who won — the server already declared the winner —
+           * and queued boundaries belong to the round this frame just
+           * ended; neither may hold the shop or the match summary hostage.
+           */
+          if (this.projectile) {
+            this.pendingTurnSyncs.push({ kind: 'roundend', msg });
+            this.flushPendingTurnSync(); // see applyFireSync
+            return;
+          }
+          this.commitRoundEnd(msg);
+        }
+
+        commitRoundEnd(msg) {
           this.serverWinnerSlot = msg ? msg.winnerSlot : undefined;
           // The local sim usually reaches "one tank left" a tick before the
           // server frame lands, which already ran the payouts and set
@@ -5476,7 +5526,14 @@
                   // broken the surface. Cleared the first substep it is in
                   // open air, after which every collision rule is normal.
                   if (proj.startedUnderground) {
-                    if (proj.y < groundY) proj.startedUnderground = false;
+                    // The escape ends the moment the shell reaches open air
+                    // OR leaves its own hull's footprint — whichever comes
+                    // first. Without the horizontal bound this flag was a
+                    // licence to fly through every ridge downrange.
+                    if (proj.y < groundY ||
+                        (proj.spawnX !== undefined && Math.abs(proj.x - proj.spawnX) > 14)) {
+                      proj.startedUnderground = false;
+                    }
                   } else
                   if (proj.y >= groundY) {
                     // A Contact Trigger detonates the shell where it lands.
@@ -5551,22 +5608,23 @@
 
                     // Deflector shields bounce the shell instead of eating
                     // it. Which types deflect is SHIELD_TYPES' business, not
-                    // a name comparison here. The collision surface IS the
-                    // drawn dome — the UPPER semicircle of radius 12 at
-                    // (x, y-6), which is exactly what drawShieldAC renders
-                    // and the classic arc traces. A shell slipping in under
-                    // the rim falls through to the ordinary hull test, so
-                    // the picture and the physics agree in both directions.
-                    // Tracers pass the field entirely: they are aiming aids
-                    // that carry no charge worth bouncing, and letting them
-                    // interact meant a 10-cost round could grind a 4000-cost
-                    // field to nothing.
+                    // a name comparison here. The collision surface is the
+                    // FULL radius-12 disc at (x, y-6): the drawn arc covers
+                    // its upper half and the hull silhouette fills the lower
+                    // half, so the picture still reads as "everything the
+                    // shell can touch bounces". (An upper-semicircle-only
+                    // trigger left two-thirds of the hull box undefended
+                    // against flat and rising shots — a deflector that only
+                    // works on lobs.) Tracers pass the field entirely: they
+                    // are aiming aids that carry no charge worth bouncing,
+                    // and letting them interact meant a 10-cost round could
+                    // grind a 4000-cost field to nothing.
                     if (tank.shield && tank.shield.hp > 0 &&
                         shieldDeflects(tank.shield.type) && !isTracer(proj.weapon)) {
                       const dx = proj.x - tank.x;
                       const dy = proj.y - (tank.y - 6);
                       const distSq = dx * dx + dy * dy;
-                      if (distSq <= 144 && dy <= 2) {
+                      if (distSq <= 144) {
                         // A shell cannot pogo on the field forever: after
                         // three bounces the fourth contact detonates it on
                         // the dome, ending the ~22s hang a vertical lob
@@ -5628,8 +5686,9 @@
                         hitTank = false; // Reflected, don't detonate!
                         break;
                       }
-                      // Under the rim or outside the dome: the ordinary hull
-                      // test below decides, exactly as the drawn arc implies.
+                      // Outside the dome: no hull check either — the disc
+                      // encloses the whole hull box, so a miss is a miss.
+                      continue;
                     }
 
                     if (proj.x >= tank.x - 8 && proj.x <= tank.x + 8 &&
@@ -6023,12 +6082,30 @@
           const config = weapon || item;
           if (!config) return false;
 
-          // The layout fields at most MAX_PURCHASED_COPIES of one work;
-          // selling money for copies that can never stand would be a silent
-          // sink, so the shop refuses at the cap.
+          // The layout fields at most MAX_PURCHASED_COPIES of one work —
+          // and exactly ONE of a blocking work. Selling money for copies
+          // that can never stand would be a silent sink, so the shop
+          // refuses at the SAME caps the layout applies.
           if (structureItem && StructuresLib) {
+            const sid = id.slice('Structure: '.length);
+            const spec = StructuresLib.STRUCTURES[sid];
+            const cap = (spec && spec.blocking) ? 1 : StructuresLib.MAX_PURCHASED_COPIES;
             const held = (tank.inventory && tank.inventory[id]) || 0;
-            if (held + packs > StructuresLib.MAX_PURCHASED_COPIES) return false;
+            if (held + packs > cap) return false;
+
+            // The layout also budgets the holding as a WHOLE (the same
+            // holdingSize() crowding rule the template obeys). Refusing the
+            // over-buy here is what keeps that budget from silently
+            // starving a paid-for work at round start.
+            const budget = StructuresLib.holdingSize(this.roster ? this.roster.length : 2);
+            let fieldable = 0;
+            for (const otherId of StructuresLib.STRUCTURE_IDS) {
+              const otherSpec = StructuresLib.STRUCTURES[otherId];
+              const otherCap = (otherSpec && otherSpec.blocking) ? 1 : StructuresLib.MAX_PURCHASED_COPIES;
+              const otherHeld = (tank.inventory && tank.inventory['Structure: ' + otherId]) || 0;
+              fieldable += Math.min(otherHeld, otherCap);
+            }
+            if (fieldable + packs > budget) return false;
           }
 
           const totalCost = config.cost * packs;
@@ -6319,23 +6396,31 @@
             buyBtn.style.color = player.color;
             buyBtn.style.cursor = 'pointer';
 
-            // A work caps at MAX_PURCHASED_COPIES fielded; past it the BUY
-            // button says why instead of silently eating the click.
-            const structureCap = itemConf.kind === 'structure' && StructuresLib
-              ? StructuresLib.MAX_PURCHASED_COPIES
+            // Structures are packSize-1 singletons: the bulk toggle never
+            // applies to them (x5 on a cap of 3 made every work unbuyable
+            // and mislabelled the button MAX at zero owned). Each is capped
+            // at what the layout will actually field — one for a blocking
+            // work, MAX_PURCHASED_COPIES otherwise — and the button says
+            // MAX only when the cap is genuinely reached.
+            const isStructureRow = itemConf.kind === 'structure' && StructuresLib;
+            const structureCap = isStructureRow
+              ? (StructuresLib.STRUCTURES[itemConf.id.slice('Structure: '.length)] &&
+                 StructuresLib.STRUCTURES[itemConf.id.slice('Structure: '.length)].blocking
+                   ? 1 : StructuresLib.MAX_PURCHASED_COPIES)
               : Infinity;
-            const atStructureCap = count !== Infinity &&
-              count + opts.bulkMultiplier > structureCap;
+            const effPacks = isStructureRow ? 1 : opts.bulkMultiplier;
+            const atStructureCap = count !== Infinity && count >= structureCap;
             if (atStructureCap) buyBtn.textContent = 'MAX ' + structureCap;
+            if (isStructureRow && !atStructureCap) buyBtn.textContent = 'BUY';
 
-            if (player.cash < itemConf.cost * opts.bulkMultiplier || atStructureCap) {
+            if (player.cash < itemConf.cost * effPacks || atStructureCap) {
               buyBtn.disabled = true;
               buyBtn.style.borderColor = '#444';
               buyBtn.style.color = '#444';
               buyBtn.style.cursor = 'not-allowed';
             } else {
               buyBtn.addEventListener('click', () => {
-                if (this.buy(player, itemConf.id, opts.bulkMultiplier)) {
+                if (this.buy(player, itemConf.id, effPacks)) {
                   this.showShopForPlayer(playerIdx, opts);
                 }
               });
@@ -6515,6 +6600,14 @@
             this.spectating = false;
             if (typeof setSpectateBanner === 'function') setSpectateBanner(false);
             this.currentRound = 0;
+
+            // Restore the CLIENT'S OWN mode preference. An online room's
+            // mode overrode it for the match (correctly); without this the
+            // solo setup screen and the next match it starts would keep the
+            // finished room's mode instead of the one in the address bar.
+            if (typeof location !== 'undefined' && typeof applyMode === 'function') {
+              applyMode(new URLSearchParams(location.search).get('mode'));
+            }
 
             // A finished ONLINE room is a dead end server-side: its phase is
             // 'ended' and nothing transitions it back to 'lobby', so START

@@ -97,3 +97,16 @@ test('the hp bar length tracks the hull hp fraction', () => {
   // 25/100 of an 18px bar → 4.5px fill, drawn in the low-hp colour.
   assert.match(log, /fillRect\(191\.375,373\.625,4\.5,3\)/, 'hp bar fill does not track hp');
 });
+
+test('classic draws no damage numbers — the replica outranks the feedback', () => {
+  // The post-merge review showed this gate could be deleted with the whole
+  // suite green. Classic combat frames must not grow fillText calls: the
+  // golden build (63de891) never drew a number over the field.
+  const SCORCHED = loadScorched();
+  const game = richScene(renderableGame(SCORCHED, { gameMode: 'classic' }), 'mountains');
+  game.damageNumbers = [
+    { x: 300.5, y: 200.25, text: '30', color: '#ff4444', life: 45 }
+  ];
+  const log = frameLog(game).join('\n');
+  assert.doesNotMatch(log, /fillText/, 'the classic replica drew a damage number');
+});
