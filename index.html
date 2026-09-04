@@ -842,6 +842,11 @@
         // Match semantics
         hpFull: '#8fd400', hpMid: '#ffa31a', hpLow: '#e23a2e',
         shieldCharge: '#00bfff', damage: '#d5007f', cash: '#e0d286',
+        // Damage from a STRUCTURE TURRET, not from a shell. Deliberately far
+        // from `damage` on the wheel: a turret volley lands in the same beat
+        // as the shot that just resolved, and when the two read the same the
+        // player attributes the turret's victims to their own shell.
+        turretDamage: '#ffb100',
         /**
          * Canvas effect colours. Everything the field draws that is not a
          * palette ramp: shells, tracers, bursts, markers and the two particle
@@ -892,6 +897,10 @@
         blood600: '#cc0000', blood500: '#ff0000',
         hpFull: '#00ff00', hpMid: '#ffff00', hpLow: '#ff0000',
         shieldCharge: '#00ffff', damage: '#ff4444', cash: '#ffff00',
+        // Unused in classic — it fields no structures — but present so the
+        // two themes carry the same keys and a lookup can never come back
+        // undefined and paint a transparent number.
+        turretDamage: '#ffff00',
         // The originals, verbatim. Every value here was a literal in a draw
         // call before the visualisation layer routed them through the theme.
         fx: {
@@ -3736,10 +3745,14 @@
             // skip straight to the explosion and stay in lockstep.
             if (!this.headless) {
               if (!this.turretBolts) this.turretBolts = [];
+              // 24 ticks was 0.4s at 60fps — the ONLY cue distinguishing a
+              // volley from the shell that landed a beat earlier, and far too
+              // brief to register while an explosion is still animating. 90
+              // ticks (1.5s) outlives the burst and the damage number.
               this.turretBolts.push({
                 x1: s.x, y1: s.y - (spec.h || 16),
                 x2: target.x, y2: target.y - 3,
-                life: 24, maxLife: 24
+                life: 90, maxLife: 90
               });
               if (typeof sfx === 'function') sfx('turret');
             }
@@ -4788,7 +4801,14 @@
         // Single entry point for damaging a tank. Every damage source must route
         // through here so shield absorption, Auto Defense and score accounting stay
         // consistent. Returns true if this hit is what killed the tank.
-        applyDamageToTank(tank, amount, shooter) {
+        /**
+         * @param {boolean} [fromStructure] This damage came from a structure
+         *   turret volley, not from a shell. Render-only: it changes the
+         *   colour of the floating number so a volley cannot be read as part
+         *   of whatever shell just landed. Nothing in the simulation branches
+         *   on it, so it cannot desync two clients.
+         */
+        applyDamageToTank(tank, amount, shooter, fromStructure) {
           if (!tank || tank.hp <= 0) return false;
 
           // Armour is the other half of a chassis's trade-off: a brass-plated
@@ -4838,10 +4858,22 @@
 
           if (!this.headless && this.damageNumbers) {
             if (shieldAbsorbed > 0) {
-              this.damageNumbers.push({ x: tank.x, y: tank.y - 15, text: shieldAbsorbed.toFixed(0), color: THEME.shieldCharge, life: 60 });
+              // A turret volley is usually eaten whole by the shield aura, so
+              // the ABSORB number is the one the player actually sees — it has
+              // to carry the same "this was a turret, not your shell" colour
+              // as the hp number below, or the commonest case stays ambiguous.
+              this.damageNumbers.push({
+                x: tank.x, y: tank.y - 15, text: shieldAbsorbed.toFixed(0),
+                color: fromStructure ? THEME.turretDamage : THEME.shieldCharge,
+                life: fromStructure ? 90 : 60
+              });
             }
             if (remaining > 0) {
-              this.damageNumbers.push({ x: tank.x, y: tank.y, text: remaining.toFixed(0), color: THEME.damage, life: 60 });
+              this.damageNumbers.push({
+                x: tank.x, y: tank.y, text: remaining.toFixed(0),
+                color: fromStructure ? THEME.turretDamage : THEME.damage,
+                life: fromStructure ? 90 : 60
+              });
               if (typeof sfx === 'function') sfx('hit');
             }
           }
@@ -4903,7 +4935,7 @@
                 const dmg = damage * (1 - dist / radius);
                 const clampedDmg = Math.max(0, dmg);
 
-                if (this.applyDamageToTank(tank, clampedDmg, shooter)) {
+                if (this.applyDamageToTank(tank, clampedDmg, shooter, opts.fromStructure === true)) {
                   deadTanksToExplode.push({ tank, idx });
                 }
               }
@@ -7212,8 +7244,13 @@
             ctx.save();
             this.turretBolts.forEach(b => {
               const t = Math.max(0, b.life / b.maxLife);
-              ctx.globalAlpha = t;
-              ctx.strokeStyle = theme.fx.aimMarker;
+              // Hold near-full opacity for the first half of the life, then
+              // fade. A bolt that starts fading immediately reads as an
+              // afterthought of the explosion rather than its own event.
+              ctx.globalAlpha = Math.min(1, t * 2);
+              // Same colour as the damage number this volley caused, so the
+              // line and the number are visibly one event.
+              ctx.strokeStyle = theme.turretDamage || theme.fx.aimMarker;
               ctx.lineWidth = 2;
               ctx.setLineDash([6, 3]);
               ctx.beginPath();
