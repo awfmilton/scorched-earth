@@ -2147,7 +2147,16 @@
           if (!c) {
             const el = document.createElement('canvas');
             if (!el || typeof el.getContext !== 'function') return null;
-            const cctx = el.getContext('2d');
+            // CPU-backed ON PURPOSE. An accelerated offscreen that is painted
+            // and then blitted from stalls the GPU pipeline on some drivers:
+            // on an Intel HD 520 each repaint froze the tab for ~6.3 SECONDS
+            // (measured; the freeze began within 14ms of the repaint and no
+            // JavaScript ran during it — update+draw never exceeded 22ms and
+            // the Long Task API saw nothing). Software-backed, the same
+            // repaint costs ~110ms, and because the bitmap only changes when
+            // the world does, the browser re-uploads its texture just as
+            // rarely.
+            const cctx = el.getContext('2d', { willReadFrequently: true });
             // A real 2D context reports the element it belongs to. The test
             // DOM's catch-all proxy cannot, and blitting from it would paint
             // nothing at all — so fall back to live painting there.
@@ -6059,7 +6068,8 @@
           if (!c) {
             const el = document.createElement('canvas');
             if (!el || typeof el.getContext !== 'function') return null;
-            const cctx = el.getContext('2d');
+            // CPU-backed for the same reason as the scenery cache above.
+            const cctx = el.getContext('2d', { willReadFrequently: true });
             if (!cctx || cctx.canvas !== el) return null;
             c = this._holding = { el: el, ctx: cctx, fp: null };
           }
