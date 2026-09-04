@@ -5594,8 +5594,25 @@
                 proj.vx += (this.wind || 0) * dt;
               }
 
-              // Trajectory apex split trigger for MIRV and Death's Head
-              if ((proj.weapon === 'MIRV' || proj.weapon === "Death's Head") && !proj.split && prevVy < 0 && proj.vy >= 0) {
+              // Trajectory apex split trigger for MIRV and Death's Head.
+              //
+              // The apex is where it splits, but the split must not happen
+              // OUTSIDE the world. A high-power shot apexes far above the
+              // 700px ceiling -- measured at y=-1348 for Death's Head at
+              // angle 70, power 1000 -- and splitting there means the one
+              // moment the weapon is about to do its whole job happens where
+              // nobody can see it, followed by several seconds of empty sky
+              // before warheads rain in from off-screen. The apex is still
+              // remembered when it occurs above the ceiling; the split is
+              // simply held until the shell is back inside the playfield.
+              //
+              // pastApex is plain replicated arithmetic, so every client
+              // reaches the same tick with the same flag.
+              const isSplitter = proj.weapon === 'MIRV' || proj.weapon === "Death's Head";
+              if (isSplitter && !proj.split && prevVy < 0 && proj.vy >= 0) {
+                proj.pastApex = true;
+              }
+              if (isSplitter && !proj.split && proj.pastApex && proj.y >= 0) {
                 proj.split = true;
                 this.projectiles = this.projectiles.filter(p => p !== proj);
 
