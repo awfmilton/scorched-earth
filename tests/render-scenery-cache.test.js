@@ -86,16 +86,77 @@ describe('holding fingerprint — the cache key for the structures layer', () =>
       'damage must repaint the holding, or the hp bar freezes');
   });
 
-  it('changes when the ground under the holding moves', () => {
-    // The plinth is drawn down to the LIVE surface, so a carve changes the
-    // structures layer even though no structure did.
+  it('tracks the terrain revision separately from structure state', () => {
+    // CONTRACT: the plinth is drawn down to the LIVE surface, so a carve must
+    // still repaint the holding — but via the terrain REVISION, not the
+    // fingerprint. Keeping them apart is what lets a carve repaint a strip
+    // while a changed structure (which can be anywhere) repaints in full.
     const SCORCHED = loadScorched();
     const game = renderableGame(SCORCHED);
 
-    const before = game.structuresFingerprint();
+    const fpBefore = game.structuresFingerprint();
+    const revBefore = game.terrain.revision;
     game.terrain.carve(game.structures[0].x, 400, 30);
-    assert.notStrictEqual(game.structuresFingerprint(), before,
-      'a carve under a structure must repaint its foundation');
+
+    assert.strictEqual(game.structuresFingerprint(), fpBefore,
+      'a carve moves no structure, so the structure fingerprint must not move');
+    assert.ok(game.terrain.revision > revBefore,
+      'the carve must still be visible to the holding cache, via the revision');
+    const span = game.terrain.dirtySince(revBefore);
+    assert.ok(span && span.hi > span.lo, 'the carve must record a dirty span');
+    assert.ok(span.lo <= game.structures[0].x && span.hi >= game.structures[0].x,
+      'the dirty span must cover the carved structure');
+  });
+
+  it('reports only the columns that actually moved, not the whole width', () => {
+    const SCORCHED = loadScorched();
+    const t = new SCORCHED.Terrain();
+    t.generate(777);
+    const rev = t.revision;
+    t.carve(600, 400, 30);
+    const span = t.dirtySince(rev);
+    assert.ok(span, 'a carve must record a span');
+    assert.ok(span.hi - span.lo < 200,
+      `a radius-30 carve dirtied ${span.hi - span.lo}px; the strip repaint is pointless if it covers the world`);
+    assert.ok(span.lo <= 570 && span.hi >= 630, 'the span must cover the crater');
+  });
+
+  it('falls back to the full width once the dirty log no longer reaches back', () => {
+    const SCORCHED = loadScorched();
+    const t = new SCORCHED.Terrain();
+    t.generate(778);
+    const stale = t.revision;
+    for (let i = 0; i < SCORCHED.Terrain.DIRTY_LOG_MAX + 10; i++) t.carve(100 + i, 400, 5);
+    const span = t.dirtySince(stale);
+    assert.ok(span, 'a cache this far behind must still be told to repaint');
+    assert.strictEqual(span.lo, 0, 'lost history must repaint from column 0');
+    assert.strictEqual(span.hi, SCORCHED.CONST.WORLD_W, 'lost history must repaint to the far edge');
+  });
+
+  it('settle() reports the columns soil actually flowed to', () => {
+    // settle() moves dirt AWAY from the crater, so its span is not the
+    // caller's blast radius. If it under-reports, the cached ground keeps a
+    // stale ridge just outside the repainted strip.
+    const SCORCHED = loadScorched();
+    const t = new SCORCHED.Terrain();
+    t.generate(779);
+    t.deposit(600, 300, 40);
+    const before = Array.from(t.heights);
+    const rev = t.revision;
+    t.settle();
+    const span = t.dirtySince(rev);
+
+    let movedLo = Infinity, movedHi = -Infinity;
+    for (let i = 0; i < t.heights.length; i++) {
+      if (Math.abs(t.heights[i] - before[i]) > 1e-6) {
+        movedLo = Math.min(movedLo, i);
+        movedHi = Math.max(movedHi, i);
+      }
+    }
+    if (movedHi < movedLo) return; // nothing settled; nothing to assert
+    assert.ok(span, 'settle() moved columns but recorded no dirty span');
+    assert.ok(span.lo <= movedLo && span.hi >= movedHi,
+      `settle moved columns ${movedLo}..${movedHi} but only reported ${span.lo}..${span.hi}`);
   });
 
   it('is stable when nothing changed', () => {

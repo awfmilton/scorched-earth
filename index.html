@@ -2103,12 +2103,61 @@
           // carves nothing reuses the last bitmap instead of re-hashing
           // ~326k dither cells and re-issuing ~15k canvas ops.
           this.revision = 0;
+          // Per-revision log of the column spans that moved. A crater is
+          // ~80px of a 1200px world, so a cache that knows which columns
+          // changed can repaint a strip instead of the whole bitmap.
+          //
+          // A LOG rather than a running union, because the render layer may
+          // not write simulation state (tests/render-purity.test.js) — so a
+          // cache cannot reset a shared span once it has consumed it, and
+          // two caches consume it at different points in the same frame.
+          // Each cache instead asks what changed since the revision it last
+          // painted, and nothing on the draw path mutates anything.
+          this.dirtyLog = [];
         }
 
-        // Anything that writes this.heights directly must call this, or the
-        // cached background will keep showing the pre-carve world.
-        touch() {
+        /**
+         * Anything that writes this.heights directly must call this, or the
+         * cached background will keep showing the pre-carve world.
+         *
+         * Pass the column span that moved. Callers that cannot bound their
+         * own writes must call it with no arguments, which conservatively
+         * dirties the whole width — correct, just not cheap.
+         */
+        touch(x0, x1) {
           this.revision++;
+          let lo = 0, hi = CONST.WORLD_W;
+          if (x0 !== undefined && x1 !== undefined) {
+            // Widen by a few columns: the crust and bloom are STROKES up to
+            // 16px wide, so a column's paint bleeds past the column itself.
+            lo = Math.max(0, Math.floor(Math.min(x0, x1)) - 12);
+            hi = Math.min(CONST.WORLD_W, Math.ceil(Math.max(x0, x1)) + 12);
+          }
+          this.dirtyLog.push({ rev: this.revision, lo: lo, hi: hi });
+          // Bounded: a cache further behind than this simply repaints in full.
+          if (this.dirtyLog.length > Terrain.DIRTY_LOG_MAX) this.dirtyLog.shift();
+        }
+
+        /**
+         * The span that moved since revision `rev`, for a cache repainting
+         * incrementally. Read-only — draw paths must not write the world.
+         *
+         * Returns null when nothing moved, and the full width when the log no
+         * longer reaches back that far (so a stale cache repaints completely
+         * rather than trusting a gap it cannot see).
+         */
+        dirtySince(rev) {
+          const log = this.dirtyLog;
+          if (!log.length) return null;
+          if (log[0].rev > rev + 1) return { lo: 0, hi: CONST.WORLD_W };
+          let lo = CONST.WORLD_W, hi = 0;
+          for (let i = 0; i < log.length; i++) {
+            const e = log[i];
+            if (e.rev <= rev) continue;
+            if (e.lo < lo) lo = e.lo;
+            if (e.hi > hi) hi = e.hi;
+          }
+          return hi > lo ? { lo: lo, hi: hi } : null;
         }
 
         /**
@@ -2165,15 +2214,48 @@
           }
 
           if (c.revision !== this.revision || c.key !== key) {
-            if (c.el.width !== devW) c.el.width = devW;
-            if (c.el.height !== devH) c.el.height = devH;
-            c.ctx.setTransform(1, 0, 0, 1, 0, 0);
-            c.ctx.clearRect(0, 0, devW, devH);
+            // A resize, a palette change or a never-painted cache has to redo
+            // everything. A carve only has to redo the columns it moved — a
+            // crater is ~80px of a 1200px world, and repainting the whole
+            // bitmap for it was the bulk of the remaining impact hitch.
+            const full = c.key !== key || c.revision < 0 ||
+              c.el.width !== devW || c.el.height !== devH;
+
+            let x0 = 0, x1 = CONST.WORLD_W;
+            if (!full) {
+              const span = this.dirtySince(c.revision);
+              // No recorded span means we cannot tell what moved: repaint
+              // everything rather than show a stale world.
+              if (span) { x0 = span.lo; x1 = span.hi; }
+            }
+
+            if (full) {
+              if (c.el.width !== devW) c.el.width = devW;
+              if (c.el.height !== devH) c.el.height = devH;
+              c.ctx.setTransform(1, 0, 0, 1, 0, 0);
+              c.ctx.clearRect(0, 0, devW, devH);
+            }
+
+            c.ctx.save();
             c.ctx.setTransform(t.a, t.b, t.c, t.d, t.e, t.f);
+            if (!full) {
+              // Clip to the moved columns, then clear and repaint just those.
+              // The painters still walk the whole width in JS, but only this
+              // strip is rasterised — and rasterisation is the expensive half.
+              c.ctx.beginPath();
+              c.ctx.rect(x0, 0, x1 - x0, CONST.WORLD_H);
+              c.ctx.clip();
+              c.ctx.clearRect(x0, 0, x1 - x0, CONST.WORLD_H);
+            }
             ACSky.drawSkyAC(c.ctx, r, CONST.WORLD_W, CONST.WORLD_H);
             ACTerrain.drawTerrainAC(c.ctx, this.heights, r, CONST.WORLD_W, CONST.WORLD_H, this.biome);
+            c.ctx.restore();
+
             c.revision = this.revision;
             c.key = key;
+            // NOT cleared here: the holding cache is painted straight after
+            // this one and needs the same span. Game.draw() clears it once
+            // both layers have consumed it.
           }
           return c.el;
         }
@@ -2216,7 +2298,7 @@
               }
             }
           }
-          this.touch();
+          this.touch(startCol, endCol);
         }
 
         deposit(x, y, r) {
@@ -2237,12 +2319,20 @@
               }
             }
           }
-          this.touch();
+          this.touch(startCol, endCol);
         }
 
         settle() {
           const N = this.heights.length;
           const max_slope = 1.0;
+          // Soil flows away from where it was dropped, so the span settle()
+          // moves is NOT the caller's blast radius. Track the real one, or
+          // the cached ground keeps a stale ridge just outside the crater.
+          let lo = N, hi = -1;
+          const mark = (i) => {
+            if (i < lo) lo = i;
+            if (i + 1 > hi) hi = i + 1;
+          };
           // Perform multiple sliding passes to let soil flow down slopes
           for (let pass = 0; pass < 20; pass++) {
             let changed = false;
@@ -2254,12 +2344,14 @@
                 this.heights[i] -= move;
                 this.heights[i + 1] += move;
                 changed = true;
+                mark(i);
               } else if (diff < -max_slope) {
                 const excess = -diff - max_slope;
                 const move = excess / 2;
                 this.heights[i] += move;
                 this.heights[i + 1] -= move;
                 changed = true;
+                mark(i);
               }
             }
             if (!changed) break;
@@ -2269,10 +2361,10 @@
           const minH = CONST.WORLD_H * 0.15;
           const maxH = CONST.WORLD_H * 0.80;
           for (let i = 0; i < N; i++) {
-            if (this.heights[i] < minH) this.heights[i] = minH;
-            if (this.heights[i] > maxH) this.heights[i] = maxH;
+            if (this.heights[i] < minH) { this.heights[i] = minH; mark(i); }
+            if (this.heights[i] > maxH) { this.heights[i] = maxH; mark(i); }
           }
-          this.touch();
+          if (hi >= lo) this.touch(lo, hi);
         }
 
         /**
@@ -2366,6 +2458,11 @@
           }
         }
       }
+
+      // How many revisions of moved-column spans to remember. A cache that
+      // has fallen further behind than this repaints in full, which is
+      // correct — just not incremental.
+      Terrain.DIRTY_LOG_MAX = 64;
 
       /*
        * ── Visualisation layer ─────────────────────────────────────────────
@@ -5019,7 +5116,7 @@
                 this.terrain.heights[col] = target;
               }
             }
-            this.terrain.touch();
+            this.terrain.touch(startCol, endCol);
           } else if (kind === 'leapfrog') {
             this.explosion(x, y, radius, damage, shooterIdx, { weapon: wp });
             this.spawnLeapFrogHop(x, y, wp, shooterIdx, proj);
@@ -5034,7 +5131,7 @@
                 this.terrain.heights[col] = Math.max(CONST.WORLD_H * 0.15, this.terrain.heights[col] - 25 * (1 - Math.abs(dx) / collapseRadius));
               }
             }
-            this.terrain.touch();
+            this.terrain.touch(startCol, endCol);
             this.explosion(x, y, radius, damage, shooterIdx, { weapon: wp });
           } else if (wp === 'Sandstorm') {
             // redistributing terrain
@@ -5047,7 +5144,7 @@
               const srcCol = Math.max(0, Math.min(CONST.WORLD_W - 1, col - shift));
               this.terrain.heights[col] = copy[srcCol];
             }
-            this.terrain.touch();
+            this.terrain.touch(startCol, endCol);
             if (!this.headless) {
               sfx('explode', { radius: 50 });
               this.pushKindBurst(x, y, 50, wp);
@@ -5382,7 +5479,7 @@
                     const tx = Math.floor(proj.x);
                     if (tx >= 0 && tx < CONST.WORLD_W) {
                       this.terrain.heights[tx] += 0.4;
-                      this.terrain.touch();
+                      this.terrain.touch(tx, tx);
                     }
                   } else if (proj.weapon.includes('Napalm')) {
                     // Napalm damage over time — routed through applyDamageToTank so the
@@ -6017,8 +6114,10 @@
          * even though no structure did.
          */
         structuresFingerprint() {
-          let fp = this.gameMode + '#' +
-            (this.terrain ? this.terrain.revision : 0) + '#';
+          // Structure state ONLY. The terrain revision is tracked separately
+          // by the cache, because a moved column can be repainted as a strip
+          // whereas a changed structure cannot.
+          let fp = this.gameMode + '#';
           for (let i = 0; i < this.structures.length; i++) {
             const s = this.structures[i];
             const owner = this.roster && this.roster[s.ownerIdx];
@@ -6076,14 +6175,41 @@
 
           const fp = this.structuresFingerprint() +
             '|' + devW + 'x' + devH + '|' + t.a + ',' + t.b + ',' + t.c + ',' + t.d + ',' + t.e + ',' + t.f;
-          if (c.fp !== fp) {
-            if (c.el.width !== devW) c.el.width = devW;
-            if (c.el.height !== devH) c.el.height = devH;
-            c.ctx.setTransform(1, 0, 0, 1, 0, 0);
-            c.ctx.clearRect(0, 0, devW, devH);
+          const rev = this.terrain ? this.terrain.revision : 0;
+
+          if (c.fp !== fp || c.rev !== rev) {
+            // A changed structure can be anywhere, so that repaints in full.
+            // A moved column only affects the plinths above it — repaint that
+            // strip instead of all 21 buildings.
+            const full = c.fp !== fp || c.rev === undefined ||
+              c.el.width !== devW || c.el.height !== devH;
+
+            let x0 = 0, x1 = CONST.WORLD_W;
+            if (!full && this.terrain && this.terrain.dirtySince) {
+              const span = this.terrain.dirtySince(c.rev);
+              if (span) { x0 = span.lo; x1 = span.hi; }
+            }
+
+            if (full) {
+              if (c.el.width !== devW) c.el.width = devW;
+              if (c.el.height !== devH) c.el.height = devH;
+              c.ctx.setTransform(1, 0, 0, 1, 0, 0);
+              c.ctx.clearRect(0, 0, devW, devH);
+            }
+
+            c.ctx.save();
             c.ctx.setTransform(t.a, t.b, t.c, t.d, t.e, t.f);
+            if (!full) {
+              c.ctx.beginPath();
+              c.ctx.rect(x0, 0, x1 - x0, CONST.WORLD_H);
+              c.ctx.clip();
+              c.ctx.clearRect(x0, 0, x1 - x0, CONST.WORLD_H);
+            }
             this.paintStructures(c.ctx, theme);
+            c.ctx.restore();
+
             c.fp = fp;
+            c.rev = rev;
           }
           return c.el;
         }
