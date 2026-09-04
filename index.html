@@ -3728,6 +3728,26 @@
             const spec = StructuresLib.specOf(s);
             if (!spec || !spec.turret) continue;
 
+            // A holding answers on ITS OWNER'S turn, which is what the spec
+            // has always said: lib/structures.js:85 — "Fires on its own at
+            // the end of the owner's turn, nearest enemy first." The loop had
+            // no owner gate, so EVERY turret on the map fired at EVERY
+            // boundary. In a three-tank match that let the player's scorpion
+            // shoot AI-1 while AI-1's scorpion shot AI-2, and because local
+            // nextTurn() runs synchronously inside stepPhysics() the moment a
+            // shell resolves, both landed in the SAME physics tick as the
+            // player's impact. One shell, two enemies bleeding hundreds of
+            // pixels apart, no way to tell it was not all your doing.
+            //
+            // activePlayerIdx is the player whose turn just ENDED on both
+            // paths: local nextTurn() calls this before advancing its cursor,
+            // and commitTurnSync() calls it before setActiveSlot(). Both read
+            // only replicated state, so every client gates identically.
+            if (s.ownerIdx !== this.activePlayerIdx) continue;
+
+            // Cooldown ticks on the owner's turn too, not once per global
+            // boundary — otherwise a turret still recharges N times faster
+            // than it fires in an N-player match.
             if (s.cooldown > 0) { s.cooldown--; continue; }
 
             const target = this.nearestEnemyTank(s);

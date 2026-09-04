@@ -107,21 +107,48 @@ describe('a shell only ever damages what it hits', () => {
   });
 });
 
-describe('the turn boundary is what damages two enemies at once', () => {
-  it('one boundary can put damage on two far-apart enemies', () => {
-    // This documents the mechanism behind the report. It is NOT a defect in
-    // itself -- turrets are a feature -- but it must stay attributable, which
-    // is what the next tests pin.
-    const { game } = soloMatch();
-    let sawBoth = false;
-    for (let turn = 0; turn < 6 && !sawBoth; turn++) {
-      game.damageNumbers.length = 0;
+describe('a holding only answers on its owner\'s turn', () => {
+  // THE BUG. The turret loop had no owner gate, so every turret on the map
+  // fired at every boundary -- the player's scorpion at AI-1 and AI-1's
+  // scorpion at AI-2, in the same physics tick the player's shell landed.
+  // lib/structures.js:85 has always specified otherwise: "Fires on its own at
+  // the end of the owner's turn, nearest enemy first."
+  it('a boundary fires ONLY the turrets of the player whose turn just ended', () => {
+    const { S, game } = soloMatch();
+    const owners = [];
+    const realExplosion = game.explosion.bind(game);
+    // Every turret volley is an explosion carrying fromStructure.
+    game.explosion = (x, y, r, d, shooterIdx, opts) => {
+      if (opts && opts.fromStructure) owners.push(shooterIdx);
+      return realExplosion(x, y, r, d, shooterIdx, opts);
+    };
+
+    for (let turn = 0; turn < 8; turn++) {
+      owners.length = 0;
+      const endingPlayer = game.activePlayerIdx;
       game.nextTurn();
-      const hit = tanksWithNumbers(game).filter(n => n !== 'ME');
-      if (hit.length > 1) sawBoth = true;
+      for (const o of owners) {
+        assert.strictEqual(o, endingPlayer,
+          `a turret owned by player ${o} fired on player ${endingPlayer}'s boundary`);
+      }
     }
-    assert.ok(sawBoth,
-      'expected a turn boundary where two different enemies both took turret fire');
+  });
+
+  it('one shot no longer leaves two far-apart enemies bleeding', () => {
+    // The user's exact report, as a regression test. Shields off, so any
+    // turret damage lands on hp where it is unmissable.
+    const { game } = soloMatch();
+    game.roster.forEach(t => { t.shield = null; });
+    game.activePlayerIdx = 0;
+
+    const before = game.roster.map(t => t.hp);
+    game.onImpact(game.roster[1].x, game.roster[1].y - 3, 'Baby Missile', 0);
+    game.nextTurn();   // the boundary that closes the human's shot
+    const after = game.roster.map(t => t.hp);
+
+    assert.ok(before[1] - after[1] > 0, 'the tank actually shot must be damaged');
+    assert.strictEqual(after[2], before[2],
+      'the OTHER enemy, 450px away, must not lose hp from the human\'s boundary');
   });
 });
 
