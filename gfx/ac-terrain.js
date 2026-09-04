@@ -23,6 +23,82 @@
     ? require('./ac-common.js')
     : window.ACG;
 
+  /**
+   * Rock speckle and aether veins.
+   *
+   * These three dither passes were ~10,300 individual fillRect calls issued
+   * INSIDE the ground clip, and a clipped fillRect is not cheap: on an Intel
+   * HD 520 they alone cost ~3.5 SECONDS per repaint at 1264x849. That was
+   * invisible while the terrain was static and the whole scene was cached,
+   * and it put the game back to ~1.4fps the moment anything kept the ground
+   * moving — a Liquid Dirt flow, a dirt weapon, settling soil.
+   *
+   * The pattern is a pure function of position: ACG.dither hashes (cx, cy)
+   * and never reads `heights`. Only the CLIP depends on the terrain. So the
+   * speckle is rendered once into an offscreen layer and blitted; the clip
+   * still carves it to the ground silhouette, and the picture is the same.
+   *
+   * Blitted at identity so the layer lands 1:1 on device pixels — a clip set
+   * from a transformed path stays put in device space, so dropping the
+   * transform for the blit does not move it. Falls back to painting the
+   * dither live wherever no real canvas or transform exists (the test DOM),
+   * which is what keeps the draw-log suites seeing the real primitives.
+   */
+  var speckleCache = null;
+
+  function paintSpeckle(ctx, W, H, rockA, rockB, veinColour, heights, N) {
+    var t = null;
+    if (typeof ctx.getTransform === 'function') {
+      try { t = ctx.getTransform(); } catch (e) { t = null; }
+    }
+    var canvas = ctx.canvas;
+    var canBlit = t && canvas && canvas.width > 0 && canvas.height > 0 &&
+      typeof document !== 'undefined' && typeof document.createElement === 'function';
+
+    if (canBlit) {
+      var devW = canvas.width, devH = canvas.height;
+      var key = devW + 'x' + devH + '|' + rockA + '|' + rockB + '|' + veinColour;
+      if (!speckleCache || speckleCache.key !== key) {
+        var el = document.createElement('canvas');
+        // CPU-backed to match the scenery cache this is blitted into: mixing
+        // an accelerated source with a software destination would force a
+        // readback on every draw.
+        var c = el.getContext && el.getContext('2d', { willReadFrequently: true });
+        if (c && c.canvas === el) {
+          el.width = devW;
+          el.height = devH;
+          // Device-space lattice, even rows/columns, matching the 2px cell.
+          ACG.dither(c, 0, 0, devW, devH, rockA, 0.035, 2, 11);
+          ACG.dither(c, 0, 0, devW, devH, rockB, 0.04, 2, 23);
+          ACG.dither(c, 0, Math.floor(devH * 0.55 / 2) * 2, devW, devH * 0.45, veinColour, 0.012, 2, 41);
+          speckleCache = { key: key, el: el };
+        } else {
+          speckleCache = null;
+        }
+      }
+      if (speckleCache) {
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.drawImage(speckleCache.el, 0, 0);
+        ctx.restore();
+        return;
+      }
+    }
+
+    // Live fallback. Speckle only the rows that can contain ground: the clip
+    // hides anything over the surface anyway, so hashing the whole rect spent
+    // roughly half the pass on cells that could never draw. Starting on an
+    // even row keeps every surviving cell on the same (cx, cy) hash lattice.
+    var peak = 0;
+    for (var ph = 0; ph < N; ph++) {
+      if (heights[ph] > peak) peak = heights[ph];
+    }
+    var groundTop = Math.max(0, Math.floor((H - peak) / 2) * 2 - 2);
+    ACG.dither(ctx, 0, groundTop, W, H - groundTop, rockA, 0.035, 2, 11);
+    ACG.dither(ctx, 0, groundTop, W, H - groundTop, rockB, 0.04, 2, 23);
+    ACG.dither(ctx, 0, Math.max(H * 0.55, groundTop), W, H * 0.45, veinColour, 0.012, 2, 41);
+  }
+
   function drawTerrainAC(ctx, heights, ramp, W, H, biome) {
     if (!ctx || !heights || !ramp) return;
     var N = heights.length;
@@ -46,19 +122,6 @@
     for (var by = 0; by < H; by += 9) {
       ACG.px(ctx, 0, by, W, 2, (by / 9) % 2 ? bandC1 : bandC2);
     }
-    // Speckle only the rows that can contain ground. The clip above hides
-    // anything over the surface anyway, so hashing the whole 1200x700 rect
-    // spent roughly half the pass on cells that could never draw. Starting
-    // on an even row keeps every surviving cell on the same (cx, cy) hash
-    // lattice as before — the visible pattern is unchanged.
-    var peak = 0;
-    for (var ph = 0; ph < N; ph++) {
-      if (heights[ph] > peak) peak = heights[ph];
-    }
-    var groundTop = Math.max(0, Math.floor((H - peak) / 2) * 2 - 2);
-    ACG.dither(ctx, 0, groundTop, W, H - groundTop, ACG.mix(ramp.core, ramp.crust, 0.3), 0.035, 2, 11);
-    ACG.dither(ctx, 0, groundTop, W, H - groundTop, ACG.shade(ramp.core, 0.35), 0.04, 2, 23);
-
     // Buried aether veins: rare 2px seams of dim glow deep in the rock.
     // The hue comes from the live ramp's glow (an rgba string — ACG.mix is
     // hex-only, so the channels are lifted directly) at the vein's own
@@ -69,7 +132,13 @@
       var gm = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(ramp.glow);
       if (gm) veinColour = 'rgba(' + gm[1] + ',' + gm[2] + ',' + gm[3] + ',0.16)';
     }
-    ACG.dither(ctx, 0, Math.max(H * 0.55, groundTop), W, H * 0.45, veinColour, 0.012, 2, 41);
+
+    // Rock speckle and veins, still inside the ground clip.
+    paintSpeckle(ctx, W, H,
+      ACG.mix(ramp.core, ramp.crust, 0.3),
+      ACG.shade(ramp.core, 0.35),
+      veinColour,
+      heights, N);
 
     // Crust band: an 8px-thick lit layer hugging the surface, then a 3px
     // darker transition under it. Drawn by re-stroking the surface polyline
