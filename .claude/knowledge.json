@@ -1,31 +1,314 @@
 {
-  "generatedAt": "2026-08-22T18:06:18.394Z",
+  "generatedAt": "2026-09-05T11:22:10.404Z",
   "files": [
     {
-      "path": "a.js",
-      "symbols": [],
-      "imports": [],
-      "exports": [],
-      "routes": []
-    },
-    {
-      "path": "check.js",
+      "path": "gfx/ac-chassis.js",
       "symbols": [
         {
           "type": "function",
-          "name": "find",
-          "line": 5
+          "name": "drawTankAC",
+          "line": 27
+        },
+        {
+          "type": "function",
+          "name": "drawTracks",
+          "line": 298
+        },
+        {
+          "type": "commonJsExport",
+          "name": "API",
+          "line": 0
         }
       ],
       "imports": [
-        "fs"
+        "./ac-common.js"
       ],
-      "exports": [],
+      "exports": [
+        "API"
+      ],
+      "routes": []
+    },
+    {
+      "path": "gfx/ac-common.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "hash",
+          "line": 17
+        },
+        {
+          "type": "function",
+          "name": "hexToRgb",
+          "line": 23
+        },
+        {
+          "type": "function",
+          "name": "rgbToHex",
+          "line": 30
+        },
+        {
+          "type": "function",
+          "name": "mix",
+          "line": 35
+        },
+        {
+          "type": "function",
+          "name": "shade",
+          "line": 45
+        },
+        {
+          "type": "function",
+          "name": "tint",
+          "line": 46
+        },
+        {
+          "type": "function",
+          "name": "px",
+          "line": 49
+        },
+        {
+          "type": "function",
+          "name": "dither",
+          "line": 59
+        },
+        {
+          "type": "function",
+          "name": "glow",
+          "line": 74
+        },
+        {
+          "type": "function",
+          "name": "plate",
+          "line": 84
+        },
+        {
+          "type": "function",
+          "name": "rivets",
+          "line": 97
+        },
+        {
+          "type": "function",
+          "name": "masonry",
+          "line": 109
+        },
+        {
+          "type": "function",
+          "name": "crenels",
+          "line": 132
+        },
+        {
+          "type": "function",
+          "name": "archway",
+          "line": 148
+        },
+        {
+          "type": "function",
+          "name": "setTrig",
+          "line": 175
+        },
+        {
+          "type": "function",
+          "name": "sin",
+          "line": 180
+        },
+        {
+          "type": "function",
+          "name": "cos",
+          "line": 181
+        },
+        {
+          "type": "commonJsExport",
+          "name": "ACG",
+          "line": 0
+        }
+      ],
+      "imports": [],
+      "exports": [
+        "ACG"
+      ],
+      "routes": []
+    },
+    {
+      "path": "gfx/ac-sky.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "drawSkyAC",
+          "line": 22
+        },
+        {
+          "type": "function",
+          "name": "hexA",
+          "line": 121
+        },
+        {
+          "type": "commonJsExport",
+          "name": "API",
+          "line": 0
+        }
+      ],
+      "imports": [
+        "./ac-common.js"
+      ],
+      "exports": [
+        "API"
+      ],
+      "routes": []
+    },
+    {
+      "path": "gfx/ac-structures.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "drawRubbleAC",
+          "line": 32
+        },
+        {
+          "type": "function",
+          "name": "drawFoundationAC",
+          "line": 45
+        },
+        {
+          "type": "function",
+          "name": "drawStructureAC",
+          "line": 83
+        },
+        {
+          "type": "commonJsExport",
+          "name": "API",
+          "line": 0
+        }
+      ],
+      "imports": [
+        "./ac-common.js"
+      ],
+      "exports": [
+        "API"
+      ],
+      "routes": []
+    },
+    {
+      "path": "gfx/ac-terrain.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "paintSpeckle",
+          "line": 49
+        },
+        {
+          "type": "function",
+          "name": "drawTerrainAC",
+          "line": 102
+        },
+        {
+          "type": "commonJsExport",
+          "name": "API",
+          "line": 0
+        }
+      ],
+      "imports": [
+        "./ac-common.js"
+      ],
+      "exports": [
+        "API"
+      ],
+      "routes": []
+    },
+    {
+      "path": "gfx/ac-weapons.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "familyOf",
+          "line": 29
+        },
+        {
+          "type": "function",
+          "name": "drawProjectileAC",
+          "line": 51
+        },
+        {
+          "type": "function",
+          "name": "drawShieldAC",
+          "line": 213
+        },
+        {
+          "type": "function",
+          "name": "burstFamilyOf",
+          "line": 238
+        },
+        {
+          "type": "function",
+          "name": "drawExplosionAC",
+          "line": 253
+        },
+        {
+          "type": "function",
+          "name": "drawStandardBurst",
+          "line": 264
+        },
+        {
+          "type": "function",
+          "name": "drawNuke",
+          "line": 303
+        },
+        {
+          "type": "function",
+          "name": "drawVoidBurst",
+          "line": 370
+        },
+        {
+          "type": "function",
+          "name": "drawNapalmBurst",
+          "line": 402
+        },
+        {
+          "type": "function",
+          "name": "drawRiotBurst",
+          "line": 429
+        },
+        {
+          "type": "function",
+          "name": "drawDirtBurst",
+          "line": 447
+        },
+        {
+          "type": "commonJsExport",
+          "name": "API",
+          "line": 0
+        }
+      ],
+      "imports": [
+        "./ac-common.js"
+      ],
+      "exports": [
+        "API"
+      ],
       "routes": []
     },
     {
       "path": "lib/constants.js",
       "symbols": [
+        {
+          "type": "function",
+          "name": "isGameMode",
+          "line": 17
+        },
+        {
+          "type": "function",
+          "name": "normaliseMode",
+          "line": 21
+        },
+        {
+          "type": "function",
+          "name": "paletteFor",
+          "line": 59
+        },
+        {
+          "type": "function",
+          "name": "chassisAllowedIn",
+          "line": 184
+        },
         {
           "type": "commonJsExport",
           "name": "RETRO_COLORS",
@@ -33,14 +316,96 @@
         },
         {
           "type": "commonJsExport",
+          "name": "AETHERCASTLE_COLORS",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "CLASSIC_COLORS",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "PALETTES",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "GAME_MODES",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "DEFAULT_MODE",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
           "name": "MAX_PLAYERS",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "WORLD_W",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "WORLD_MARGIN",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "WEAPON_IDS",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "BASIC_WEAPON_IDS",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "CHASSIS",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "CHASSIS_IDS",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "DEFAULT_CHASSIS",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "MODE_CHASSIS",
           "line": 0
         }
       ],
       "imports": [],
       "exports": [
         "RETRO_COLORS",
-        "MAX_PLAYERS"
+        "AETHERCASTLE_COLORS",
+        "CLASSIC_COLORS",
+        "PALETTES",
+        "paletteFor",
+        "GAME_MODES",
+        "DEFAULT_MODE",
+        "isGameMode",
+        "normaliseMode",
+        "MAX_PLAYERS",
+        "WORLD_W",
+        "WORLD_MARGIN",
+        "WEAPON_IDS",
+        "BASIC_WEAPON_IDS",
+        "CHASSIS",
+        "CHASSIS_IDS",
+        "DEFAULT_CHASSIS",
+        "MODE_CHASSIS",
+        "chassisAllowedIn"
       ],
       "routes": []
     },
@@ -49,8 +414,28 @@
       "symbols": [
         {
           "type": "function",
+          "name": "isInventory",
+          "line": 84
+        },
+        {
+          "type": "function",
           "name": "validate",
-          "line": 146
+          "line": 293
+        },
+        {
+          "type": "function",
+          "name": "sanitiseInventory",
+          "line": 339
+        },
+        {
+          "type": "function",
+          "name": "sanitiseConfig",
+          "line": 368
+        },
+        {
+          "type": "constFunc",
+          "name": "clampNum",
+          "line": 373
         },
         {
           "type": "commonJsExport",
@@ -75,7 +460,9 @@
         "C2S",
         "S2C",
         "ERRORS",
-        "validate"
+        "validate",
+        "sanitiseInventory",
+        "sanitiseConfig"
       ],
       "routes": []
     },
@@ -131,37 +518,57 @@
         {
           "type": "class",
           "name": "RoomManager",
-          "line": 26
+          "line": 55
+        },
+        {
+          "type": "function",
+          "name": "allowedWeapons",
+          "line": 24
         },
         {
           "type": "function",
           "name": "roomError",
-          "line": 20
+          "line": 49
         },
         {
           "type": "constFunc",
           "name": "chosenWeapon",
-          "line": 614
+          "line": 840
+        },
+        {
+          "type": "constFunc",
+          "name": "chosenTrigger",
+          "line": 846
         },
         {
           "type": "constFunc",
           "name": "angleRad",
-          "line": 620
+          "line": 858
         },
         {
           "type": "constFunc",
           "name": "shotId",
-          "line": 674
+          "line": 913
         },
         {
           "type": "constFunc",
           "name": "eliminated",
-          "line": 694
+          "line": 933
+        },
+        {
+          "type": "constFunc",
+          "name": "offset",
+          "line": 1298
         },
         {
           "type": "constFunc",
           "name": "nextIndex",
-          "line": 741
+          "line": 1408
+        },
+        {
+          "type": "constFunc",
+          "name": "offset",
+          "line": 1497
         }
       ],
       "imports": [
@@ -172,6 +579,108 @@
       ],
       "exports": [
         "RoomManager"
+      ],
+      "routes": []
+    },
+    {
+      "path": "lib/structures.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "structuresAllowedIn",
+          "line": 132
+        },
+        {
+          "type": "function",
+          "name": "holdingSize",
+          "line": 164
+        },
+        {
+          "type": "function",
+          "name": "layoutStructures",
+          "line": 180
+        },
+        {
+          "type": "function",
+          "name": "clamp",
+          "line": 335
+        },
+        {
+          "type": "function",
+          "name": "clearOfTanks",
+          "line": 357
+        },
+        {
+          "type": "function",
+          "name": "groundUnder",
+          "line": 379
+        },
+        {
+          "type": "function",
+          "name": "isStanding",
+          "line": 396
+        },
+        {
+          "type": "function",
+          "name": "specOf",
+          "line": 400
+        },
+        {
+          "type": "function",
+          "name": "blocksMovement",
+          "line": 415
+        },
+        {
+          "type": "function",
+          "name": "wardMultiplier",
+          "line": 451
+        },
+        {
+          "type": "constFunc",
+          "name": "slotFrac",
+          "line": 204
+        },
+        {
+          "type": "commonJsExport",
+          "name": "STRUCTURES",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "STRUCTURE_IDS",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "MODE_STRUCTURES",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "HOLDING_TEMPLATE",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "MAX_PURCHASED_COPIES",
+          "line": 0
+        }
+      ],
+      "imports": [],
+      "exports": [
+        "STRUCTURES",
+        "STRUCTURE_IDS",
+        "MODE_STRUCTURES",
+        "HOLDING_TEMPLATE",
+        "MAX_PURCHASED_COPIES",
+        "structuresAllowedIn",
+        "holdingSize",
+        "layoutStructures",
+        "isStanding",
+        "specOf",
+        "blocksMovement",
+        "wardMultiplier",
+        "groundUnder"
       ],
       "routes": []
     },
@@ -191,7 +700,7 @@
         {
           "type": "function",
           "name": "displace",
-          "line": 61
+          "line": 77
         },
         {
           "type": "constFunc",
@@ -201,12 +710,12 @@
         {
           "type": "constFunc",
           "name": "avg",
-          "line": 65
+          "line": 81
         },
         {
           "type": "constFunc",
           "name": "rangeVal",
-          "line": 66
+          "line": 82
         }
       ],
       "imports": [],
@@ -217,64 +726,111 @@
       "routes": []
     },
     {
-      "path": "scratch/find-hit.js",
-      "symbols": [
-        {
-          "type": "function",
-          "name": "evaluateIndexHtml",
-          "line": 9
-        }
-      ],
-      "imports": [
-        "fs",
-        "path",
-        "vm",
-        "../lib/terrain.js"
-      ],
-      "exports": [],
-      "routes": []
-    },
-    {
       "path": "server.js",
       "symbols": [
         {
           "type": "function",
           "name": "createServer",
-          "line": 25
+          "line": 69
         },
         {
           "type": "function",
           "name": "attachWebSocketServer",
-          "line": 121
+          "line": 181
+        },
+        {
+          "type": "function",
+          "name": "ipOf",
+          "line": 216
+        },
+        {
+          "type": "function",
+          "name": "ipStatsFor",
+          "line": 226
         },
         {
           "type": "function",
           "name": "send",
-          "line": 133
+          "line": 242
         },
         {
           "type": "function",
           "name": "broadcast",
-          "line": 142
+          "line": 251
         },
         {
           "type": "function",
           "name": "sendError",
-          "line": 146
+          "line": 255
         },
         {
           "type": "function",
           "name": "handleClose",
-          "line": 158
+          "line": 284
         },
         {
           "type": "function",
           "name": "createRoomManagerHandlers",
-          "line": 224
+          "line": 448
         },
         {
           "type": "commonJsExport",
           "name": "MAX_PAYLOAD_BYTES",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "RATE_WINDOW_MS",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "MAX_MESSAGES_PER_WINDOW",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "MAX_JOINS_PER_WINDOW",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "MAX_PROFILE_PER_WINDOW",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "MAX_LIST_PER_WINDOW",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "IP_WINDOW_MS",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "MAX_CONNECTIONS_PER_IP",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "MAX_JOINS_PER_IP_WINDOW",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "MAX_CREATES_PER_IP_WINDOW",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "MAX_REJOINS_PER_IP_WINDOW",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "MAX_MESSAGES_PER_IP_WINDOW",
           "line": 0
         }
       ],
@@ -291,79 +847,107 @@
         "createServer",
         "attachWebSocketServer",
         "MAX_PAYLOAD_BYTES",
+        "RATE_WINDOW_MS",
+        "MAX_MESSAGES_PER_WINDOW",
+        "MAX_JOINS_PER_WINDOW",
+        "MAX_PROFILE_PER_WINDOW",
+        "MAX_LIST_PER_WINDOW",
+        "IP_WINDOW_MS",
+        "MAX_CONNECTIONS_PER_IP",
+        "MAX_JOINS_PER_IP_WINDOW",
+        "MAX_CREATES_PER_IP_WINDOW",
+        "MAX_REJOINS_PER_IP_WINDOW",
+        "MAX_MESSAGES_PER_IP_WINDOW",
         "createRoomManagerHandlers"
       ],
+      "routes": []
+    },
+    {
+      "path": "tests/boundary-elimination.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "room",
+          "line": 31
+        },
+        {
+          "type": "function",
+          "name": "onlineClient",
+          "line": 231
+        },
+        {
+          "type": "constFunc",
+          "name": "connOf",
+          "line": 40
+        },
+        {
+          "type": "constFunc",
+          "name": "activeConn",
+          "line": 41
+        },
+        {
+          "type": "constFunc",
+          "name": "msgsOf",
+          "line": 42
+        },
+        {
+          "type": "constFunc",
+          "name": "queued",
+          "line": 325
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "../lib/room-manager.js",
+        "../lib/protocol.js",
+        "./helpers/headless-game.js"
+      ],
+      "exports": [],
       "routes": []
     },
     {
       "path": "tests/browser-lockstep.test.js",
       "symbols": [
         {
-          "type": "function",
-          "name": "createBrowserDom",
-          "line": 27
-        },
-        {
-          "type": "function",
-          "name": "makeEl",
-          "line": 37
-        },
-        {
-          "type": "function",
-          "name": "bootBrowser",
-          "line": 108
-        },
-        {
-          "type": "function",
-          "name": "until",
-          "line": 139
-        },
-        {
-          "type": "function",
-          "name": "hashTerrain",
-          "line": 148
-        },
-        {
-          "type": "constFunc",
-          "name": "wait",
-          "line": 137
-        },
-        {
-          "type": "constFunc",
-          "name": "tanksOf",
-          "line": 156
-        },
-        {
           "type": "constFunc",
           "name": "hostGame",
-          "line": 221
+          "line": 81
         },
         {
           "type": "constFunc",
           "name": "guestGame",
-          "line": 222
+          "line": 82
         },
         {
           "type": "constFunc",
           "name": "shooter",
-          "line": 246
+          "line": 106
         },
         {
           "type": "constFunc",
           "name": "watcher",
-          "line": 247
+          "line": 107
         }
       ],
       "imports": [
         "node:test",
         "node:assert",
-        "ws",
-        "fs",
-        "path",
-        "vm",
         "../server.js",
         "../lib/room-manager.js",
-        "../lib/terrain.js"
+        "./helpers/browser-harness.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/chassis-registry.test.js",
+      "symbols": [],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "./helpers/render-harness.js",
+        "../lib/constants.js"
       ],
       "exports": [],
       "routes": []
@@ -379,12 +963,12 @@
         {
           "type": "function",
           "name": "evaluateIndexHtml",
-          "line": 81
+          "line": 82
         },
         {
           "type": "constFunc",
           "name": "rad",
-          "line": 155
+          "line": 157
         }
       ],
       "imports": [
@@ -393,7 +977,8 @@
         "fs",
         "path",
         "vm",
-        "../lib/terrain.js"
+        "../lib/terrain.js",
+        "../lib/structures.js"
       ],
       "exports": [],
       "routes": []
@@ -417,6 +1002,50 @@
       "routes": []
     },
     {
+      "path": "tests/fire-sync-authority.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "fireAndStep",
+          "line": 26
+        },
+        {
+          "type": "function",
+          "name": "armShooter",
+          "line": 43
+        },
+        {
+          "type": "constFunc",
+          "name": "shooter",
+          "line": 29
+        },
+        {
+          "type": "constFunc",
+          "name": "shooter",
+          "line": 46
+        },
+        {
+          "type": "constFunc",
+          "name": "watcher",
+          "line": 95
+        },
+        {
+          "type": "constFunc",
+          "name": "watcher",
+          "line": 123
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "./helpers/browser-harness.js",
+        "../lib/protocol.js",
+        "../lib/room-manager.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
       "path": "tests/game-determinism.test.js",
       "symbols": [
         {
@@ -427,7 +1056,7 @@
         {
           "type": "function",
           "name": "runSimulation",
-          "line": 35
+          "line": 36
         }
       ],
       "imports": [
@@ -436,7 +1065,392 @@
         "fs",
         "path",
         "vm",
-        "../lib/terrain.js"
+        "../lib/terrain.js",
+        "../lib/structures.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/helpers/browser-harness.js",
+      "symbols": [
+        {
+          "type": "class",
+          "name": "TrackedWebSocket",
+          "line": 114
+        },
+        {
+          "type": "function",
+          "name": "createBrowserDom",
+          "line": 23
+        },
+        {
+          "type": "function",
+          "name": "makeEl",
+          "line": 33
+        },
+        {
+          "type": "function",
+          "name": "bootBrowser",
+          "line": 104
+        },
+        {
+          "type": "function",
+          "name": "until",
+          "line": 203
+        },
+        {
+          "type": "function",
+          "name": "untilStepping",
+          "line": 236
+        },
+        {
+          "type": "function",
+          "name": "hashTerrain",
+          "line": 250
+        },
+        {
+          "type": "function",
+          "name": "startTestServer",
+          "line": 290
+        },
+        {
+          "type": "function",
+          "name": "setupMatch",
+          "line": 324
+        },
+        {
+          "type": "constFunc",
+          "name": "unref",
+          "line": 122
+        },
+        {
+          "type": "constFunc",
+          "name": "unrefTimeout",
+          "line": 133
+        },
+        {
+          "type": "constFunc",
+          "name": "wait",
+          "line": 189
+        },
+        {
+          "type": "constFunc",
+          "name": "tanksOf",
+          "line": 258
+        },
+        {
+          "type": "constFunc",
+          "name": "structuresOf",
+          "line": 278
+        },
+        {
+          "type": "constFunc",
+          "name": "gameOf",
+          "line": 287
+        },
+        {
+          "type": "commonJsExport",
+          "name": "code",
+          "line": 0
+        }
+      ],
+      "imports": [
+        "fs",
+        "path",
+        "vm",
+        "ws",
+        "../../lib/terrain.js",
+        "../../lib/structures.js",
+        "./gfx-kit.js",
+        "../../server.js",
+        "../../lib/room-manager.js"
+      ],
+      "exports": [
+        "code",
+        "createBrowserDom",
+        "bootBrowser",
+        "wait",
+        "until",
+        "untilStepping",
+        "hashTerrain",
+        "tanksOf",
+        "structuresOf",
+        "gameOf",
+        "startTestServer",
+        "setupMatch"
+      ],
+      "routes": []
+    },
+    {
+      "path": "tests/helpers/gfx-kit.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "loadKitInto",
+          "line": 47
+        },
+        {
+          "type": "commonJsExport",
+          "name": "FILES",
+          "line": 0
+        }
+      ],
+      "imports": [
+        "fs",
+        "path",
+        "vm"
+      ],
+      "exports": [
+        "loadKitInto",
+        "FILES"
+      ],
+      "routes": []
+    },
+    {
+      "path": "tests/helpers/headless-game.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "loadScorched",
+          "line": 13
+        },
+        {
+          "type": "function",
+          "name": "newGame",
+          "line": 42
+        },
+        {
+          "type": "function",
+          "name": "fireAndSettle",
+          "line": 73
+        },
+        {
+          "type": "function",
+          "name": "terrainVolume",
+          "line": 93
+        },
+        {
+          "type": "function",
+          "name": "surfaceY",
+          "line": 101
+        }
+      ],
+      "imports": [
+        "fs",
+        "path",
+        "vm",
+        "./gfx-kit.js",
+        "../../lib/terrain.js",
+        "../../lib/structures.js"
+      ],
+      "exports": [
+        "loadScorched",
+        "newGame",
+        "fireAndSettle",
+        "terrainVolume",
+        "surfaceY"
+      ],
+      "routes": []
+    },
+    {
+      "path": "tests/helpers/render-harness.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "recordingContext",
+          "line": 29
+        },
+        {
+          "type": "function",
+          "name": "loadScorched",
+          "line": 78
+        },
+        {
+          "type": "function",
+          "name": "compileOnce",
+          "line": 97
+        },
+        {
+          "type": "function",
+          "name": "loadScorchedFrom",
+          "line": 106
+        },
+        {
+          "type": "function",
+          "name": "renderableGame",
+          "line": 146
+        },
+        {
+          "type": "function",
+          "name": "frameLog",
+          "line": 179
+        },
+        {
+          "type": "function",
+          "name": "worldFingerprint",
+          "line": 202
+        },
+        {
+          "type": "function",
+          "name": "goldenFrames",
+          "line": 235
+        },
+        {
+          "type": "function",
+          "name": "classicDrift",
+          "line": 254
+        },
+        {
+          "type": "function",
+          "name": "richScene",
+          "line": 282
+        },
+        {
+          "type": "constFunc",
+          "name": "makeGradient",
+          "line": 32
+        },
+        {
+          "type": "constFunc",
+          "name": "show",
+          "line": 46
+        },
+        {
+          "type": "constFunc",
+          "name": "walk",
+          "line": 204
+        },
+        {
+          "type": "commonJsExport",
+          "name": "GOLDEN_BASE",
+          "line": 0
+        },
+        {
+          "type": "commonJsExport",
+          "name": "GOLDEN_FIXTURE",
+          "line": 0
+        }
+      ],
+      "imports": [
+        "fs",
+        "path",
+        "vm",
+        "./gfx-kit.js"
+      ],
+      "exports": [
+        "recordingContext",
+        "loadScorched",
+        "loadScorchedFrom",
+        "renderableGame",
+        "frameLog",
+        "worldFingerprint",
+        "richScene",
+        "goldenFrames",
+        "classicDrift",
+        "GOLDEN_BASE",
+        "GOLDEN_FIXTURE"
+      ],
+      "routes": []
+    },
+    {
+      "path": "tests/inventory-replication.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "twoPlayerRoom",
+          "line": 31
+        },
+        {
+          "type": "function",
+          "name": "endRound",
+          "line": 41
+        },
+        {
+          "type": "function",
+          "name": "roundStartFor",
+          "line": 49
+        },
+        {
+          "type": "function",
+          "name": "twoClients",
+          "line": 267
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "../lib/room-manager.js",
+        "../lib/protocol.js",
+        "./helpers/headless-game.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/match-rounds.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "endRound",
+          "line": 10
+        },
+        {
+          "type": "function",
+          "name": "threePlayerRoom",
+          "line": 19
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "../lib/room-manager.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/mirv-split-altitude.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "splitAltitude",
+          "line": 20
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "./helpers/headless-game.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/movement.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "startedRoom",
+          "line": 16
+        },
+        {
+          "type": "function",
+          "name": "driver",
+          "line": 84
+        },
+        {
+          "type": "constFunc",
+          "name": "tankAt",
+          "line": 89
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "../lib/room-manager.js",
+        "../lib/constants.js",
+        "./helpers/browser-harness.js"
       ],
       "exports": [],
       "routes": []
@@ -466,28 +1480,43 @@
         },
         {
           "type": "function",
+          "name": "cleanup",
+          "line": 93
+        },
+        {
+          "type": "function",
           "name": "configFromRoundStart",
-          "line": 91
+          "line": 122
         },
         {
           "type": "function",
           "name": "bootClientGame",
-          "line": 109
+          "line": 140
+        },
+        {
+          "type": "constFunc",
+          "name": "onOpen",
+          "line": 91
+        },
+        {
+          "type": "constFunc",
+          "name": "onErr",
+          "line": 92
         },
         {
           "type": "constFunc",
           "name": "shooter",
-          "line": 258
+          "line": 302
         },
         {
           "type": "constFunc",
           "name": "watcher",
-          "line": 266
+          "line": 310
         },
         {
           "type": "constFunc",
           "name": "idle",
-          "line": 339
+          "line": 383
         }
       ],
       "imports": [
@@ -506,12 +1535,142 @@
       "routes": []
     },
     {
+      "path": "tests/net-handler-errors.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "netOf",
+          "line": 20
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "./helpers/browser-harness.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/online-economy.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "forgeIncomeFor",
+          "line": 24
+        },
+        {
+          "type": "function",
+          "name": "findButton",
+          "line": 38
+        },
+        {
+          "type": "function",
+          "name": "allText",
+          "line": 50
+        },
+        {
+          "type": "function",
+          "name": "setupMatch",
+          "line": 57
+        },
+        {
+          "type": "function",
+          "name": "endRound",
+          "line": 89
+        },
+        {
+          "type": "constFunc",
+          "name": "gameOf",
+          "line": 18
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "../server.js",
+        "../lib/room-manager.js",
+        "../lib/structures.js",
+        "./helpers/browser-harness.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/opus-review-fixes.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "startedRoom",
+          "line": 17
+        },
+        {
+          "type": "constFunc",
+          "name": "gate",
+          "line": 169
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "ws",
+        "../lib/room-manager.js",
+        "../lib/structures.js",
+        "../server.js",
+        "./helpers/headless-game.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/pre-deploy-hardening.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "openSocket",
+          "line": 15
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "ws",
+        "../lib/room-manager.js",
+        "../server.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
       "path": "tests/protocol.test.js",
       "symbols": [],
       "imports": [
         "node:test",
         "node:assert",
         "../lib/protocol.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/rejoin-spectate.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "setupAndStartRoom",
+          "line": 25
+        },
+        {
+          "type": "function",
+          "name": "takeTurn",
+          "line": 42
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "../lib/room-manager",
+        "../lib/protocol"
       ],
       "exports": [],
       "routes": []
@@ -530,6 +1689,91 @@
         "node:assert",
         "../lib/room-manager",
         "../lib/protocol"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/render-aethercastle-kit.test.js",
+      "symbols": [],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "./helpers/render-harness.js",
+        "../gfx/ac-weapons.js",
+        "node:vm",
+        "./helpers/gfx-kit.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/render-classic-parity.test.js",
+      "symbols": [],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "./helpers/render-harness.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/render-feedback.test.js",
+      "symbols": [],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "./helpers/render-harness.js",
+        "../lib/structures.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/render-mutation-guard.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "mutate",
+          "line": 49
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "fs",
+        "path",
+        "./helpers/render-harness.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/render-purity.test.js",
+      "symbols": [
+        {
+          "type": "constFunc",
+          "name": "rad",
+          "line": 170
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "./helpers/render-harness.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/render-scenery-cache.test.js",
+      "symbols": [],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "./helpers/headless-game.js",
+        "./helpers/render-harness.js"
       ],
       "exports": [],
       "routes": []
@@ -596,7 +1840,7 @@
         {
           "type": "constFunc",
           "name": "createAndSetManager",
-          "line": 160
+          "line": 163
         }
       ],
       "imports": [
@@ -618,6 +1862,33 @@
         "../lib/room-manager",
         "../lib/room-code",
         "../lib/protocol"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/round-transition-crash.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "findButton",
+          "line": 33
+        },
+        {
+          "type": "function",
+          "name": "startSoloMatch",
+          "line": 44
+        },
+        {
+          "type": "function",
+          "name": "killWithDirectHit",
+          "line": 60
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "./helpers/browser-harness.js"
       ],
       "exports": [],
       "routes": []
@@ -688,87 +1959,127 @@
       "routes": []
     },
     {
+      "path": "tests/shields.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "dropOnHull",
+          "line": 13
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "./helpers/headless-game.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/shop.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "freshBuyer",
+          "line": 10
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "./helpers/headless-game.js",
+        "../lib/structures.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
       "path": "tests/smoke.test.js",
       "symbols": [
         {
           "type": "class",
           "name": "MockClassList",
-          "line": 19
+          "line": 20
         },
         {
           "type": "class",
           "name": "MockElement",
-          "line": 35
+          "line": 36
         },
         {
           "type": "class",
           "name": "generate",
-          "line": 310
+          "line": 362
         },
         {
           "type": "class",
           "name": "MockWS",
-          "line": 1489
+          "line": 1620
         },
         {
           "type": "class",
           "name": "MockWS",
-          "line": 1523
+          "line": 1654
         },
         {
           "type": "class",
           "name": "MockWS",
-          "line": 1577
+          "line": 1708
         },
         {
           "type": "class",
           "name": "MockWS",
-          "line": 1621
+          "line": 1752
         },
         {
           "type": "class",
           "name": "MockWS",
-          "line": 1701
+          "line": 1832
         },
         {
           "type": "class",
           "name": "MockWS",
-          "line": 1839
+          "line": 1977
         },
         {
           "type": "function",
           "name": "createDomMock",
-          "line": 156
+          "line": 167
         },
         {
           "type": "function",
           "name": "evaluateScript",
-          "line": 233
+          "line": 281
         },
         {
           "type": "function",
           "name": "makeArsenalGame",
-          "line": 935
+          "line": 1065
         },
         {
           "type": "function",
           "name": "onlineGameCtx",
-          "line": 1619
+          "line": 1750
+        },
+        {
+          "type": "constFunc",
+          "name": "findById",
+          "line": 220
         },
         {
           "type": "constFunc",
           "name": "angleRad",
-          "line": 576
+          "line": 706
         },
         {
           "type": "constFunc",
           "name": "runWallTest",
-          "line": 653
+          "line": 783
         },
         {
           "type": "constFunc",
           "name": "runGameWithSeed",
-          "line": 1317
+          "line": 1447
         }
       ],
       "imports": [
@@ -777,7 +2088,295 @@
         "fs",
         "path",
         "vm",
-        "../lib/terrain.js"
+        "../lib/terrain.js",
+        "./helpers/gfx-kit.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/solo-ai.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "evaluateIndexHtml",
+          "line": 12
+        },
+        {
+          "type": "function",
+          "name": "runSoloMatch",
+          "line": 41
+        },
+        {
+          "type": "constFunc",
+          "name": "fingerprint",
+          "line": 103
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "fs",
+        "path",
+        "vm",
+        "../lib/terrain.js",
+        "../lib/structures.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/structures-lockstep.test.js",
+      "symbols": [
+        {
+          "type": "constFunc",
+          "name": "hostGame",
+          "line": 50
+        },
+        {
+          "type": "constFunc",
+          "name": "guestGame",
+          "line": 51
+        },
+        {
+          "type": "constFunc",
+          "name": "shooter",
+          "line": 58
+        },
+        {
+          "type": "constFunc",
+          "name": "hostGame",
+          "line": 113
+        },
+        {
+          "type": "constFunc",
+          "name": "guestGame",
+          "line": 114
+        },
+        {
+          "type": "constFunc",
+          "name": "shooter",
+          "line": 120
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "./helpers/browser-harness.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/structures.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "duel",
+          "line": 18
+        },
+        {
+          "type": "function",
+          "name": "findStructure",
+          "line": 22
+        },
+        {
+          "type": "function",
+          "name": "openNextRound",
+          "line": 135
+        },
+        {
+          "type": "function",
+          "name": "loadTurret",
+          "line": 249
+        },
+        {
+          "type": "function",
+          "name": "run",
+          "line": 471
+        },
+        {
+          "type": "function",
+          "name": "run",
+          "line": 485
+        },
+        {
+          "type": "constFunc",
+          "name": "layout",
+          "line": 606
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "../lib/structures.js",
+        "./helpers/headless-game.js",
+        "fs",
+        "path"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/theme-tokens.test.js",
+      "symbols": [],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "./helpers/render-harness.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/tier1-wedges.test.js",
+      "symbols": [
+        {
+          "type": "constFunc",
+          "name": "raw",
+          "line": 21
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "node:net",
+        "ws",
+        "../server.js",
+        "../lib/room-manager.js",
+        "./helpers/headless-game.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/tier2-lockstep.test.js",
+      "symbols": [],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "../lib/room-manager.js",
+        "../lib/protocol.js",
+        "./helpers/headless-game.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/tier3-gameplay.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "gameWithChassis",
+          "line": 13
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "./helpers/headless-game.js",
+        "../lib/structures.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/tier4-content.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "gameWithConfig",
+          "line": 13
+        },
+        {
+          "type": "constFunc",
+          "name": "silos",
+          "line": 99
+        },
+        {
+          "type": "constFunc",
+          "name": "build",
+          "line": 134
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "../lib/room-manager.js",
+        "../lib/protocol.js",
+        "./helpers/headless-game.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/tier5-gfx.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "drawingGame",
+          "line": 14
+        },
+        {
+          "type": "constFunc",
+          "name": "sigOf",
+          "line": 57
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "./helpers/headless-game.js",
+        "./helpers/render-harness.js",
+        "../gfx/ac-weapons.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/tier6-hardening.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "get",
+          "line": 18
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "node:http",
+        "ws",
+        "../server.js",
+        "../lib/protocol.js",
+        "../lib/room-manager.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/triggers.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "fireAt",
+          "line": 14
+        },
+        {
+          "type": "function",
+          "name": "run",
+          "line": 164
+        },
+        {
+          "type": "function",
+          "name": "replay",
+          "line": 244
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "./helpers/headless-game.js"
       ],
       "exports": [],
       "routes": []
@@ -789,6 +2388,120 @@
         "node:test",
         "node:assert",
         "../lib/room-manager"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/turn-sync-integrity.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "armTurret",
+          "line": 36
+        },
+        {
+          "type": "function",
+          "name": "syncMsg",
+          "line": 46
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "../lib/structures.js",
+        "./helpers/headless-game.js",
+        "./helpers/browser-harness.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/turret-attribution.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "loadScorched",
+          "line": 29
+        },
+        {
+          "type": "function",
+          "name": "soloMatch",
+          "line": 46
+        },
+        {
+          "type": "function",
+          "name": "tanksWithNumbers",
+          "line": 71
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "path",
+        "fs",
+        "vm",
+        "./helpers/gfx-kit.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/weapon-families.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "parkTank",
+          "line": 14
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "./helpers/headless-game.js"
+      ],
+      "exports": [],
+      "routes": []
+    },
+    {
+      "path": "tests/weapon-registry.test.js",
+      "symbols": [
+        {
+          "type": "function",
+          "name": "loadClient",
+          "line": 20
+        },
+        {
+          "type": "function",
+          "name": "startRoom",
+          "line": 104
+        },
+        {
+          "type": "function",
+          "name": "connForActiveSlot",
+          "line": 113
+        },
+        {
+          "type": "function",
+          "name": "fireOnce",
+          "line": 120
+        },
+        {
+          "type": "constFunc",
+          "name": "connForActiveSlot",
+          "line": 72
+        }
+      ],
+      "imports": [
+        "node:test",
+        "node:assert",
+        "fs",
+        "path",
+        "vm",
+        "../lib/constants.js",
+        "../lib/room-manager.js",
+        "../lib/terrain.js",
+        "../lib/structures.js"
       ],
       "exports": [],
       "routes": []
@@ -828,49 +2541,24 @@
       "routes": []
     },
     {
-      "path": "test_pr105.js",
-      "symbols": [],
-      "imports": [],
-      "exports": [],
-      "routes": []
-    },
-    {
-      "path": "test_pr105_utf8.js",
+      "path": "tools/record-classic-golden.js",
       "symbols": [
         {
-          "type": "class",
-          "name": "MockElement",
-          "line": 17
+          "type": "function",
+          "name": "serialise",
+          "line": 35
         },
         {
           "type": "function",
-          "name": "createDomMock",
-          "line": 14
-        },
-        {
-          "type": "function",
-          "name": "runTests",
-          "line": 188
-        },
-        {
-          "type": "function",
-          "name": "makeArsenalGame",
-          "line": 815
-        },
-        {
-          "type": "constFunc",
-          "name": "angleRad",
-          "line": 372
-        },
-        {
-          "type": "constFunc",
-          "name": "runWallTest",
-          "line": 446
+          "name": "record",
+          "line": 39
         }
       ],
       "imports": [
         "fs",
-        "vm"
+        "path",
+        "child_process",
+        "../tests/helpers/render-harness.js"
       ],
       "exports": [],
       "routes": []
@@ -878,70 +2566,184 @@
   ],
   "callSites": [
     {
-      "callee": "generateUnique",
-      "calledFrom": "lib/room-manager.js",
-      "definedIn": "lib/room-code.js",
-      "line": 126
+      "callee": "isGameMode",
+      "calledFrom": "lib/protocol.js",
+      "definedIn": "lib/constants.js",
+      "line": 100
     },
     {
-      "callee": "normalize",
-      "calledFrom": "lib/room-manager.js",
-      "definedIn": "lib/room-code.js",
-      "line": 110
-    },
-    {
-      "callee": "normalize",
-      "calledFrom": "lib/room-manager.js",
-      "definedIn": "lib/room-code.js",
-      "line": 210
-    },
-    {
-      "callee": "normalize",
-      "calledFrom": "lib/room-manager.js",
-      "definedIn": "lib/room-code.js",
-      "line": 785
-    },
-    {
-      "callee": "validate",
-      "calledFrom": "server.js",
-      "definedIn": "lib/protocol.js",
+      "callee": "isGameMode",
+      "calledFrom": "lib/protocol.js",
+      "definedIn": "lib/constants.js",
       "line": 188
     },
     {
+      "callee": "isGameMode",
+      "calledFrom": "lib/protocol.js",
+      "definedIn": "lib/constants.js",
+      "line": 199
+    },
+    {
+      "callee": "generateUnique",
+      "calledFrom": "lib/room-manager.js",
+      "definedIn": "lib/room-code.js",
+      "line": 240
+    },
+    {
+      "callee": "normalize",
+      "calledFrom": "lib/room-manager.js",
+      "definedIn": "lib/room-code.js",
+      "line": 216
+    },
+    {
+      "callee": "normalize",
+      "calledFrom": "lib/room-manager.js",
+      "definedIn": "lib/room-code.js",
+      "line": 335
+    },
+    {
+      "callee": "normalize",
+      "calledFrom": "lib/room-manager.js",
+      "definedIn": "lib/room-code.js",
+      "line": 1553
+    },
+    {
+      "callee": "sanitiseInventory",
+      "calledFrom": "lib/room-manager.js",
+      "definedIn": "lib/protocol.js",
+      "line": 1219
+    },
+    {
+      "callee": "sanitiseConfig",
+      "calledFrom": "lib/room-manager.js",
+      "definedIn": "lib/protocol.js",
+      "line": 547
+    },
+    {
+      "callee": "paletteFor",
+      "calledFrom": "lib/room-manager.js",
+      "definedIn": "lib/constants.js",
+      "line": 250
+    },
+    {
+      "callee": "paletteFor",
+      "calledFrom": "lib/room-manager.js",
+      "definedIn": "lib/constants.js",
+      "line": 379
+    },
+    {
       "callee": "validate",
       "calledFrom": "server.js",
       "definedIn": "lib/protocol.js",
-      "line": 194
+      "line": 363
+    },
+    {
+      "callee": "validate",
+      "calledFrom": "server.js",
+      "definedIn": "lib/protocol.js",
+      "line": 369
     },
     {
       "callee": "RoomManager",
       "calledFrom": "server.js",
       "definedIn": "lib/room-manager.js",
-      "line": 297
+      "line": 533
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/boundary-elimination.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 32
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/boundary-elimination.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 318
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/boundary-elimination.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 232
     },
     {
       "callee": "createServer",
       "calledFrom": "tests/browser-lockstep.test.js",
       "definedIn": "server.js",
-      "line": 163
+      "line": 23
     },
     {
       "callee": "attachWebSocketServer",
       "calledFrom": "tests/browser-lockstep.test.js",
       "definedIn": "server.js",
-      "line": 168
+      "line": 28
     },
     {
       "callee": "createRoomManagerHandlers",
       "calledFrom": "tests/browser-lockstep.test.js",
       "definedIn": "server.js",
-      "line": 162
+      "line": 22
     },
     {
       "callee": "RoomManager",
       "calledFrom": "tests/browser-lockstep.test.js",
       "definedIn": "lib/room-manager.js",
-      "line": 162
+      "line": 22
+    },
+    {
+      "callee": "bootBrowser",
+      "calledFrom": "tests/browser-lockstep.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 40
+    },
+    {
+      "callee": "bootBrowser",
+      "calledFrom": "tests/browser-lockstep.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 41
+    },
+    {
+      "callee": "bootBrowser",
+      "calledFrom": "tests/browser-lockstep.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 169
+    },
+    {
+      "callee": "bootBrowser",
+      "calledFrom": "tests/browser-lockstep.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 186
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/chassis-registry.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 24
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/chassis-registry.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 31
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/chassis-registry.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 55
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/chassis-registry.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 69
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/chassis-registry.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 80
     },
     {
       "callee": "generateTerrain",
@@ -1034,28 +2836,430 @@
       "line": 61
     },
     {
+      "callee": "until",
+      "calledFrom": "tests/fire-sync-authority.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 32
+    },
+    {
+      "callee": "until",
+      "calledFrom": "tests/fire-sync-authority.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 98
+    },
+    {
+      "callee": "until",
+      "calledFrom": "tests/fire-sync-authority.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 126
+    },
+    {
+      "callee": "until",
+      "calledFrom": "tests/fire-sync-authority.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 149
+    },
+    {
+      "callee": "hashTerrain",
+      "calledFrom": "tests/fire-sync-authority.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 74
+    },
+    {
+      "callee": "hashTerrain",
+      "calledFrom": "tests/fire-sync-authority.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 74
+    },
+    {
+      "callee": "tanksOf",
+      "calledFrom": "tests/fire-sync-authority.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 78
+    },
+    {
+      "callee": "tanksOf",
+      "calledFrom": "tests/fire-sync-authority.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 78
+    },
+    {
+      "callee": "loadKitInto",
+      "calledFrom": "tests/helpers/browser-harness.js",
+      "definedIn": "tests/helpers/gfx-kit.js",
+      "line": 164
+    },
+    {
+      "callee": "createServer",
+      "calledFrom": "tests/helpers/browser-harness.js",
+      "definedIn": "server.js",
+      "line": 295
+    },
+    {
+      "callee": "attachWebSocketServer",
+      "calledFrom": "tests/helpers/browser-harness.js",
+      "definedIn": "server.js",
+      "line": 297
+    },
+    {
+      "callee": "createRoomManagerHandlers",
+      "calledFrom": "tests/helpers/browser-harness.js",
+      "definedIn": "server.js",
+      "line": 294
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/helpers/browser-harness.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 294
+    },
+    {
+      "callee": "loadKitInto",
+      "calledFrom": "tests/helpers/headless-game.js",
+      "definedIn": "tests/helpers/gfx-kit.js",
+      "line": 35
+    },
+    {
+      "callee": "loadKitInto",
+      "calledFrom": "tests/helpers/render-harness.js",
+      "definedIn": "tests/helpers/gfx-kit.js",
+      "line": 133
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/inventory-replication.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 32
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/inventory-replication.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 95
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/inventory-replication.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 184
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/inventory-replication.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 193
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/inventory-replication.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 206
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/inventory-replication.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 215
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/inventory-replication.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 226
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/inventory-replication.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 243
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/match-rounds.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 20
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/mirv-split-altitude.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 50
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/mirv-split-altitude.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 65
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/mirv-split-altitude.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 76
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/movement.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 17
+    },
+    {
+      "callee": "until",
+      "calledFrom": "tests/movement.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 106
+    },
+    {
+      "callee": "until",
+      "calledFrom": "tests/movement.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 112
+    },
+    {
+      "callee": "until",
+      "calledFrom": "tests/movement.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 135
+    },
+    {
+      "callee": "until",
+      "calledFrom": "tests/movement.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 173
+    },
+    {
+      "callee": "until",
+      "calledFrom": "tests/movement.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 178
+    },
+    {
+      "callee": "gameOf",
+      "calledFrom": "tests/movement.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 85
+    },
+    {
+      "callee": "gameOf",
+      "calledFrom": "tests/movement.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 86
+    },
+    {
       "callee": "createServer",
       "calledFrom": "tests/multiplayer.test.js",
       "definedIn": "server.js",
-      "line": 127
+      "line": 158
     },
     {
       "callee": "attachWebSocketServer",
       "calledFrom": "tests/multiplayer.test.js",
       "definedIn": "server.js",
-      "line": 136
+      "line": 167
     },
     {
       "callee": "createRoomManagerHandlers",
       "calledFrom": "tests/multiplayer.test.js",
       "definedIn": "server.js",
-      "line": 126
+      "line": 157
     },
     {
       "callee": "RoomManager",
       "calledFrom": "tests/multiplayer.test.js",
       "definedIn": "lib/room-manager.js",
+      "line": 156
+    },
+    {
+      "callee": "bootBrowser",
+      "calledFrom": "tests/net-handler-errors.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 21
+    },
+    {
+      "callee": "bootBrowser",
+      "calledFrom": "tests/net-handler-errors.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 100
+    },
+    {
+      "callee": "until",
+      "calledFrom": "tests/net-handler-errors.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 22
+    },
+    {
+      "callee": "until",
+      "calledFrom": "tests/net-handler-errors.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 25
+    },
+    {
+      "callee": "until",
+      "calledFrom": "tests/net-handler-errors.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 101
+    },
+    {
+      "callee": "startTestServer",
+      "calledFrom": "tests/net-handler-errors.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 31
+    },
+    {
+      "callee": "startTestServer",
+      "calledFrom": "tests/net-handler-errors.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 53
+    },
+    {
+      "callee": "startTestServer",
+      "calledFrom": "tests/net-handler-errors.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 72
+    },
+    {
+      "callee": "createServer",
+      "calledFrom": "tests/online-economy.test.js",
+      "definedIn": "server.js",
+      "line": 120
+    },
+    {
+      "callee": "attachWebSocketServer",
+      "calledFrom": "tests/online-economy.test.js",
+      "definedIn": "server.js",
       "line": 125
+    },
+    {
+      "callee": "createRoomManagerHandlers",
+      "calledFrom": "tests/online-economy.test.js",
+      "definedIn": "server.js",
+      "line": 119
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/online-economy.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 119
+    },
+    {
+      "callee": "isStanding",
+      "calledFrom": "tests/online-economy.test.js",
+      "definedIn": "lib/structures.js",
+      "line": 30
+    },
+    {
+      "callee": "specOf",
+      "calledFrom": "tests/online-economy.test.js",
+      "definedIn": "lib/structures.js",
+      "line": 31
+    },
+    {
+      "callee": "bootBrowser",
+      "calledFrom": "tests/online-economy.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 58
+    },
+    {
+      "callee": "bootBrowser",
+      "calledFrom": "tests/online-economy.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 59
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/opus-review-fixes.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 18
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/opus-review-fixes.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 65
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/opus-review-fixes.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 286
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/opus-review-fixes.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 310
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/opus-review-fixes.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 330
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/opus-review-fixes.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 352
+    },
+    {
+      "callee": "holdingSize",
+      "calledFrom": "tests/opus-review-fixes.test.js",
+      "definedIn": "lib/structures.js",
+      "line": 221
+    },
+    {
+      "callee": "layoutStructures",
+      "calledFrom": "tests/opus-review-fixes.test.js",
+      "definedIn": "lib/structures.js",
+      "line": 217
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/pre-deploy-hardening.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 24
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/pre-deploy-hardening.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 44
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/pre-deploy-hardening.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 55
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/pre-deploy-hardening.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 67
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/pre-deploy-hardening.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 188
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/pre-deploy-hardening.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 214
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/pre-deploy-hardening.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 232
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/pre-deploy-hardening.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 254
     },
     {
       "callee": "validate",
@@ -1106,10 +3310,52 @@
       "line": 258
     },
     {
+      "callee": "RoomManager",
+      "calledFrom": "tests/rejoin-spectate.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 50
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/rejoin-spectate.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 78
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/rejoin-spectate.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 98
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/rejoin-spectate.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 114
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/rejoin-spectate.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 144
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/rejoin-spectate.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 169
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/rejoin-spectate.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 195
+    },
+    {
       "callee": "validate",
-      "calledFrom": "tests/protocol.test.js",
+      "calledFrom": "tests/rejoin-spectate.test.js",
       "definedIn": "lib/protocol.js",
-      "line": 264
+      "line": 72
     },
     {
       "callee": "RoomManager",
@@ -1127,19 +3373,19 @@
       "callee": "RoomManager",
       "calledFrom": "tests/rejoin.test.js",
       "definedIn": "lib/room-manager.js",
-      "line": 117
+      "line": 123
     },
     {
       "callee": "RoomManager",
       "calledFrom": "tests/rejoin.test.js",
       "definedIn": "lib/room-manager.js",
-      "line": 129
+      "line": 139
     },
     {
       "callee": "RoomManager",
       "calledFrom": "tests/rejoin.test.js",
       "definedIn": "lib/room-manager.js",
-      "line": 163
+      "line": 174
     },
     {
       "callee": "validate",
@@ -1157,13 +3403,295 @@
       "callee": "validate",
       "calledFrom": "tests/rejoin.test.js",
       "definedIn": "lib/protocol.js",
+      "line": 163
+    },
+    {
+      "callee": "recordingContext",
+      "calledFrom": "tests/render-aethercastle-kit.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 91
+    },
+    {
+      "callee": "recordingContext",
+      "calledFrom": "tests/render-aethercastle-kit.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 110
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-aethercastle-kit.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 24
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-aethercastle-kit.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 33
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-aethercastle-kit.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 55
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-aethercastle-kit.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 78
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-aethercastle-kit.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 103
+    },
+    {
+      "callee": "renderableGame",
+      "calledFrom": "tests/render-aethercastle-kit.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 56
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-classic-parity.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 33
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-classic-parity.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 61
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-classic-parity.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 75
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-classic-parity.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 88
+    },
+    {
+      "callee": "renderableGame",
+      "calledFrom": "tests/render-classic-parity.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 40
+    },
+    {
+      "callee": "renderableGame",
+      "calledFrom": "tests/render-classic-parity.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 76
+    },
+    {
+      "callee": "renderableGame",
+      "calledFrom": "tests/render-classic-parity.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 89
+    },
+    {
+      "callee": "frameLog",
+      "calledFrom": "tests/render-classic-parity.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 41
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-feedback.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 17
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-feedback.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 32
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-feedback.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 41
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-feedback.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 54
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-feedback.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 77
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-feedback.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 90
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-feedback.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 105
+    },
+    {
+      "callee": "renderableGame",
+      "calledFrom": "tests/render-feedback.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 62
+    },
+    {
+      "callee": "loadScorchedFrom",
+      "calledFrom": "tests/render-mutation-guard.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 55
+    },
+    {
+      "callee": "renderableGame",
+      "calledFrom": "tests/render-mutation-guard.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 95
+    },
+    {
+      "callee": "frameLog",
+      "calledFrom": "tests/render-mutation-guard.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 68
+    },
+    {
+      "callee": "frameLog",
+      "calledFrom": "tests/render-mutation-guard.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 83
+    },
+    {
+      "callee": "frameLog",
+      "calledFrom": "tests/render-mutation-guard.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 97
+    },
+    {
+      "callee": "frameLog",
+      "calledFrom": "tests/render-mutation-guard.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 111
+    },
+    {
+      "callee": "frameLog",
+      "calledFrom": "tests/render-mutation-guard.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 129
+    },
+    {
+      "callee": "worldFingerprint",
+      "calledFrom": "tests/render-mutation-guard.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 67
+    },
+    {
+      "callee": "recordingContext",
+      "calledFrom": "tests/render-purity.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 125
+    },
+    {
+      "callee": "recordingContext",
+      "calledFrom": "tests/render-purity.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
       "line": 148
     },
     {
-      "callee": "validate",
-      "calledFrom": "tests/rejoin.test.js",
-      "definedIn": "lib/protocol.js",
-      "line": 182
+      "callee": "recordingContext",
+      "calledFrom": "tests/render-purity.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 177
+    },
+    {
+      "callee": "recordingContext",
+      "calledFrom": "tests/render-purity.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 206
+    },
+    {
+      "callee": "recordingContext",
+      "calledFrom": "tests/render-purity.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 208
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-purity.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 23
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-purity.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 40
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-purity.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 48
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-scenery-cache.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 21
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-scenery-cache.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 31
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-scenery-cache.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 79
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-scenery-cache.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 94
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-scenery-cache.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 112
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-scenery-cache.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 125
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-scenery-cache.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 140
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/render-scenery-cache.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 163
     },
     {
       "callee": "generate",
@@ -1214,72 +3742,6 @@
       "line": 5
     },
     {
-      "callee": "normalize",
-      "calledFrom": "tests/room-code.test.js",
-      "definedIn": "lib/room-code.js",
-      "line": 6
-    },
-    {
-      "callee": "normalize",
-      "calledFrom": "tests/room-code.test.js",
-      "definedIn": "lib/room-code.js",
-      "line": 7
-    },
-    {
-      "callee": "normalize",
-      "calledFrom": "tests/room-code.test.js",
-      "definedIn": "lib/room-code.js",
-      "line": 8
-    },
-    {
-      "callee": "normalize",
-      "calledFrom": "tests/room-code.test.js",
-      "definedIn": "lib/room-code.js",
-      "line": 9
-    },
-    {
-      "callee": "normalize",
-      "calledFrom": "tests/room-code.test.js",
-      "definedIn": "lib/room-code.js",
-      "line": 10
-    },
-    {
-      "callee": "isValid",
-      "calledFrom": "tests/room-code.test.js",
-      "definedIn": "lib/room-code.js",
-      "line": 13
-    },
-    {
-      "callee": "isValid",
-      "calledFrom": "tests/room-code.test.js",
-      "definedIn": "lib/room-code.js",
-      "line": 15
-    },
-    {
-      "callee": "isValid",
-      "calledFrom": "tests/room-code.test.js",
-      "definedIn": "lib/room-code.js",
-      "line": 16
-    },
-    {
-      "callee": "isValid",
-      "calledFrom": "tests/room-code.test.js",
-      "definedIn": "lib/room-code.js",
-      "line": 19
-    },
-    {
-      "callee": "isValid",
-      "calledFrom": "tests/room-code.test.js",
-      "definedIn": "lib/room-code.js",
-      "line": 20
-    },
-    {
-      "callee": "isValid",
-      "calledFrom": "tests/room-code.test.js",
-      "definedIn": "lib/room-code.js",
-      "line": 21
-    },
-    {
       "callee": "RoomManager",
       "calledFrom": "tests/room-security.test.js",
       "definedIn": "lib/room-manager.js",
@@ -1319,19 +3781,19 @@
       "callee": "RoomManager",
       "calledFrom": "tests/room-sweep.test.js",
       "definedIn": "lib/room-manager.js",
-      "line": 87
+      "line": 92
     },
     {
       "callee": "RoomManager",
       "calledFrom": "tests/room-sweep.test.js",
       "definedIn": "lib/room-manager.js",
-      "line": 119
+      "line": 122
     },
     {
       "callee": "RoomManager",
       "calledFrom": "tests/room-sweep.test.js",
       "definedIn": "lib/room-manager.js",
-      "line": 161
+      "line": 164
     },
     {
       "callee": "validate",
@@ -1344,12 +3806,6 @@
       "calledFrom": "tests/room-sweep.test.js",
       "definedIn": "lib/protocol.js",
       "line": 56
-    },
-    {
-      "callee": "validate",
-      "calledFrom": "tests/room-sweep.test.js",
-      "definedIn": "lib/protocol.js",
-      "line": 111
     },
     {
       "callee": "RoomManager",
@@ -1400,28 +3856,22 @@
       "line": 119
     },
     {
-      "callee": "RoomManager",
-      "calledFrom": "tests/rooms.test.js",
-      "definedIn": "lib/room-manager.js",
-      "line": 155
+      "callee": "bootBrowser",
+      "calledFrom": "tests/round-transition-crash.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 45
     },
     {
-      "callee": "RoomManager",
-      "calledFrom": "tests/rooms.test.js",
-      "definedIn": "lib/room-manager.js",
-      "line": 173
+      "callee": "until",
+      "calledFrom": "tests/round-transition-crash.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 47
     },
     {
-      "callee": "isValid",
-      "calledFrom": "tests/rooms.test.js",
-      "definedIn": "lib/room-code.js",
-      "line": 23
-    },
-    {
-      "callee": "validate",
-      "calledFrom": "tests/rooms.test.js",
-      "definedIn": "lib/protocol.js",
-      "line": 167
+      "callee": "startTestServer",
+      "calledFrom": "tests/round-transition-crash.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 79
     },
     {
       "callee": "createServer",
@@ -1484,6 +3934,516 @@
       "line": 128
     },
     {
+      "callee": "newGame",
+      "calledFrom": "tests/shields.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 28
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/shields.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 43
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/shields.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 55
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/shields.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 66
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/shields.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 83
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/shields.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 94
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/shields.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 108
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/shields.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 123
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/shop.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 11
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/shop.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 79
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/shop.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 124
+    },
+    {
+      "callee": "loadKitInto",
+      "calledFrom": "tests/smoke.test.js",
+      "definedIn": "tests/helpers/gfx-kit.js",
+      "line": 302
+    },
+    {
+      "callee": "until",
+      "calledFrom": "tests/structures-lockstep.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 69
+    },
+    {
+      "callee": "until",
+      "calledFrom": "tests/structures-lockstep.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 85
+    },
+    {
+      "callee": "until",
+      "calledFrom": "tests/structures-lockstep.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 127
+    },
+    {
+      "callee": "untilStepping",
+      "calledFrom": "tests/structures-lockstep.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 139
+    },
+    {
+      "callee": "untilStepping",
+      "calledFrom": "tests/structures-lockstep.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 146
+    },
+    {
+      "callee": "hashTerrain",
+      "calledFrom": "tests/structures-lockstep.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 94
+    },
+    {
+      "callee": "hashTerrain",
+      "calledFrom": "tests/structures-lockstep.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 94
+    },
+    {
+      "callee": "tanksOf",
+      "calledFrom": "tests/structures-lockstep.test.js",
+      "definedIn": "tests/helpers/browser-harness.js",
+      "line": 98
+    },
+    {
+      "callee": "structuresAllowedIn",
+      "calledFrom": "tests/structures.test.js",
+      "definedIn": "lib/structures.js",
+      "line": 67
+    },
+    {
+      "callee": "structuresAllowedIn",
+      "calledFrom": "tests/structures.test.js",
+      "definedIn": "lib/structures.js",
+      "line": 68
+    },
+    {
+      "callee": "specOf",
+      "calledFrom": "tests/structures.test.js",
+      "definedIn": "lib/structures.js",
+      "line": 577
+    },
+    {
+      "callee": "blocksMovement",
+      "calledFrom": "tests/structures.test.js",
+      "definedIn": "lib/structures.js",
+      "line": 523
+    },
+    {
+      "callee": "blocksMovement",
+      "calledFrom": "tests/structures.test.js",
+      "definedIn": "lib/structures.js",
+      "line": 524
+    },
+    {
+      "callee": "blocksMovement",
+      "calledFrom": "tests/structures.test.js",
+      "definedIn": "lib/structures.js",
+      "line": 528
+    },
+    {
+      "callee": "blocksMovement",
+      "calledFrom": "tests/structures.test.js",
+      "definedIn": "lib/structures.js",
+      "line": 529
+    },
+    {
+      "callee": "blocksMovement",
+      "calledFrom": "tests/structures.test.js",
+      "definedIn": "lib/structures.js",
+      "line": 537
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/theme-tokens.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 21
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/theme-tokens.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 31
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/theme-tokens.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 38
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/theme-tokens.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 58
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/theme-tokens.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 72
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/theme-tokens.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 88
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/theme-tokens.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 98
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/theme-tokens.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 105
+    },
+    {
+      "callee": "createServer",
+      "calledFrom": "tests/tier1-wedges.test.js",
+      "definedIn": "server.js",
+      "line": 17
+    },
+    {
+      "callee": "createServer",
+      "calledFrom": "tests/tier1-wedges.test.js",
+      "definedIn": "server.js",
+      "line": 43
+    },
+    {
+      "callee": "createServer",
+      "calledFrom": "tests/tier1-wedges.test.js",
+      "definedIn": "server.js",
+      "line": 64
+    },
+    {
+      "callee": "attachWebSocketServer",
+      "calledFrom": "tests/tier1-wedges.test.js",
+      "definedIn": "server.js",
+      "line": 44
+    },
+    {
+      "callee": "attachWebSocketServer",
+      "calledFrom": "tests/tier1-wedges.test.js",
+      "definedIn": "server.js",
+      "line": 65
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/tier1-wedges.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 87
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/tier1-wedges.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 111
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/tier1-wedges.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 128
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/tier2-lockstep.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 119
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/tier2-lockstep.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 17
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/tier2-lockstep.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 41
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/tier2-lockstep.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 53
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/tier2-lockstep.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 70
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/tier2-lockstep.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 91
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/tier2-lockstep.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 107
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/tier3-gameplay.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 14
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/tier3-gameplay.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 53
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/tier3-gameplay.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 70
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/tier3-gameplay.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 90
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/tier3-gameplay.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 143
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/tier3-gameplay.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 165
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/tier3-gameplay.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 180
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/tier3-gameplay.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 200
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/tier4-content.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 62
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/tier4-content.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 70
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/tier4-content.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 84
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/tier4-content.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 158
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/tier4-content.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 14
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/tier4-content.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 117
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/tier5-gfx.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 54
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/tier5-gfx.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 15
+    },
+    {
+      "callee": "recordingContext",
+      "calledFrom": "tests/tier5-gfx.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 58
+    },
+    {
+      "callee": "loadScorched",
+      "calledFrom": "tests/tier5-gfx.test.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 54
+    },
+    {
+      "callee": "createServer",
+      "calledFrom": "tests/tier6-hardening.test.js",
+      "definedIn": "server.js",
+      "line": 28
+    },
+    {
+      "callee": "createServer",
+      "calledFrom": "tests/tier6-hardening.test.js",
+      "definedIn": "server.js",
+      "line": 49
+    },
+    {
+      "callee": "createServer",
+      "calledFrom": "tests/tier6-hardening.test.js",
+      "definedIn": "server.js",
+      "line": 78
+    },
+    {
+      "callee": "attachWebSocketServer",
+      "calledFrom": "tests/tier6-hardening.test.js",
+      "definedIn": "server.js",
+      "line": 50
+    },
+    {
+      "callee": "attachWebSocketServer",
+      "calledFrom": "tests/tier6-hardening.test.js",
+      "definedIn": "server.js",
+      "line": 80
+    },
+    {
+      "callee": "sanitiseConfig",
+      "calledFrom": "tests/tier6-hardening.test.js",
+      "definedIn": "lib/protocol.js",
+      "line": 102
+    },
+    {
+      "callee": "sanitiseConfig",
+      "calledFrom": "tests/tier6-hardening.test.js",
+      "definedIn": "lib/protocol.js",
+      "line": 119
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/tier6-hardening.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 127
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/triggers.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 34
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/triggers.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 45
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/triggers.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 56
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/triggers.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 64
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/triggers.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 81
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/triggers.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 84
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/triggers.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 105
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/triggers.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 108
+    },
+    {
       "callee": "RoomManager",
       "calledFrom": "tests/turn-authority.test.js",
       "definedIn": "lib/room-manager.js",
@@ -1493,25 +4453,139 @@
       "callee": "RoomManager",
       "calledFrom": "tests/turn-authority.test.js",
       "definedIn": "lib/room-manager.js",
-      "line": 115
+      "line": 124
     },
     {
       "callee": "RoomManager",
       "calledFrom": "tests/turn-authority.test.js",
       "definedIn": "lib/room-manager.js",
-      "line": 145
+      "line": 154
     },
     {
       "callee": "RoomManager",
       "calledFrom": "tests/turn-authority.test.js",
       "definedIn": "lib/room-manager.js",
-      "line": 168
+      "line": 179
     },
     {
       "callee": "RoomManager",
       "calledFrom": "tests/turn-authority.test.js",
       "definedIn": "lib/room-manager.js",
-      "line": 207
+      "line": 218
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/turn-sync-integrity.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 52
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/turn-sync-integrity.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 71
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/turn-sync-integrity.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 88
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/turn-sync-integrity.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 107
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/turn-sync-integrity.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 130
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/turn-sync-integrity.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 162
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/turn-sync-integrity.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 184
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/turn-sync-integrity.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 185
+    },
+    {
+      "callee": "loadKitInto",
+      "calledFrom": "tests/turret-attribution.test.js",
+      "definedIn": "tests/helpers/gfx-kit.js",
+      "line": 39
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/weapon-families.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 22
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/weapon-families.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 39
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/weapon-families.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 49
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/weapon-families.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 66
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/weapon-families.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 69
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/weapon-families.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 85
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/weapon-families.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 95
+    },
+    {
+      "callee": "newGame",
+      "calledFrom": "tests/weapon-families.test.js",
+      "definedIn": "tests/helpers/headless-game.js",
+      "line": 98
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/weapon-registry.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 66
+    },
+    {
+      "callee": "RoomManager",
+      "calledFrom": "tests/weapon-registry.test.js",
+      "definedIn": "lib/room-manager.js",
+      "line": 105
     },
     {
       "callee": "createServer",
@@ -1524,116 +4598,324 @@
       "calledFrom": "tests/ws-server.test.js",
       "definedIn": "server.js",
       "line": 53
+    },
+    {
+      "callee": "loadScorchedFrom",
+      "calledFrom": "tools/record-classic-golden.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 40
+    },
+    {
+      "callee": "renderableGame",
+      "calledFrom": "tools/record-classic-golden.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 43
+    },
+    {
+      "callee": "frameLog",
+      "calledFrom": "tools/record-classic-golden.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 45
+    },
+    {
+      "callee": "richScene",
+      "calledFrom": "tools/record-classic-golden.js",
+      "definedIn": "tests/helpers/render-harness.js",
+      "line": 44
     }
   ],
   "layout": {
-    "a.js": {
-      "x": 486,
-      "y": 371
+    "gfx/ac-chassis.js": {
+      "x": 386,
+      "y": 52
     },
-    "check.js": {
-      "x": 328,
-      "y": 365
+    "gfx/ac-common.js": {
+      "x": 425,
+      "y": 89
+    },
+    "gfx/ac-sky.js": {
+      "x": 474,
+      "y": 103
+    },
+    "gfx/ac-structures.js": {
+      "x": 465,
+      "y": 70
+    },
+    "gfx/ac-terrain.js": {
+      "x": 393,
+      "y": 81
+    },
+    "gfx/ac-weapons.js": {
+      "x": 426,
+      "y": 67
     },
     "lib/constants.js": {
-      "x": 356,
-      "y": 226
+      "x": 372,
+      "y": 270
     },
     "lib/protocol.js": {
-      "x": 389,
-      "y": 185
+      "x": 390,
+      "y": 256
     },
     "lib/room-code.js": {
-      "x": 428,
-      "y": 195
+      "x": 455,
+      "y": 345
     },
     "lib/room-manager.js": {
-      "x": 386,
-      "y": 210
+      "x": 399,
+      "y": 275
+    },
+    "lib/structures.js": {
+      "x": 390,
+      "y": 197
     },
     "lib/terrain.js": {
-      "x": 451,
-      "y": 282
-    },
-    "scratch/find-hit.js": {
-      "x": 460,
-      "y": 319
+      "x": 350,
+      "y": 255
     },
     "server.js": {
-      "x": 449,
-      "y": 221
+      "x": 384,
+      "y": 258
+    },
+    "tests/boundary-elimination.test.js": {
+      "x": 329,
+      "y": 282
     },
     "tests/browser-lockstep.test.js": {
-      "x": 432,
-      "y": 258
-    },
-    "tests/determinism.test.js": {
-      "x": 491,
-      "y": 295
-    },
-    "tests/disconnect.test.js": {
-      "x": 377,
-      "y": 154
-    },
-    "tests/game-determinism.test.js": {
-      "x": 422,
-      "y": 313
-    },
-    "tests/multiplayer.test.js": {
-      "x": 411,
-      "y": 239
-    },
-    "tests/protocol.test.js": {
-      "x": 419,
-      "y": 142
-    },
-    "tests/rejoin.test.js": {
-      "x": 363,
-      "y": 210
-    },
-    "tests/room-code.test.js": {
-      "x": 385,
-      "y": 258
-    },
-    "tests/room-security.test.js": {
-      "x": 367,
+      "x": 343,
       "y": 186
     },
-    "tests/room-sweep.test.js": {
-      "x": 343,
-      "y": 180
+    "tests/chassis-registry.test.js": {
+      "x": 337,
+      "y": 321
     },
-    "tests/rooms.test.js": {
-      "x": 408,
-      "y": 194
+    "tests/determinism.test.js": {
+      "x": 598,
+      "y": 342
     },
-    "tests/server-integration.test.js": {
-      "x": 426,
-      "y": 219
+    "tests/disconnect.test.js": {
+      "x": 469,
+      "y": 307
     },
-    "tests/server.test.js": {
-      "x": 487,
-      "y": 194
+    "tests/fire-sync-authority.test.js": {
+      "x": 356,
+      "y": 301
     },
-    "tests/smoke.test.js": {
-      "x": 476,
-      "y": 254
-    },
-    "tests/turn-authority.test.js": {
-      "x": 320,
-      "y": 218
-    },
-    "tests/ws-server.test.js": {
-      "x": 506,
-      "y": 240
-    },
-    "test_pr105.js": {
-      "x": 267,
+    "tests/game-determinism.test.js": {
+      "x": 496,
       "y": 284
     },
-    "test_pr105_utf8.js": {
-      "x": 232,
-      "y": 170
+    "tests/helpers/browser-harness.js": {
+      "x": 387,
+      "y": 211
+    },
+    "tests/helpers/gfx-kit.js": {
+      "x": 359,
+      "y": 193
+    },
+    "tests/helpers/headless-game.js": {
+      "x": 383,
+      "y": 230
+    },
+    "tests/helpers/render-harness.js": {
+      "x": 357,
+      "y": 266
+    },
+    "tests/inventory-replication.test.js": {
+      "x": 403,
+      "y": 261
+    },
+    "tests/match-rounds.test.js": {
+      "x": 431,
+      "y": 340
+    },
+    "tests/mirv-split-altitude.test.js": {
+      "x": 294,
+      "y": 162
+    },
+    "tests/movement.test.js": {
+      "x": 333,
+      "y": 268
+    },
+    "tests/multiplayer.test.js": {
+      "x": 323,
+      "y": 211
+    },
+    "tests/net-handler-errors.test.js": {
+      "x": 477,
+      "y": 233
+    },
+    "tests/online-economy.test.js": {
+      "x": 352,
+      "y": 213
+    },
+    "tests/opus-review-fixes.test.js": {
+      "x": 350,
+      "y": 331
+    },
+    "tests/pre-deploy-hardening.test.js": {
+      "x": 301,
+      "y": 291
+    },
+    "tests/protocol.test.js": {
+      "x": 270,
+      "y": 329
+    },
+    "tests/rejoin-spectate.test.js": {
+      "x": 485,
+      "y": 323
+    },
+    "tests/rejoin.test.js": {
+      "x": 351,
+      "y": 254
+    },
+    "tests/render-aethercastle-kit.test.js": {
+      "x": 390,
+      "y": 156
+    },
+    "tests/render-classic-parity.test.js": {
+      "x": 358,
+      "y": 358
+    },
+    "tests/render-feedback.test.js": {
+      "x": 436,
+      "y": 216
+    },
+    "tests/render-mutation-guard.test.js": {
+      "x": 401,
+      "y": 365
+    },
+    "tests/render-purity.test.js": {
+      "x": 272,
+      "y": 296
+    },
+    "tests/render-scenery-cache.test.js": {
+      "x": 343,
+      "y": 247
+    },
+    "tests/room-code.test.js": {
+      "x": 484,
+      "y": 380
+    },
+    "tests/room-security.test.js": {
+      "x": 442,
+      "y": 177
+    },
+    "tests/room-sweep.test.js": {
+      "x": 412,
+      "y": 208
+    },
+    "tests/rooms.test.js": {
+      "x": 427,
+      "y": 290
+    },
+    "tests/round-transition-crash.test.js": {
+      "x": 496,
+      "y": 210
+    },
+    "tests/server-integration.test.js": {
+      "x": 451,
+      "y": 302
+    },
+    "tests/server.test.js": {
+      "x": 426,
+      "y": 309
+    },
+    "tests/shields.test.js": {
+      "x": 255,
+      "y": 263
+    },
+    "tests/shop.test.js": {
+      "x": 414,
+      "y": 144
+    },
+    "tests/smoke.test.js": {
+      "x": 348,
+      "y": 279
+    },
+    "tests/solo-ai.test.js": {
+      "x": 466,
+      "y": 186
+    },
+    "tests/structures-lockstep.test.js": {
+      "x": 485,
+      "y": 272
+    },
+    "tests/structures.test.js": {
+      "x": 359,
+      "y": 113
+    },
+    "tests/theme-tokens.test.js": {
+      "x": 369,
+      "y": 210
+    },
+    "tests/tier1-wedges.test.js": {
+      "x": 355,
+      "y": 278
+    },
+    "tests/tier2-lockstep.test.js": {
+      "x": 418,
+      "y": 320
+    },
+    "tests/tier3-gameplay.test.js": {
+      "x": 539,
+      "y": 231
+    },
+    "tests/tier4-content.test.js": {
+      "x": 333,
+      "y": 230
+    },
+    "tests/tier5-gfx.test.js": {
+      "x": 310,
+      "y": 222
+    },
+    "tests/tier6-hardening.test.js": {
+      "x": 433,
+      "y": 261
+    },
+    "tests/triggers.test.js": {
+      "x": 592,
+      "y": 142
+    },
+    "tests/turn-authority.test.js": {
+      "x": 508,
+      "y": 256
+    },
+    "tests/turn-sync-integrity.test.js": {
+      "x": 222,
+      "y": 122
+    },
+    "tests/turret-attribution.test.js": {
+      "x": 375,
+      "y": 130
+    },
+    "tests/weapon-families.test.js": {
+      "x": 563,
+      "y": 347
+    },
+    "tests/weapon-registry.test.js": {
+      "x": 394,
+      "y": 325
+    },
+    "tests/ws-server.test.js": {
+      "x": 446,
+      "y": 192
+    },
+    "tools/record-classic-golden.js": {
+      "x": 315,
+      "y": 362
     }
+  },
+  "vocab": {
+    "envVars": {
+      "PORT": [
+        "server.js"
+      ],
+      "TRUST_PROXY": [
+        "server.js"
+      ]
+    },
+    "ipcChannels": {},
+    "rendererEvents": {}
   }
 }

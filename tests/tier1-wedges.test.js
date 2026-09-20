@@ -181,3 +181,30 @@ test('the SHOP_DONE guard is per-intermission, not per-lifetime', () => {
   });
   assert.strictEqual(game.shopDoneSentForRound, null, 'start() must reset the guard');
 });
+
+test('an AFK client in the shop cannot wedge the room: sweep force-advances the round', () => {
+  const rm = new RoomManager();
+  rm.createRoom('c1');
+  const room = rm.getRoomByConnection('c1');
+  rm.join('c2', room.code);
+  // Default is 5 totalRounds
+  rm.start('c1', { totalRounds: 5 });
+  
+  const c2player = Array.from(room.players.values()).find(p => p.connectionId === 'c2');
+  c2player.alive = false;
+  
+  // This triggers round end -> shopping
+  rm.nextTurn(room);
+  assert.strictEqual(room.phase, 'shopping');
+  
+  const nowMs = Date.now();
+  // Ensure it doesn't advance early
+  rm.sweep(nowMs + RoomManager.SHOP_TIMEOUT_MS - 5000);
+  assert.strictEqual(room.phase, 'shopping', 'advanced before the deadline');
+
+  // Sweep should force advance
+  const res = rm.sweep(nowMs + RoomManager.SHOP_TIMEOUT_MS + 31000);
+  assert.strictEqual(room.phase, 'playing', 'sweep must force the round to start');
+  const sync = res.broadcasts.find(b => b.msg && b.msg.type === 'ROUND_START');
+  assert.ok(sync, 'forced advance must announce the new round');
+});

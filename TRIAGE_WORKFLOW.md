@@ -39,6 +39,8 @@ Role assignments can be changed in project settings. All policy language in this
 
 | Need | Correct action | Prohibited action |
 |------|----------------|-------------------|
+| Anything non-trivial, BEFORE you start investigating | `memory_search` — a past run in this repo may already have recorded the root cause, the constraint, or the decision | Re-deriving a conclusion this project already learned; it costs a turn and often lands somewhere worse |
+| You learned something durable (root cause, constraint, decision, measured fact) | `memory_record`, one concrete sentence, scoped to this project — see **Project Memory** in `AGENTS.md` for what qualifies | Recording progress narration, restatements of the task, or anything obvious from the code |
 | Internet / web research (API docs, CVEs, library behaviour, release notes) | `gemini "..."` — Researcher's built-in grounding handles web search | Orchestrator using WebSearch, WebFetch, or spawning sub-agents |
 | Codebase search (grep, symbol lookup, "where is X defined", file scan) | `gemini "..."` or `gemini -p "@<file> ..."` | Orchestrator using Grep / Glob / Read when the target location is not already known |
 | Codebase summarization / analysis (tracing data flow, explaining modules, multi-file architecture) | `gemini -p "@<files> ..."` with file context flags | Orchestrator reading and re-describing files in-context |
